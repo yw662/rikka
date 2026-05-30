@@ -1,0 +1,209 @@
+# Rikka CI/CD Pipeline
+# 使用 GitLab CI/CD 进行持续集成和部署
+
+variables:
+  PNPM_VERSION: "10.33.4"
+  NODE_VERSION: "24"
+  npm_config_registry: "https://registry.npmjs.org"
+
+stages:
+  - typecheck
+  - build
+  - test
+  - browser-test
+  - publish
+
+# 缓存配置
+cache: &default_cache
+  key:
+    files:
+      - pnpm-lock.yaml
+  paths:
+    - .pnpm-store/
+  policy: pull-push
+
+# 默认配置
+default:
+  image: node:${NODE_VERSION}-slim
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@${PNPM_VERSION} --activate
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+
+# ============================================
+# Stage 1: TypeScript 类型检查
+# ============================================
+typecheck:rikka-signal:
+  stage: typecheck
+  script:
+    - echo "📋 Checking rikka-signal..."
+    - pnpm exec tsc --noEmit --project utils/rikka-signal/tsconfig.json
+    - echo "✅ rikka-signal passed"
+  cache: *default_cache
+
+typecheck:rikka-dom:
+  stage: typecheck
+  script:
+    - echo "📋 Checking rikka-dom..."
+    - pnpm exec tsc --noEmit --project utils/rikka-dom/tsconfig.json
+    - echo "✅ rikka-dom passed"
+  cache: *default_cache
+
+typecheck:rikka-elements:
+  stage: typecheck
+  script:
+    - echo "📋 Checking rikka-elements..."
+    - pnpm exec tsc --noEmit --project utils/rikka-elements/tsconfig.json
+    - echo "✅ rikka-elements passed"
+  cache: *default_cache
+
+typecheck:live-playground:
+  stage: typecheck
+  script:
+    - echo "📋 Checking rikka-live-playground..."
+    - pnpm exec tsc --noEmit --project components/rikka-live-playground/tsconfig.json
+    - echo "✅ rikka-live-playground passed"
+  cache: *default_cache
+
+typecheck:demo:
+  stage: typecheck
+  script:
+    - echo "📋 Checking rikka-demo..."
+    - pnpm exec tsc --noEmit --project docs/rikka-demo/tsconfig.json
+    - echo "✅ rikka-demo passed"
+  cache: *default_cache
+
+typecheck:examples:
+  stage: typecheck
+  script:
+    - echo "📋 Checking examples..."
+    - pnpm exec tsc --noEmit --project examples/bookmark-manager/tsconfig.json
+    - echo "✅ bookmark-manager passed"
+    - pnpm exec tsc --noEmit --project examples/code-editor/tsconfig.json
+    - echo "✅ code-editor passed"
+    - pnpm exec tsc --noEmit --project examples/finance-tracker/tsconfig.json
+    - echo "✅ finance-tracker passed"
+  cache: *default_cache
+
+# ============================================
+# Stage 2: 构建项目
+# ============================================
+build:
+  stage: build
+  needs:
+    - typecheck:rikka-signal
+    - typecheck:rikka-dom
+    - typecheck:rikka-elements
+    - typecheck:live-playground
+    - typecheck:demo
+    - typecheck:examples
+  script:
+    - echo "🏗️ Building all packages..."
+    - pnpm build
+    - echo "✅ Build completed successfully!"
+  artifacts:
+    name: "dist-$CI_COMMIT_SHA"
+    paths:
+      - utils/*/dist/
+      - components/*/dist/
+      - docs/rikka-demo/dist/
+    expire_in: 7 days
+  cache: *default_cache
+
+# ============================================
+# Stage 3: 运行单元测试
+# ============================================
+test:
+  stage: test
+  needs: [build]
+  script:
+    - echo "🧪 Installing Playwright browsers..."
+    - npx playwright install chromium --with-deps
+    - echo "🧪 Running all tests..."
+    - pnpm test
+    - echo "✅ All tests passed!"
+  artifacts:
+    name: "test-results-$CI_COMMIT_SHA"
+    when: always
+    paths:
+      - test-results/
+    expire_in: 30 days
+  coverage: '/Tests:\s*\d+/'
+  cache: *default_cache
+
+# ============================================
+# Stage 4: 浏览器 E2E 测试
+# ============================================
+browser-test:
+  stage: browser-test
+  needs: [build]
+  image: node:${NODE_VERSION}-slim
+  services:
+    - name: curlimages/curl:latest
+      alias: curl-service
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@${PNPM_VERSION} --activate
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+    - npx playwright install chromium --with-deps
+  script:
+    - echo "🌐 Starting demo server for E2E testing..."
+    - pnpm build
+    - |
+      pnpm demo &
+      SERVER_PID=$!
+      sleep 5
+      echo "🌐 Running smoke tests..."
+      if curl -sf http://localhost:3000/ > /dev/null; then
+        echo "✅ Homepage is accessible"
+      else
+        echo "❌ Homepage is not accessible"
+        kill $SERVER_PID
+        exit 1
+      fi
+      kill $SERVER_PID
+      echo "✅ Browser E2E tests completed successfully!"
+  cache: *default_cache
+
+# ============================================
+# Stage 5: 发布到 npm (仅在 tag 时触发)
+# ============================================
+publish:npm:
+  stage: publish
+  needs: [test, browser-test]
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-.+)?$/
+  script:
+    - echo "🚀 Publishing packages to npm..."
+    - |
+      cd utils/rikka-signal && npm publish --access public --tag latest
+      cd ../rikka-dom && npm publish --access public --tag latest
+      cd ../rikka-elements && npm publish --access public --tag latest
+      cd ../../components/rikka-live-playground && npm publish --access public --tag latest
+    - echo "✅ All packages published successfully!"
+  environment:
+    name: production
+    url: https://www.npmjs.com/org/rikka
+  cache: *default_cache
+
+# ============================================
+# 额外：创建 GitLab Pages 用于文档托管
+# ============================================
+pages:
+  stage: publish
+  needs: [build, test]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  script:
+    - echo "📄 Building documentation site..."
+    - pnpm build
+    - mkdir -p public
+    - cp -r docs/rikka-demo/dist/* public/
+    - echo "✅ Documentation site ready for deployment!"
+  artifacts:
+    paths:
+      - public
+    expire_in: 30 days
+  cache: *default_cache

@@ -1,0 +1,20 @@
+import { defineConfig } from '@rslib/core';
+
+export default defineConfig({
+  lib: [
+    {
+      format: 'esm',
+      syntax: 'es2022',
+      output: {
+        distPath: { root: './dist' },
+        target: 'web',
+      },
+      autoExternal: true,
+      dts: true,
+    },
+  ],
+  source: {
+    entry: { index: './src/index.ts' },
+    exclude: ['./src/**/*.test.ts'],
+  },
+});

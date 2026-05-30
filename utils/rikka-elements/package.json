@@ -1,0 +1,34 @@
+{
+  "name": "rikka-elements",
+  "version": "0.1.0",
+  "description": "Custom Elements tools — decorators for defining web components",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rslib build",
+    "dev": "rslib build --watch",
+    "test": "rstest",
+    "test:watch": "rstest -w"
+  },
+  "dependencies": {
+    "rikka-signal": "workspace:*",
+    "rikka-dom": "workspace:*"
+  },
+  "devDependencies": {
+    "@rslib/core": "catalog:",
+    "@rstest/core": "catalog:",
+    "happy-dom": "catalog:",
+    "typescript": "catalog:"
+  }
+}

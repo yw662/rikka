@@ -1,0 +1,21 @@
+{
+  "name": "project-rikka",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "React Killer — Native Web Components toolkit for developers and LLMs",
+  "scripts": {
+    "build": "pnpm -r --filter './utils/*' --filter './components/*' run build && pnpm --filter rikka-site build",
+    "test": "node scripts/test.mjs",
+    "test:watch": "pnpm -r --parallel run test:watch",
+    "test:all": "node scripts/ci.mjs",
+    "demo": "pnpm --filter rikka-site dev",
+    "typecheck": "node scripts/typecheck.mjs",
+    "browser-test": "node scripts/browser-test.mjs"
+  },
+  "packageManager": "pnpm@10.33.4+sha512.1c67b3b359b2d408119ba1ed289f34b8fc3c6873412bec6fd264fbdc82489e510fcbecb9ce9d22dae7f3b76269d8441046014bdca53b9979cd7a561ad631b800",
+  "devDependencies": {
+    "playwright": "catalog:",
+    "typescript": "catalog:"
+  }
+}

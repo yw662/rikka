@@ -1,0 +1,19 @@
+{
+  "name": "rikka-example-code-editor",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "rikka-signal": "workspace:*",
+    "rikka-dom": "workspace:*",
+    "rikka-elements": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "workspace:*",
+    "vite": "workspace:*"
+  }
+}

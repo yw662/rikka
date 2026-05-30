@@ -1,0 +1,36 @@
+{
+  "name": "rikka-live-playground",
+  "version": "0.1.0",
+  "description": "Live code editor component powered by esbuild-wasm",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rslib build",
+    "dev": "rslib build --watch",
+    "test": "rstest",
+    "test:watch": "rstest -w"
+  },
+  "dependencies": {
+    "esbuild-wasm": "catalog:",
+    "rikka-dom": "workspace:*",
+    "rikka-elements": "workspace:*",
+    "rikka-signal": "workspace:*"
+  },
+  "devDependencies": {
+    "@rslib/core": "catalog:",
+    "@rstest/core": "catalog:",
+    "happy-dom": "catalog:",
+    "typescript": "catalog:"
+  }
+}

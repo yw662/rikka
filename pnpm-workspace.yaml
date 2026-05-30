@@ -1,0 +1,18 @@
+packages:
+  - 'utils/*'
+  - 'components/*'
+  - 'docs/rikka-demo'
+
+catalog:
+  "@rsbuild/core": ^1.0.0
+  "@rslib/core": ^0.21.0
+  "@rstest/core": ^0.10.0
+  "@types/node": ^22.0.0
+  esbuild-wasm: ^0.24.2
+  happy-dom: ^20.9.0
+  playwright: ^1.60.0
+  signal-polyfill: ^0.2.2
+  tsx: ^4.22.3
+  typescript: ^6.0.3
+
+catalogMode: strict
