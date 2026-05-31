@@ -16,7 +16,11 @@
     "experimentalDecorators": false,
     "useDefineForClassFields": false,
     "verbatimModuleSyntax": true,
-    "incremental": false
+    "incremental": false,
+    "paths": {
+      "rikka-signal": ["../rikka-signal/dist/index.d.ts"],
+      "rikka-dom": ["../rikka-dom/dist/index.d.ts"]
+    }
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]

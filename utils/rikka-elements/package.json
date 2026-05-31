@@ -1,5 +1,5 @@
 {
-  "name": "rikka-elements",
+  "name": "@rikka/elements",
   "version": "0.1.0",
   "description": "Custom Elements tools — decorators for defining web components",
   "type": "module",

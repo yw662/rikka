@@ -1,5 +1,5 @@
 {
-  "name": "rikka-signal",
+  "name": "@rikka/signal",
   "version": "0.1.0",
   "description": "Reactive primitives based on TC39 Signals polyfill",
   "type": "module",
