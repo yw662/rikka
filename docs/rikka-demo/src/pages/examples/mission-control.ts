@@ -1,8 +1,8 @@
-import { defineElement } from 'rikka-elements';
-import { css, div, h1, h2, p, a } from 'rikka-dom';
+import { defineElement } from '@rikka/elements';
+import { css, div, h1, h2, p, a } from '@rikka/dom';
 // Playground code uses signal and store - linter doesn't see them in code string
 // @ts-ignore
-import { signal, store } from 'rikka-signal';
+import { signal, store } from '@rikka/signal';
 import { sharedStyles, examplePageStyles } from '../../shared/styles';
 
 const styles = css`${examplePageStyles}`;

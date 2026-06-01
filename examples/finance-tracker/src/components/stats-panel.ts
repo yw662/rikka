@@ -1,10 +1,10 @@
-import { computed } from 'rikka-signal';
+import { computed } from '@rikka/signal';
 import {
   balance,
   monthIncome,
   monthExpenses,
 } from '../finance-store';
-import { div, span } from 'rikka-dom';
+import { div, span } from '@rikka/dom';
 
 export function StatsPanel() {
   const balanceClass = computed(() => `stat-value ${balance.get() >= 0 ? 'positive' : 'negative'}`);

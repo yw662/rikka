@@ -1,6 +1,6 @@
-import { defineElement, css } from "rikka-elements";
-import { div, nav, a, span } from "rikka-dom";
-import { signal, effect } from "rikka-signal";
+import { defineElement, css } from "@rikka/elements";
+import { div, nav, a, span } from "@rikka/dom";
+import { signal, effect } from "@rikka/signal";
 import { getPathFromHash } from "../shared/styles";
 
 const navStyles = css`

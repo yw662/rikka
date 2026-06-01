@@ -1,5 +1,5 @@
-import { defineElement } from 'rikka-elements';
-import { css, div, h1, h2, p, a, pre, code, ul, li } from 'rikka-dom';
+import { defineElement } from '@rikka/elements';
+import { css, div, h1, h2, p, a, pre, code, ul, li } from '@rikka/dom';
 import { sharedStyles, docPageStyles } from '../../shared/styles';
 
 const styles = css`${docPageStyles}`;
@@ -32,7 +32,7 @@ Match<T>(match: T | ((value: T) => boolean), render: () => Element | null): Case
       div({ class: 'playground-section' },
         h2('Try It'),
         sharedStyles.createPlayground(
-          `import { Show, When, Switch, Match } from 'rikka-dom';
+          `import { Show, When, Switch, Match } from '@rikka/dom';
 
 const visible = signal(true);
 const isLoggedIn = signal(false);

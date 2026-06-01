@@ -1,5 +1,5 @@
-import { computed } from 'rikka-signal';
-import { When, For, div, span } from 'rikka-dom';
+import { computed } from '@rikka/signal';
+import { When, For, div, span } from '@rikka/dom';
 import {
   categoryBreakdown,
   CategoryBreakdown,

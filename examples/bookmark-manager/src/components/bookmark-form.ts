@@ -1,4 +1,4 @@
-import { defineElement } from "rikka-elements";
+import { defineElement } from @rikka/elements;
 import {
   h2,
   label,
@@ -10,8 +10,8 @@ import {
   For,
   Show,
   css,
-} from "rikka-dom";
-import { signal, computed } from "rikka-signal";
+} from @rikka/dom;
+import { signal, computed } from @rikka/signal;
 import { addBookmark, tagCloud } from "../store.js";
 
 export const bookmarkForm = defineElement("bookmark-form", {

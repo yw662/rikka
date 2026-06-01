@@ -1,5 +1,5 @@
-import { defineElement } from 'rikka-elements';
-import { css, div, h1, p, a, span, h3 } from 'rikka-dom';
+import { defineElement } from '@rikka/elements';
+import { css, div, h1, p, a, span, h3 } from '@rikka/dom';
 import { docPageStyles } from '../shared/styles';
 
 const styles = css`${docPageStyles}
@@ -84,17 +84,17 @@ const styles = css`${docPageStyles}
 
 const sections = [
   {
-    title: 'rikka-signal',
+    title: '@rikka/signal',
     link: '#/docs/rikka-signal/getting-started',
     topics: ['Getting Started', 'signal()', 'computed()', 'effect()', 'Batch Updates', 'store()'],
   },
   {
-    title: 'rikka-dom',
+    title: '@rikka/dom',
     link: '#/docs/rikka-dom/h',
     topics: ['h()', 'Tag Helpers', 'For', 'Conditionals', 'h``', 'Signal Interpolation', 'css``', 'inlineStyle``'],
   },
   {
-    title: 'rikka-elements',
+    title: '@rikka/elements',
     link: '#/docs/rikka-elements/define-element',
     topics: ['defineElement', 'Shadow DOM', 'adoptStyle', 'attribute', 'event', 'attachTemplate'],
   },

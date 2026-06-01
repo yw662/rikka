@@ -1,4 +1,4 @@
-import { computed, effect, store, raw, signalOf } from 'rikka-signal';
+import { computed, effect, store, raw, signalOf } from '@rikka/signal';
 
 export interface Bookmark {
   id: string;

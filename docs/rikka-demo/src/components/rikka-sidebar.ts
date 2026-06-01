@@ -1,6 +1,6 @@
-import { defineElement } from 'rikka-elements';
-import { css, div, span, a } from 'rikka-dom';
-import { effect } from 'rikka-signal';
+import { defineElement } from '@rikka/elements';
+import { css, div, span, a } from '@rikka/dom';
+import { effect } from '@rikka/signal';
 
 interface TOCItem {
   title: string;
@@ -14,38 +14,38 @@ interface TOCGroup {
 
 const tableOfContents: TOCGroup[] = [
   {
-    group: 'rikka-signal',
+    group: '@rikka/signal',
     items: [
-      { title: 'Getting Started', path: '/docs/rikka-signal/getting-started' },
-      { title: 'signal()', path: '/docs/rikka-signal/signal' },
-      { title: 'computed()', path: '/docs/rikka-signal/computed' },
-      { title: 'effect()', path: '/docs/rikka-signal/effect' },
-      { title: 'Batch Updates', path: '/docs/rikka-signal/batch' },
-      { title: 'store()', path: '/docs/rikka-signal/store' },
+      { title: 'Getting Started', path: '/docs/@rikka/signal/getting-started' },
+      { title: 'signal()', path: '/docs/@rikka/signal/signal' },
+      { title: 'computed()', path: '/docs/@rikka/signal/computed' },
+      { title: 'effect()', path: '/docs/@rikka/signal/effect' },
+      { title: 'Batch Updates', path: '/docs/@rikka/signal/batch' },
+      { title: 'store()', path: '/docs/@rikka/signal/store' },
     ],
   },
   {
-    group: 'rikka-dom',
+    group: '@rikka/dom',
     items: [
-      { title: 'h()', path: '/docs/rikka-dom/h' },
-      { title: 'Tag Helpers', path: '/docs/rikka-dom/tag-helpers' },
-      { title: 'For', path: '/docs/rikka-dom/for' },
-      { title: 'Conditionals', path: '/docs/rikka-dom/conditionals' },
-      { title: 'h``', path: '/docs/rikka-dom/html-template' },
-      { title: 'Signal Interpolation', path: '/docs/rikka-dom/signal-interpolation' },
-      { title: 'css``', path: '/docs/rikka-dom/css-template' },
-      { title: 'inlineStyle``', path: '/docs/rikka-dom/inlineStyle' },
+      { title: 'h()', path: '/docs/@rikka/dom/h' },
+      { title: 'Tag Helpers', path: '/docs/@rikka/dom/tag-helpers' },
+      { title: 'For', path: '/docs/@rikka/dom/for' },
+      { title: 'Conditionals', path: '/docs/@rikka/dom/conditionals' },
+      { title: 'h``', path: '/docs/@rikka/dom/html-template' },
+      { title: 'Signal Interpolation', path: '/docs/@rikka/dom/signal-interpolation' },
+      { title: 'css``', path: '/docs/@rikka/dom/css-template' },
+      { title: 'inlineStyle``', path: '/docs/@rikka/dom/inlineStyle' },
     ],
   },
   {
-    group: 'rikka-elements',
+    group: '@rikka/elements',
     items: [
-      { title: 'defineElement', path: '/docs/rikka-elements/define-element' },
-      { title: 'Shadow DOM', path: '/docs/rikka-elements/shadow' },
-      { title: 'adoptStyle', path: '/docs/rikka-elements/adopt-style' },
-      { title: 'attribute', path: '/docs/rikka-elements/attribute' },
-      { title: 'event', path: '/docs/rikka-elements/event' },
-      { title: 'attachTemplate', path: '/docs/rikka-elements/attach-template' },
+      { title: 'defineElement', path: '/docs/@rikka/elements/define-element' },
+      { title: 'Shadow DOM', path: '/docs/@rikka/elements/shadow' },
+      { title: 'adoptStyle', path: '/docs/@rikka/elements/adopt-style' },
+      { title: 'attribute', path: '/docs/@rikka/elements/attribute' },
+      { title: 'event', path: '/docs/@rikka/elements/event' },
+      { title: 'attachTemplate', path: '/docs/@rikka/elements/attach-template' },
     ],
   },
   {

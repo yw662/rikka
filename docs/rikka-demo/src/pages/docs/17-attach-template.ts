@@ -1,5 +1,5 @@
-import { defineElement } from "rikka-elements";
-import { css, div, h1, h2, p, a, pre, code } from "rikka-dom";
+import { defineElement } from "@rikka/elements";
+import { css, div, h1, h2, p, a, pre, code } from "@rikka/dom";
 import { sharedStyles, docPageStyles } from "../../shared/styles";
 
 const styles = css`
@@ -25,7 +25,7 @@ const DocElements17 = defineElement("rikka-doc-elements-17", {
           " slots auto-bind to instance properties.",
         ),
         sharedStyles.createPlayground(
-          `import { h } from 'rikka-dom';
+          `import { h } from '@rikka/dom';
 
 // h\`<template>\` returns Element[], [0] is the real HTMLTemplateElement
 const tmpl = h\`<template>
@@ -72,7 +72,7 @@ container.appendChild(el);`),
         { class: "playground-section" },
         h2("Try It"),
         sharedStyles.createPlayground(
-          `import { h } from 'rikka-dom';
+          `import { h } from '@rikka/dom';
 
 // h\`<template>\` returns Element[], [0] is the real HTMLTemplateElement
 const cardTmpl = h\`<template>
@@ -138,7 +138,7 @@ container.appendChild(el);`,
       div(
         { class: "doc-nav" },
         a(
-          { href: "#/docs/rikka-elements/event", class: "prev-link" },
+          { href: "#/docs/@rikka/elements/event", class: "prev-link" },
           "\u2190 event",
         ),
         div({ class: "spacer" }),

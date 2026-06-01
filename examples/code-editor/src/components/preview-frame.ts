@@ -1,6 +1,6 @@
-import { defineElement, css } from 'rikka-elements';
-import { div, span, registerDisposable } from 'rikka-dom';
-import { effect } from 'rikka-signal';
+import { defineElement, css } from '@rikka/elements';
+import { div, span, registerDisposable } from '@rikka/dom';
+import { effect } from '@rikka/signal';
 import { combinedPreviewHTML } from '../editor-store';
 
 const previewStyles = css`

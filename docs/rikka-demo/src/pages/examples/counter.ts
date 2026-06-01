@@ -1,5 +1,5 @@
-import { defineElement, css } from "rikka-elements";
-import { div, h1, h2, p, a } from "rikka-dom";
+import { defineElement, css } from @rikka/elements;
+import { div, h1, h2, p, a } from @rikka/dom;
 import { sharedStyles, examplePageStyles } from "../../shared/styles";
 
 const styles = css`

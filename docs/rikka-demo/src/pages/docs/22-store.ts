@@ -1,5 +1,5 @@
-import { defineElement } from "rikka-elements";
-import { css, div, h1, h2, p, pre, a } from "rikka-dom";
+import { defineElement } from @rikka/elements;
+import { css, div, h1, h2, p, pre, a } from @rikka/dom;
 import { sharedStyles, docPageStyles } from "../../shared/styles";
 
 const styles = css`
@@ -40,7 +40,7 @@ export const RikkaDocSignalStore = defineElement(
             " to create a reactive store. All properties become reactive signals automatically.",
           ),
           sharedStyles.createPlayground(
-            `import { store, signalOf } from 'rikka-signal';
+            `import { store, signalOf } from '@rikka/signal';
 
 const user = store({
   name: 'Alice',
@@ -168,7 +168,7 @@ oldUser.name;  // "Charlie" — still valid!`,
           ),
           pre(
             { class: "code-block" },
-            `import { store, raw } from 'rikka-signal';
+            `import { store, raw } from '@rikka/signal';
 
 const state = store({ count: 0 });
 const plainObj = raw(state);
@@ -210,7 +210,7 @@ const form = store({
           { class: "doc-section" },
           h2({ class: "section-title" }, "Try It"),
           sharedStyles.createPlayground(
-            `import { store, signalOf } from 'rikka-signal';
+            `import { store, signalOf } from '@rikka/signal';
 
 const user = store({
   name: 'Alice',

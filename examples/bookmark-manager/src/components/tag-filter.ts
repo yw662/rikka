@@ -1,6 +1,6 @@
-import { defineElement } from "rikka-elements";
-import { div, span, For, Show, When, css } from "rikka-dom";
-import { computed } from "rikka-signal";
+import { defineElement } from @rikka/elements;
+import { div, span, For, Show, When, css } from @rikka/dom;
+import { computed } from @rikka/signal;
 import { appStore, tagCloud, toggleTagFilter } from "../store.js";
 
 export const tagFilter = defineElement("tag-filter", {

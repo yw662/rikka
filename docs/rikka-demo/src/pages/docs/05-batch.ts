@@ -1,5 +1,5 @@
-import { defineElement } from "rikka-elements";
-import { css, div, h1, h2, p, pre, a } from "rikka-dom";
+import { defineElement } from @rikka/elements;
+import { css, div, h1, h2, p, pre, a } from @rikka/dom;
 import { sharedStyles, docPageStyles } from "../../shared/styles";
 
 const styles = css`
@@ -88,7 +88,7 @@ container.appendChild(div({},
         { class: "doc-section" },
         h2({ class: "section-title" }, "Try It"),
         sharedStyles.createPlayground(
-          `import { signal, computed, effect } from 'rikka-signal';
+          `import { signal, computed, effect } from '@rikka/signal';
 
 const a = signal(1);
 const b = signal(2);

@@ -1,5 +1,5 @@
-import { defineElement, css } from 'rikka-elements';
-import { div, button, span } from 'rikka-dom';
+import { defineElement, css } from '@rikka/elements';
+import { div, button, span } from '@rikka/dom';
 import { theme } from '../editor-store';
 import { TabBar } from './tab-bar';
 import { CodeEditor } from './code-editor';

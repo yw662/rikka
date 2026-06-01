@@ -1,5 +1,5 @@
-import { defineElement } from 'rikka-elements';
-import { css, div, h1, h2, p, a, pre, code, ul, li, svg, circle, svgtext } from 'rikka-dom';
+import { defineElement } from '@rikka/elements';
+import { css, div, h1, h2, p, a, pre, code, ul, li, svg, circle, svgtext } from '@rikka/dom';
 import { sharedStyles, docPageStyles } from '../../shared/styles';
 
 const styles = css`${docPageStyles}`;
@@ -114,9 +114,9 @@ container.appendChild(CardExample());`,
         ),
       ),
       div({ class: 'doc-nav' },
-        a({ href: '#/docs/rikka-dom/h', class: 'prev-link' }, '\u2190 h()'),
+        a({ href: '#/docs/@rikka/dom/h', class: 'prev-link' }, '\u2190 h()'),
         div({ class: 'spacer' }),
-        a({ href: '#/docs/rikka-dom/for', class: 'next-link' }, 'For \u2192'),
+        a({ href: '#/docs/@rikka/dom/for', class: 'next-link' }, 'For \u2192'),
       ),
     );
   }

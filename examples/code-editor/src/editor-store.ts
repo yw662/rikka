@@ -1,4 +1,4 @@
-import { signal, computed, effect, store } from 'rikka-signal';
+import { signal, computed, effect, store } from '@rikka/signal';
 
 export type FileType = 'html' | 'css' | 'js';
 export type ConsoleEntry = {

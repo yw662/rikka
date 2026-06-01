@@ -1,10 +1,10 @@
-import { defineElement } from 'rikka-elements';
-import { signal, computed, effect } from 'rikka-signal';
-import { css, div } from 'rikka-dom';
+import { defineElement } from '@rikka/elements';
+import { signal, computed, effect } from '@rikka/signal';
+import { css, div } from '@rikka/dom';
 import { getPathFromHash } from './shared/styles';
 import './components/rikka-nav';
 import './components/rikka-sidebar';
-import 'rikka-live-playground';
+import '@rikka/live-playground';
 import './pages/home';
 import './pages/docs-index';
 import './pages/examples-index';
@@ -56,29 +56,29 @@ interface RouteConfig {
 const routes: Record<string, RouteConfig> = {
   '/': { tag: 'rikka-home', showSidebar: false, title: 'Project Rikka' },
   '/docs': { tag: 'rikka-docs-index', showSidebar: true, title: 'Documentation — Rikka' },
-  '/docs/rikka-signal/getting-started': { tag: 'rikka-doc-signal-01', showSidebar: true, title: 'Getting Started — Rikka' },
-  '/docs/rikka-signal/signal': { tag: 'rikka-doc-signal-02', showSidebar: true, title: 'signal() — Rikka' },
-  '/docs/rikka-signal/computed': { tag: 'rikka-doc-signal-03', showSidebar: true, title: 'computed() — Rikka' },
-  '/docs/rikka-signal/effect': { tag: 'rikka-doc-signal-04', showSidebar: true, title: 'effect() — Rikka' },
-  '/docs/rikka-signal/batch': { tag: 'rikka-doc-signal-05', showSidebar: true, title: 'Batch Updates — Rikka' },
-  '/docs/rikka-dom/h': { tag: 'rikka-doc-dom-06', showSidebar: true, title: 'h() — Rikka' },
-  '/docs/rikka-dom/tag-helpers': { tag: 'rikka-doc-dom-07', showSidebar: true, title: 'Tag Helpers — Rikka' },
-  '/docs/rikka-dom/for': { tag: 'rikka-doc-dom-08', showSidebar: true, title: 'For — Rikka' },
-  '/docs/rikka-dom/conditionals': { tag: 'rikka-doc-dom-09', showSidebar: true, title: 'Conditionals — Rikka' },
-  '/docs/rikka-dom/html-template': { tag: 'rikka-doc-dom-10', showSidebar: true, title: 'h`` — Rikka' },
-  '/docs/rikka-dom/signal-interpolation': { tag: 'rikka-doc-dom-11', showSidebar: true, title: 'Signal Interpolation — Rikka' },
-  '/docs/rikka-dom/css-template': { tag: 'rikka-doc-dom-18', showSidebar: true, title: 'css`` — Rikka' },
-  '/docs/rikka-dom/inlineStyle': { tag: 'rikka-doc-dom-style', showSidebar: true, title: 'inlineStyle`` — Rikka' },
-  '/docs/rikka-elements/define-element': { tag: 'rikka-doc-elements-12', showSidebar: true, title: 'defineElement — Rikka' },
-  '/docs/rikka-elements/shadow': { tag: 'rikka-doc-elements-13', showSidebar: true, title: 'Shadow DOM — Rikka' },
-  '/docs/rikka-elements/adopt-style': { tag: 'rikka-doc-elements-14', showSidebar: true, title: 'adoptStyle — Rikka' },
-  '/docs/rikka-elements/attribute': { tag: 'rikka-doc-elements-15', showSidebar: true, title: 'attribute — Rikka' },
-  '/docs/rikka-elements/event': { tag: 'rikka-doc-elements-16', showSidebar: true, title: 'event — Rikka' },
-  '/docs/rikka-elements/attach-template': { tag: 'rikka-doc-elements-17', showSidebar: true, title: 'attachTemplate — Rikka' },
+  '/docs/@rikka/signal/getting-started': { tag: 'rikka-doc-signal-01', showSidebar: true, title: 'Getting Started — Rikka' },
+  '/docs/@rikka/signal/signal': { tag: 'rikka-doc-signal-02', showSidebar: true, title: 'signal() — Rikka' },
+  '/docs/@rikka/signal/computed': { tag: 'rikka-doc-signal-03', showSidebar: true, title: 'computed() — Rikka' },
+  '/docs/@rikka/signal/effect': { tag: 'rikka-doc-signal-04', showSidebar: true, title: 'effect() — Rikka' },
+  '/docs/@rikka/signal/batch': { tag: 'rikka-doc-signal-05', showSidebar: true, title: 'Batch Updates — Rikka' },
+  '/docs/@rikka/dom/h': { tag: 'rikka-doc-dom-06', showSidebar: true, title: 'h() — Rikka' },
+  '/docs/@rikka/dom/tag-helpers': { tag: 'rikka-doc-dom-07', showSidebar: true, title: 'Tag Helpers — Rikka' },
+  '/docs/@rikka/dom/for': { tag: 'rikka-doc-dom-08', showSidebar: true, title: 'For — Rikka' },
+  '/docs/@rikka/dom/conditionals': { tag: 'rikka-doc-dom-09', showSidebar: true, title: 'Conditionals — Rikka' },
+  '/docs/@rikka/dom/html-template': { tag: 'rikka-doc-dom-10', showSidebar: true, title: 'h`` — Rikka' },
+  '/docs/@rikka/dom/signal-interpolation': { tag: 'rikka-doc-dom-11', showSidebar: true, title: 'Signal Interpolation — Rikka' },
+  '/docs/@rikka/dom/css-template': { tag: 'rikka-doc-dom-18', showSidebar: true, title: 'css`` — Rikka' },
+  '/docs/@rikka/dom/inlineStyle': { tag: 'rikka-doc-dom-style', showSidebar: true, title: 'inlineStyle`` — Rikka' },
+  '/docs/@rikka/elements/define-element': { tag: 'rikka-doc-elements-12', showSidebar: true, title: 'defineElement — Rikka' },
+  '/docs/@rikka/elements/shadow': { tag: 'rikka-doc-elements-13', showSidebar: true, title: 'Shadow DOM — Rikka' },
+  '/docs/@rikka/elements/adopt-style': { tag: 'rikka-doc-elements-14', showSidebar: true, title: 'adoptStyle — Rikka' },
+  '/docs/@rikka/elements/attribute': { tag: 'rikka-doc-elements-15', showSidebar: true, title: 'attribute — Rikka' },
+  '/docs/@rikka/elements/event': { tag: 'rikka-doc-elements-16', showSidebar: true, title: 'event — Rikka' },
+  '/docs/@rikka/elements/attach-template': { tag: 'rikka-doc-elements-17', showSidebar: true, title: 'attachTemplate — Rikka' },
   '/docs/advanced/composition': { tag: 'rikka-doc-advanced-19', showSidebar: true, title: 'Composition — Rikka' },
   '/docs/advanced/fine-grained': { tag: 'rikka-doc-advanced-20', showSidebar: true, title: 'Fine-grained Updates — Rikka' },
   '/docs/api-reference': { tag: 'rikka-doc-api-ref', showSidebar: true, title: 'API Reference — Rikka' },
-  '/docs/rikka-signal/store': { tag: 'rikka-doc-signal-store', showSidebar: true, title: 'store() — Rikka' },
+  '/docs/@rikka/signal/store': { tag: 'rikka-doc-signal-store', showSidebar: true, title: 'store() — Rikka' },
   '/examples': { tag: 'rikka-examples-index', showSidebar: false, title: 'Examples — Rikka' },
   '/examples/counter': { tag: 'rikka-example-counter', showSidebar: false, title: 'Counter — Rikka' },
   '/examples/todo': { tag: 'rikka-example-todo', showSidebar: false, title: 'Todo — Rikka' },

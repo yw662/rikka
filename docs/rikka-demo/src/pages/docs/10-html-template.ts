@@ -1,5 +1,5 @@
-import { defineElement } from "rikka-elements";
-import { css, div, h1, h2, p, a, pre, code, ul, li } from "rikka-dom";
+import { defineElement } from @rikka/elements;
+import { css, div, h1, h2, p, a, pre, code, ul, li } from @rikka/dom;
 import { sharedStyles, docPageStyles } from "../../shared/styles";
 
 const styles = css`
@@ -57,7 +57,7 @@ const DocDom10 = defineElement("rikka-doc-dom-10", {
         { class: "playground-section" },
         h2("Try It"),
         sharedStyles.createPlayground(
-          `import { h } from 'rikka-dom';
+          `import { h } from '@rikka/dom';
 
 const name = signal("Rikka");
 const count = signal(42);

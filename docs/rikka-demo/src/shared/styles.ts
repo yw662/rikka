@@ -17,7 +17,7 @@ export const sharedStyles: SharedHelpers = {
   },
 
   createPlayground: (sourceCode: string, height: string | number = '250', title = 'Try It'): HTMLElement => {
-    const el = document.createElement('rikka-live-playground');
+    const el = document.createElement('@rikka/live-playground');
     el.setAttribute('code', sourceCode);
     el.setAttribute('height', String(height));
     el.setAttribute('title', title);

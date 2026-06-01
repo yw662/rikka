@@ -1,5 +1,5 @@
-import { defineElement } from 'rikka-elements';
-import { css, div, h1, h2, p, pre, a } from 'rikka-dom';
+import { defineElement } from '@rikka/elements';
+import { css, div, h1, h2, p, pre, a } from '@rikka/dom';
 import { sharedStyles, docPageStyles } from '../../shared/styles';
 
 const styles = css`
@@ -40,7 +40,7 @@ export const RikkaDocSignal01 = defineElement('rikka-doc-signal-01', {
           'The example below uses pure signals — no custom elements required. This code works in any JavaScript environment.'
         ),
         sharedStyles.createPlayground(
-          `import { signal, computed, effect } from 'rikka-signal';
+          `import { signal, computed, effect } from '@rikka/signal';
 
 const count = signal(0);
 const doubled = computed(() => count.get() * 2);

@@ -1,6 +1,6 @@
-import { defineElement } from "rikka-elements";
-import { div, h1, p, button, span, svg, path, css } from "rikka-dom";
-import { effect } from "rikka-signal";
+import { defineElement } from @rikka/elements;
+import { div, h1, p, button, span, svg, path, css } from @rikka/dom;
+import { effect } from @rikka/signal;
 import { appStore, stats, clearFilters, toggleTagFilter } from "../store.js";
 import { tagFilter } from "./tag-filter.js";
 import { searchBar } from "./search-bar.js";

@@ -1,6 +1,6 @@
-import { defineElement } from "rikka-elements";
-import { div, input, button, svg, circle, line, css } from "rikka-dom";
-import { signal } from "rikka-signal";
+import { defineElement } from @rikka/elements;
+import { div, input, button, svg, circle, line, css } from @rikka/dom;
+import { signal } from @rikka/signal;
 import { appStore, clearFilters } from "../store.js";
 
 export const searchBar = defineElement("search-bar", {

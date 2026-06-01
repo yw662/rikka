@@ -1,5 +1,5 @@
-import { defineElement } from "rikka-elements";
-import { css, div, h1, h2, p, a, pre, code } from "rikka-dom";
+import { defineElement } from @rikka/elements;
+import { css, div, h1, h2, p, a, pre, code } from @rikka/dom;
 import { sharedStyles, docPageStyles } from "../../shared/styles";
 
 const styles = css`
@@ -89,7 +89,7 @@ container.appendChild(div({},
         ),
         pre(
           { class: "code-block" },
-          code(`import { event } from 'rikka-elements';
+          code(`import { event } from '@rikka/elements';
 
 events: {
   select: event<{ id: string; label: string }>(),

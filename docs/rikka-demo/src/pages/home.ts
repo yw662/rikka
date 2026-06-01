@@ -1,4 +1,4 @@
-import { defineElement, css } from "rikka-elements";
+import { defineElement, css } from @rikka/elements;
 import {
   div,
   h1,
@@ -13,8 +13,8 @@ import {
   a,
   code,
   footer,
-} from "rikka-dom";
-import "rikka-live-playground";
+} from @rikka/dom;
+import "@rikka/live-playground";
 import { sharedStyles } from "../shared/styles";
 
 const homeStyles = css`
@@ -845,9 +845,9 @@ document.body.appendChild(btn);
               { class: "code-block" },
               `// ✅ Rikka: Measured live from npm
 // Total: ~8-12KB (all 3 packages, min+gzip)
-import { signal } from 'rikka-signal';     // ~2-4KB
-import { div, button } from 'rikka-dom';    // ~3-5KB
-import { defineElement } from 'rikka-elements'; // ~3-4KB
+import { signal } from '@rikka/signal';     // ~2-4KB
+import { div, button } from '@rikka/dom';    // ~3-5KB
+import { defineElement } from '@rikka/elements'; // ~3-4KB
 
 // ❌ React: ~42KB (min+gzip)
 // + ReactDOM: ~130KB
@@ -906,7 +906,7 @@ span({}, 'Hello ', name);
             div(
               { class: "step-content" },
               h4("Install"),
-              p("npm install rikka-elements rikka-dom rikka-signal"),
+              p("npm install @rikka/elements @rikka/dom @rikka/signal"),
             ),
           ),
           div(
@@ -937,8 +937,8 @@ span({}, 'Hello ', name);
           ),
         ),
         sharedStyles.createPlayground(
-          `import { signal, computed } from 'rikka-signal';
-import { div, span, button } from 'rikka-dom';
+          `import { signal, computed } from '@rikka/signal';
+import { div, span, button } from '@rikka/dom';
 
 const count = signal(0);
 const text = computed(() => \`Count: \${count.get()}\`);
@@ -967,27 +967,27 @@ container.appendChild(app);`,
           { class: "package-grid" },
           div(
             { class: "package-card" },
-            h3("rikka-elements"),
+            h3(@rikka/elements),
             p(
               "Define Custom Elements with Shadow DOM, attributes, events, and styles. Includes css/html tag templates.",
             ),
-            div({ class: "npm" }, "npm install rikka-elements"),
+            div({ class: "npm" }, "npm install @rikka/elements"),
           ),
           div(
             { class: "package-card" },
-            h3("rikka-dom"),
+            h3(@rikka/dom),
             p(
               "Type-safe h() and tag factories. For() for reactive lists. Signals as children for fine-grained updates.",
             ),
-            div({ class: "npm" }, "npm install rikka-dom"),
+            div({ class: "npm" }, "npm install @rikka/dom"),
           ),
           div(
             { class: "package-card" },
-            h3("rikka-signal"),
+            h3(@rikka/signal),
             p(
               "TC39 Signals polyfill. signal(), computed(), and effect() for reactivity. Standards-based primitives.",
             ),
-            div({ class: "npm" }, "npm install rikka-signal"),
+            div({ class: "npm" }, "npm install @rikka/signal"),
           ),
         ),
       ),

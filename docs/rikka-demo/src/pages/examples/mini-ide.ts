@@ -1,6 +1,6 @@
-import { defineElement, css } from "rikka-elements";
-import { div, h1, h2, p, a, span, For } from "rikka-dom";
-import { signal, computed, effect, store } from "rikka-signal";
+import { defineElement, css } from "@rikka/elements";
+import { div, h1, h2, p, a, span, For } from "@rikka/dom";
+import { signal, computed, effect, store } from "@rikka/signal";
 import { sharedStyles, examplePageStyles } from "../../shared/styles";
 
 const styles = css`

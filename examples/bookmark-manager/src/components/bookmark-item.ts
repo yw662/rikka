@@ -1,4 +1,4 @@
-import { defineElement } from "rikka-elements";
+import { defineElement } from @rikka/elements;
 import {
   svg,
   path,
@@ -15,8 +15,8 @@ import {
   Show,
   When,
   css,
-} from "rikka-dom";
-import { signal, computed } from "rikka-signal";
+} from @rikka/dom;
+import { signal, computed } from @rikka/signal;
 import {
   removeBookmark,
   toggleRead,

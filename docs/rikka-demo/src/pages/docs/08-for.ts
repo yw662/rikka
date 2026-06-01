@@ -1,5 +1,5 @@
-import { defineElement } from 'rikka-elements';
-import { css, div, h1, h2, p, a, pre, code, ul, li } from 'rikka-dom';
+import { defineElement } from '@rikka/elements';
+import { css, div, h1, h2, p, a, pre, code, ul, li } from '@rikka/dom';
 import { sharedStyles, docPageStyles } from '../../shared/styles';
 
 const styles = css`${docPageStyles}`;
@@ -31,7 +31,7 @@ const DocDom08 = defineElement('rikka-doc-dom-08', {
       div({ class: 'playground-section' },
         h2('Try It'),
         sharedStyles.createPlayground(
-          `import { For } from 'rikka-dom';
+          `import { For } from '@rikka/dom';
 
 interface Item {
   id: number;

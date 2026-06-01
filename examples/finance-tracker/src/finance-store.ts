@@ -1,4 +1,4 @@
-import { computed, effect, store, raw } from 'rikka-signal';
+import { computed, effect, store, raw } from '@rikka/signal';
 
 export type TransactionType = 'income' | 'expense';
 

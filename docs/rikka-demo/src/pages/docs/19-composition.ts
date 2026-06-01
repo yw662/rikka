@@ -1,5 +1,5 @@
-import { defineElement } from 'rikka-elements';
-import { css, div, h1, h2, p, a, ul, li } from 'rikka-dom';
+import { defineElement } from '@rikka/elements';
+import { css, div, h1, h2, p, a, ul, li } from '@rikka/dom';
 import { sharedStyles, docPageStyles } from '../../shared/styles';
 
 const styles = css`${docPageStyles}`;
@@ -43,7 +43,7 @@ const DocComposition = defineElement('rikka-doc-advanced-19', {
       div({ class: 'playground-section' },
         h2('Try It'),
         sharedStyles.createPlayground(
-          `import { h } from 'rikka-dom';
+          `import { h } from '@rikka/dom';
 
 const name = signal('Alice');
 const coarseName = signal('Bob');

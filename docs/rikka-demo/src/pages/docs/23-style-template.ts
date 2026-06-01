@@ -1,5 +1,5 @@
-import { defineElement } from "rikka-elements";
-import { css, div, h1, h2, p, a, pre, code as codeTag } from "rikka-dom";
+import { defineElement } from @rikka/elements;
+import { css, div, h1, h2, p, a, pre, code as codeTag } from @rikka/dom;
 import { sharedStyles, docPageStyles } from "../../shared/styles";
 
 const styles = css`
@@ -14,7 +14,7 @@ const DocDomStyle = defineElement("rikka-doc-dom-style", {
       h1("inlineStyle``"),
       p(
         "Tag template for creating inline style objects. Exported from ",
-        sharedStyles.inlineCode("rikka-dom"),
+        sharedStyles.inlineCode(@rikka/dom),
         ".",
       ),
       div(

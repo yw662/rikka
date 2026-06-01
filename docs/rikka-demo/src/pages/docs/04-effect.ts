@@ -1,5 +1,5 @@
-import { defineElement } from 'rikka-elements';
-import { css, div, h1, h2, p, pre, a } from 'rikka-dom';
+import { defineElement } from '@rikka/elements';
+import { css, div, h1, h2, p, pre, a } from '@rikka/dom';
 import { sharedStyles, docPageStyles } from '../../shared/styles';
 
 const styles = css`
@@ -114,7 +114,7 @@ container.appendChild(div({},
       div({ class: 'doc-section' },
         h2({ class: 'section-title' }, 'Try It'),
         sharedStyles.createPlayground(
-          `import { signal, effect } from 'rikka-signal';
+          `import { signal, effect } from '@rikka/signal';
 
 const count = signal(0);
 const log: string[] = [];
@@ -140,8 +140,8 @@ dispose();`,
         ),
       ),
       div({ class: 'doc-nav' },
-        a({ class: 'nav-link prev', href: '#/docs/rikka-signal/computed' }, '← computed()'),
-        a({ class: 'nav-link next', href: '#/docs/rikka-signal/batch' }, 'Batch Updates →'),
+        a({ class: 'nav-link prev', href: '#/docs/@rikka/signal/computed' }, '← computed()'),
+        a({ class: 'nav-link next', href: '#/docs/@rikka/signal/batch' }, 'Batch Updates →'),
       ),
     );
   }

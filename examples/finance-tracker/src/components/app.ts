@@ -1,4 +1,4 @@
-import { div, h1, span } from 'rikka-dom';
+import { div, h1, span } from '@rikka/dom';
 import { TransactionForm } from './transaction-form';
 import { TransactionList } from './transaction-list';
 import { StatsPanel } from './stats-panel';
