@@ -27,6 +27,7 @@ export default defineConfig({
     filename: {
       js: "[name].js",
     },
+    assetPrefix: "/rikka/",
     copy: [
       {
         from: resolve(workspaceRoot, "utils/rikka-signal/dist/index.js"),

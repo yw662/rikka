@@ -6,6 +6,14 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yw662/rikka.git",
+    "directory": "utils/rikka-elements"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -22,8 +30,8 @@
     "test:watch": "rstest -w"
   },
   "dependencies": {
-    "rikka-signal": "workspace:*",
-    "rikka-dom": "workspace:*"
+    "@rikka/signal": "workspace:*",
+    "@rikka/dom": "workspace:*"
   },
   "devDependencies": {
     "@rslib/core": "catalog:",

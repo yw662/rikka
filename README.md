@@ -16,16 +16,26 @@ Rikka provides a set of zero-dependency utilities for building web components us
 
 ## 📦 Packages
 
-| Package                                                                          | Version                                                                 | Description                                        | Size (gzip) |
-| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------- | ----------- |
-| [`@rikka/signal`](https://www.npmjs.com/package/@rikka/signal)                   | ![npm version](https://img.shields.io/npm/v/@rikka/signal.svg)          | Reactive primitives based on TC39 Signals          | ~1.6 KB     |
-| [`@rikka/dom`](https://www.npmjs.com/package/@rikka/dom)                         | ![npm version](https://img.shields.io/npm/v/@rikka/dom.svg)             | DOM utilities — `h()`, tag shortcuts, control flow | ~6.3 KB     |
-| [`@rikka/elements`](https://www.npmjs.com/package/@rikka/elements)               | ![npm version](https://img.shields.io/npm/v/@rikka/elements.svg)        | Function-based custom element definition           | ~3.3 KB     |
-| [`@rikka/live-playground`](https://www.npmjs.com/package/@rikka/live-playground) | ![npm version](https://img.shields.io/npm/v/@rikka/live-playground.svg) | Live code editor Web Component                     | ~4.2 KB     |
+| Package                                                                                   | Version                                                                                      | Description                                        | Size (gzip) |
+| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------- | ----------- |
+| [`@rikka/signal`](https://github.com/yw662/rikka/pkgs/npm/rikka-signal)                   | ![GitHub Package Version](https://img.shields.io/github/v/tag/yw662/rikka.svg?label=version) | Reactive primitives based on TC39 Signals          | ~1.6 KB     |
+| [`@rikka/dom`](https://github.com/yw662/rikka/pkgs/npm/rikka-dom)                         | ![GitHub Package Version](https://img.shields.io/github/v/tag/yw662/rikka.svg?label=version) | DOM utilities — `h()`, tag shortcuts, control flow | ~6.3 KB     |
+| [`@rikka/elements`](https://github.com/yw662/rikka/pkgs/npm/rikka-elements)               | ![GitHub Package Version](https://img.shields.io/github/v/tag/yw662/rikka.svg?label=version) | Function-based custom element definition           | ~3.3 KB     |
+| [`@rikka/live-playground`](https://github.com/yw662/rikka/pkgs/npm/rikka-live-playground) | ![GitHub Package Version](https://img.shields.io/github/v/tag/yw662/rikka.svg?label=version) | Live code editor Web Component                     | ~4.2 KB     |
 
 ## 🚀 Quick Start
 
 ### Installation
+
+Packages are published to [GitHub Packages](https://github.com/yw662/rikka/pkgs). First, create an `.npmrc` in your project:
+
+```ini
+@rikka:registry=https://npm.pkg.github.com
+```
+
+> **Note**: If the repository is private, you'll need a [Personal Access Token](https://github.com/settings/tokens) with `read:packages` scope. For public repositories, no authentication is needed.
+
+Then install:
 
 ```bash
 # Install all packages
@@ -51,7 +61,7 @@ const MyCounter = defineElement("my-counter", {
       p("Count: ", this.count),
       button({ onclick: () => this.count++ }, "+"),
       button({ onclick: () => this.count-- }, "-"),
-    )();
+    );
   },
 });
 
@@ -161,12 +171,15 @@ defineElement("my-counter", {
 
 **Options:**
 
-| Option       | Type                            | Description                       |
-| ------------ | ------------------------------- | --------------------------------- |
-| `shadow`     | `boolean`                       | Enable Shadow DOM encapsulation   |
-| `attributes` | `Record<string, AttributeSpec>` | Reactive attributes with defaults |
-| `render`     | `() => Renderable`              | Render function returning content |
-| `events`     | `Record<string, EventConfig>`   | Custom events to dispatch         |
+| Option       | Type                               | Description                                          |
+| ------------ | ---------------------------------- | ---------------------------------------------------- |
+| `shadow`     | `ShadowRootInit \| false`          | Shadow DOM config; `false` to disable                |
+| `styles`     | `CSSStyleSheet \| CSSStyleSheet[]` | Stylesheets injected into Shadow DOM                 |
+| `attributes` | `Record<string, AttributeSpec>`    | Reactive attributes with defaults                    |
+| `events`     | `Record<string, EventSpec>`        | Custom events to dispatch                            |
+| `methods`    | `Record<string, Function>`         | Custom methods attached to element instance          |
+| `template`   | `HTMLTemplateElement`              | Template element (mutually exclusive with `render`)  |
+| `render`     | `(this: El) => Element`            | Render function (mutually exclusive with `template`) |
 
 **Attribute Access**: Use `$propertyName` (e.g., `this.$count`)
 
@@ -176,17 +189,31 @@ defineElement("my-counter", {
 
 ```typescript
 import { event, defineElement } from "@rikka/elements";
+import { div, button, span } from "@rikka/dom";
 
 const MyCounter = defineElement("my-counter", {
+  shadow: true,
+  attributes: {
+    count: { type: Number, default: 0 },
+  },
   events: {
     countChange: event<number>(),
   },
   render() {
     return div(
+      span("Count: ", this.count),
       button({ onclick: () => this.dispatchCountChange(this.count++) }, "+"),
-    )();
+    );
   },
 });
+
+// Usage
+document.body.appendChild(document.createElement("my-counter"));
+
+// Listen for custom events
+document.querySelector("my-counter")!.onCountChange = (e) => {
+  console.log("Count changed to:", e.detail);
+};
 ```
 
 #### CSS in Shadow DOM
@@ -209,34 +236,94 @@ adoptStyle(this.shadowRoot!, styles);
 
 ## 🎮 Live Playground
 
-Interactive code editor component for demos and documentation:
+Interactive code editor component for demos and documentation. Registered as `<rikka-live-playground>` custom element.
+
+#### HTML
+
+```html
+<rikka-live-playground
+  code="console.log('Hello, Rikka!')"
+  height="200"
+  title="Quick Demo"
+></rikka-live-playground>
+```
+
+Code can also be provided as element content:
+
+```html
+<rikka-live-playground title="Counter Example">
+  import { signal } from "rikka-signal"; const count = signal(0);
+  console.log(count.get());
+</rikka-live-playground>
+```
+
+#### Tag Function (`h`)
 
 ```typescript
-import { LivePlayground } from "@rikka/live-playground";
+import { RikkaLivePlayground } from "@rikka/live-playground";
 
-defineElement("demo-editor", {
+const playground = RikkaLivePlayground.h({
+  code: `console.log("Hello from h()!")`,
+  height: "300",
+  title: "h() Demo",
+});
+
+document.body.appendChild(playground);
+```
+
+#### `createElement`
+
+```typescript
+import "@rikka/live-playground";
+
+const playground = document.createElement("rikka-live-playground");
+playground.setAttribute("code", "console.log('Hello!')");
+playground.setAttribute("height", "250");
+playground.setAttribute("title", "createElement Demo");
+document.body.appendChild(playground);
+```
+
+#### Inside Another Element
+
+```typescript
+import { defineElement } from "@rikka/elements";
+import { RikkaLivePlayground } from "@rikka/live-playground";
+import { div } from "@rikka/dom";
+
+defineElement("my-demo-page", {
+  shadow: true,
   render() {
-    return new LivePlayground({
-      initialCode: `
-        // Write your component here!
-        import { signal } from "@rikka/signal";
-        const count = signal(0);
-        console.log(count.get());
-      `,
-      language: "typescript",
-      theme: "dark",
-    });
+    return div(
+      RikkaLivePlayground.h({
+        code: `import { signal } from "rikka-signal";
+const count = signal(0);
+console.log(count.get());`,
+        title: "Signal Demo",
+      }),
+    );
   },
 });
 ```
+
+**Attributes:**
+
+| Attribute | Default     | Description             |
+| --------- | ----------- | ----------------------- |
+| `code`    | `""`        | Initial code content    |
+| `height`  | `"200"`     | Editor area height (px) |
+| `title`   | `"Example"` | Header title            |
+
+**Events:** `error` — dispatched when compilation or runtime error occurs
+
+**Methods:** `run()` — compile & execute code, `reset()` — restore initial code & re-run
 
 Features:
 
 - ✅ esbuild-wasm compilation (runs in browser)
 - ✅ Real-time preview in iframe sandbox
-- ✅ Syntax highlighting
+- ✅ Resizable editor & preview areas
 - ✅ Error display
-- ✅ Multiple language support
+- ✅ Rikka APIs auto-available in sandbox (`signal`, `h`, `div`, `defineElement`, etc.)
 
 ## 🏗️ Underlying Standards
 
