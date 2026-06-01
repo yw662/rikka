@@ -10,10 +10,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "rikka-dom": "workspace:*",
-    "rikka-elements": "workspace:*",
-    "rikka-live-playground": "workspace:*",
-    "rikka-signal": "workspace:*"
+    "@rikka/signal": "workspace:*",
+    "@rikka/dom": "workspace:*",
+    "@rikka/elements": "workspace:*",
+    "@rikka/live-playground": "workspace:*"
   },
   "devDependencies": {
     "@rsbuild/core": "catalog:",

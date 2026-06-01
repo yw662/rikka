@@ -8,9 +8,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "rikka-signal": "workspace:*",
-    "rikka-dom": "workspace:*",
-    "rikka-elements": "workspace:*"
+    "@rikka/signal": "workspace:*",
+    "@rikka/dom": "workspace:*",
+    "@rikka/elements": "workspace:*"
   },
   "devDependencies": {
     "typescript": "catalog:",

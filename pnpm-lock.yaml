@@ -47,18 +47,18 @@ importers:
 
   components/rikka-live-playground:
     dependencies:
+      '@rikka/dom':
+        specifier: workspace:*
+        version: link:../../utils/rikka-dom
+      '@rikka/elements':
+        specifier: workspace:*
+        version: link:../../utils/rikka-elements
+      '@rikka/signal':
+        specifier: workspace:*
+        version: link:../../utils/rikka-signal
       esbuild-wasm:
         specifier: 'catalog:'
         version: 0.24.2
-      rikka-dom:
-        specifier: workspace:*
-        version: link:../../utils/rikka-dom
-      rikka-elements:
-        specifier: workspace:*
-        version: link:../../utils/rikka-elements
-      rikka-signal:
-        specifier: workspace:*
-        version: link:../../utils/rikka-signal
     devDependencies:
       '@rslib/core':
         specifier: 'catalog:'
@@ -75,16 +75,16 @@ importers:
 
   docs/rikka-demo:
     dependencies:
-      rikka-dom:
+      '@rikka/dom':
         specifier: workspace:*
         version: link:../../utils/rikka-dom
-      rikka-elements:
+      '@rikka/elements':
         specifier: workspace:*
         version: link:../../utils/rikka-elements
-      rikka-live-playground:
+      '@rikka/live-playground':
         specifier: workspace:*
         version: link:../../components/rikka-live-playground
-      rikka-signal:
+      '@rikka/signal':
         specifier: workspace:*
         version: link:../../utils/rikka-signal
     devDependencies:
@@ -100,7 +100,7 @@ importers:
 
   utils/rikka-dom:
     dependencies:
-      rikka-signal:
+      '@rikka/signal':
         specifier: workspace:*
         version: link:../rikka-signal
     devDependencies:
@@ -119,10 +119,10 @@ importers:
 
   utils/rikka-elements:
     dependencies:
-      rikka-dom:
+      '@rikka/dom':
         specifier: workspace:*
         version: link:../rikka-dom
-      rikka-signal:
+      '@rikka/signal':
         specifier: workspace:*
         version: link:../rikka-signal
     devDependencies:
