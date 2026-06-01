@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [main, develop]
 
-env:
 jobs:
   # Job 1: 类型检查
   typecheck:
