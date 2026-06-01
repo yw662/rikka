@@ -177,17 +177,28 @@ async function transformCode(code: string): Promise<string> {
   return result.code;
 }
 
-const IFRAME_HTML = `<!DOCTYPE html>
+function getBasePath(): string {
+  if (typeof window === "undefined") return "";
+  const { pathname } = window.location;
+  const match = pathname.match(/^\/[^/]+/);
+  return match ? match[0] : "";
+}
+
+function generateIframeHtml(basePath: string): string {
+  return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <script type="importmap">
   {
     "imports": {
-      "rikka-signal": "/esm/rikka-signal.js",
-      "rikka-dom": "/esm/rikka-dom.js",
-      "rikka-elements": "/esm/rikka-elements.js",
-      "signal-polyfill": "/esm/signal-polyfill.js"
+      "@rikka/signal": "${basePath}/esm/rikka-signal.js",
+      "@rikka/dom": "${basePath}/esm/rikka-dom.js",
+      "@rikka/elements": "${basePath}/esm/rikka-elements.js",
+      "rikka-signal": "${basePath}/esm/rikka-signal.js",
+      "rikka-dom": "${basePath}/esm/rikka-dom.js",
+      "rikka-elements": "${basePath}/esm/rikka-elements.js",
+      "signal-polyfill": "${basePath}/esm/signal-polyfill.js"
     }
   }
   </script>
@@ -247,6 +258,7 @@ const IFRAME_HTML = `<!DOCTYPE html>
   </script>
 </body>
 </html>`;
+}
 
 const SETUP_SCRIPT = `
   var RS = RikkaSignal;
@@ -518,15 +530,16 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
 
 function generateIframeWithCode(compiledCode: string): string {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const basePath = getBasePath();
 
   const sanitizedCode = compiledCode
     .replace(/^import\s+.*?;?\s*$/gm, "")
     .trim();
 
   const userScript = [
-    `import * as RikkaSignal from '${origin}/esm/rikka-signal.js';`,
-    `import * as RikkaDom from '${origin}/esm/rikka-dom.js';`,
-    `import * as RikkaElements from '${origin}/esm/rikka-elements.js';`,
+    `import * as RikkaSignal from '${origin}${basePath}/esm/rikka-signal.js';`,
+    `import * as RikkaDom from '${origin}${basePath}/esm/rikka-dom.js';`,
+    `import * as RikkaElements from '${origin}${basePath}/esm/rikka-elements.js';`,
     "",
     SETUP_SCRIPT,
     "",
@@ -564,7 +577,8 @@ function generateIframeWithCode(compiledCode: string): string {
     "}",
   ].join("\n");
 
-  return IFRAME_HTML.replace(
+  const iframeHtml = generateIframeHtml(basePath);
+  return iframeHtml.replace(
     "</body>",
     `<script type="module">${userScript}</script></body>`,
   );

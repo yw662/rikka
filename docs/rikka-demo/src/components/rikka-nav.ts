@@ -138,61 +138,58 @@ function isActive(currentPath: string, routePath: string): boolean {
   return currentPath === routePath || currentPath.startsWith(routePath + "/");
 }
 
-const RikkaNav = defineElement(
-  "rikka-nav",
-  {
-    styles: navStyles,
-    render() {
-      const currentPath = signal(getPathFromHash());
+const RikkaNav = defineElement("rikka-nav", {
+  styles: navStyles,
+  render() {
+    const currentPath = signal(getPathFromHash());
 
-      const brand = a(
+    const brand = a(
+      {
+        class: "nav-brand",
+        href: "#/",
+      },
+      span({ class: "logo" }, "◈"),
+      span({ class: "brand-text" }, "Rikka"),
+    );
+
+    const linksContainer = div({ class: "nav-links" });
+
+    const actions = div(
+      { class: "nav-actions" },
+      a(
         {
-          class: "nav-brand",
-          href: "#/",
+          href: "http://github.com/yw662/rikka/",
+          target: "_blank",
+          rel: "noopener noreferrer",
+          class: "github-link",
         },
-        span({ class: "logo" }, "◈"),
-        span({ class: "brand-text" }, "Rikka"),
-      );
+        "⭐ GitHub",
+      ),
+    );
 
-      const linksContainer = div({ class: "nav-links" });
+    effect(() => {
+      const path = currentPath.get();
 
-      const actions = div(
-        { class: "nav-actions" },
+      brand.className = `nav-brand${isActive(path, "/") ? " active" : ""}`;
+
+      const links = navRoutes.map((route) =>
         a(
           {
-            href: "https://github.com/project-rikka",
-            target: "_blank",
-            rel: "noopener noreferrer",
-            class: "github-link",
+            class: `nav-link ${isActive(path, route.path) ? "active" : ""}`,
+            href: `#${route.path}`,
           },
-          "⭐ GitHub",
+          route.label,
         ),
       );
+      linksContainer.replaceChildren(...links);
+    });
 
-      effect(() => {
-        const path = currentPath.get();
+    window.addEventListener("hashchange", () => {
+      currentPath.set(getPathFromHash());
+    });
 
-        brand.className = `nav-brand${isActive(path, "/") ? " active" : ""}`;
-
-        const links = navRoutes.map((route) =>
-          a(
-            {
-              class: `nav-link ${isActive(path, route.path) ? "active" : ""}`,
-              href: `#${route.path}`,
-            },
-            route.label,
-          ),
-        );
-        linksContainer.replaceChildren(...links);
-      });
-
-      window.addEventListener("hashchange", () => {
-        currentPath.set(getPathFromHash());
-      });
-
-      return nav({ class: "main-nav" }, brand, linksContainer, actions);
-    },
+    return nav({ class: "main-nav" }, brand, linksContainer, actions);
   },
-);
+});
 
 export { RikkaNav };
