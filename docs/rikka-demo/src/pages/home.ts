@@ -1,4 +1,4 @@
-import { defineElement, css } from @rikka/elements;
+import { defineElement, css } from "@rikka/elements";
 import {
   div,
   h1,
@@ -13,7 +13,7 @@ import {
   a,
   code,
   footer,
-} from @rikka/dom;
+} from "@rikka/dom";
 import "@rikka/live-playground";
 import { sharedStyles } from "../shared/styles";
 
@@ -967,7 +967,7 @@ container.appendChild(app);`,
           { class: "package-grid" },
           div(
             { class: "package-card" },
-            h3(@rikka/elements),
+            h3("@rikka/elements"),
             p(
               "Define Custom Elements with Shadow DOM, attributes, events, and styles. Includes css/html tag templates.",
             ),
@@ -975,7 +975,7 @@ container.appendChild(app);`,
           ),
           div(
             { class: "package-card" },
-            h3(@rikka/dom),
+            h3("@rikka/dom"),
             p(
               "Type-safe h() and tag factories. For() for reactive lists. Signals as children for fine-grained updates.",
             ),
@@ -983,7 +983,7 @@ container.appendChild(app);`,
           ),
           div(
             { class: "package-card" },
-            h3(@rikka/signal),
+            h3("@rikka/signal"),
             p(
               "TC39 Signals polyfill. signal(), computed(), and effect() for reactivity. Standards-based primitives.",
             ),
