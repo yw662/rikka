@@ -155,6 +155,31 @@ const livePlaygroundStyles = css`
   .error-area.has-error {
     display: block;
   }
+  .loading-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 60px;
+    gap: 0.75rem;
+    color: #64748b;
+  }
+  .loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2.5px solid #334155;
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: rikka-spin 0.8s linear infinite;
+  }
+  @keyframes rikka-spin {
+    to { transform: rotate(360deg); }
+  }
+  .loading-text {
+    font-size: 0.75rem;
+    letter-spacing: 0.03em;
+  }
 `;
 
 let esbuildInitPromise: Promise<void> | null = null;
@@ -411,7 +436,14 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
       section(
         { class: "preview-section" },
         div({ class: "preview-label" }, "Preview"),
-        div({ class: "preview-area" }),
+        div(
+          { class: "preview-area" },
+          div(
+            { class: "loading-indicator" },
+            div({ class: "loading-spinner" }),
+            span({ class: "loading-text" }, "Loading..."),
+          ),
+        ),
         div({
           class: "resize-handle",
           onmousedown: (e: MouseEvent) => {
@@ -472,12 +504,17 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
   }
 
   previewEl.innerHTML = "";
+  const loadingEl = document.createElement("div");
+  loadingEl.className = "loading-indicator";
+  loadingEl.innerHTML = '<div class="loading-spinner"></div><span class="loading-text">Loading...</span>';
+  previewEl.appendChild(loadingEl);
 
   let compiledCode: string;
   try {
     compiledCode = await transformCode(currentCode);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
+    loadingEl.remove();
     errorEl.textContent = `Compile Error: ${msg}`;
     errorEl.classList.add("has-error");
     this.dispatchError(msg);
@@ -499,6 +536,7 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
       );
       newIframe.onload = () => {
         clearTimeout(timeout);
+        loadingEl.remove();
         resolve();
       };
       newIframe.onerror = () => {
@@ -508,6 +546,7 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
+    loadingEl.remove();
     errorEl.textContent = `Error: ${msg}`;
     errorEl.classList.add("has-error");
     this.dispatchError(msg);

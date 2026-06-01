@@ -1002,7 +1002,7 @@ container.appendChild(app);`,
             a({ href: "#/examples" }, "Examples"),
             a(
               {
-                href: "https://github.com/rikka-org/rikka",
+                href: "https://github.com/yw662/rikka",
                 target: "_blank",
                 rel: "noopener noreferrer",
               },
