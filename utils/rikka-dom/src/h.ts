@@ -1,4 +1,4 @@
-import { effect, Signal } from "rikka-signal";
+import { effect, Signal } from "@rikka/signal";
 import {
   HTML_NS,
   SVG_NS,
@@ -396,7 +396,11 @@ export interface TagFunction<
 }
 
 function isTagFunction(arg: unknown): arg is TagFunction {
-  return typeof arg === "function" && "h" in arg && typeof (arg as any).h === "function";
+  return (
+    typeof arg === "function" &&
+    "h" in arg &&
+    typeof (arg as any).h === "function"
+  );
 }
 
 export function h<K extends keyof ElementTagNameMap>(

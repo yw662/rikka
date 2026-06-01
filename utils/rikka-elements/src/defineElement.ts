@@ -1,6 +1,6 @@
-import { Signal, effect } from "rikka-signal";
-import { h } from "rikka-dom";
-import type { Child, CommonHTMLAttributes } from "rikka-dom";
+import { Signal, effect } from "@rikka/signal";
+import { h } from "@rikka/dom";
+import type { Child, CommonHTMLAttributes } from "@rikka/dom";
 import type { CamelCase, PascalCase } from "./utils.js";
 import { toCamelCase, toPascalCase } from "./utils.js";
 

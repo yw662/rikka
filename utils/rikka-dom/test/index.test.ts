@@ -27,7 +27,7 @@ import {
   svga,
   svgtitle,
 } from "../src/tags.js";
-import { signal, computed, effect } from "rikka-signal";
+import { signal, computed, effect } from "@rikka/signal";
 
 describe("h()", () => {
   it("creates an element with tag name", () => {

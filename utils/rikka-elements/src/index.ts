@@ -35,4 +35,4 @@ export {
   event,
 } from "./defineElement.js";
 export { type PascalCase, toPascalCase } from "./utils.js";
-export { css } from "rikka-dom";
+export { css } from "@rikka/dom";

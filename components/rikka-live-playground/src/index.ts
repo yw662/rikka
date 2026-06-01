@@ -4,8 +4,8 @@ import {
   event,
   type RikkaElement,
   type ElementConfig,
-} from "rikka-elements";
-import { div, textarea, button, pre, span, section } from "rikka-dom";
+} from "@rikka/elements";
+import { div, textarea, button, pre, span, section } from "@rikka/dom";
 import * as esbuild from "esbuild-wasm";
 import wasmUrl from "esbuild-wasm/esbuild.wasm?url";
 

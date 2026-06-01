@@ -1,5 +1,5 @@
 import { describe, it, expect, rs } from "@rstest/core";
-import { css, span, input, h } from "rikka-dom";
+import { css, span, input, h } from "@rikka/dom";
 import { toCamelCase, toPascalCase } from "../src/utils.js";
 
 describe("css", () => {

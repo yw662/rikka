@@ -1,4 +1,4 @@
-import { Signal } from 'rikka-signal';
+import { Signal } from '@rikka/signal';
 
 export function isSignal(
   value: unknown,
