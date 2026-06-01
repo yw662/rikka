@@ -5,7 +5,7 @@
   "type": "module",
   "description": "React Killer — Native Web Components toolkit for developers and LLMs",
   "scripts": {
-    "build": "pnpm --filter rikka-signal build && pnpm --filter rikka-dom build && pnpm --filter rikka-elements build && pnpm --filter rikka-live-playground build && pnpm --filter rikka-site build",
+    "build": "pnpm --filter @rikka/signal build && pnpm --filter @rikka/dom build && pnpm --filter @rikka/elements build && pnpm --filter @rikka/live-playground build && pnpm --filter rikka-site build",
     "test": "node scripts/test.mjs",
     "test:watch": "pnpm -r --parallel run test:watch",
     "test:all": "node scripts/ci.mjs",
