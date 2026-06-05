@@ -160,7 +160,7 @@ const homeStyles = css`
     line-height: 1.7;
   }
   .cta {
-    display: inline-flex;
+    display: flex;
     flex-wrap: wrap;
     gap: 0.875rem;
     justify-content: center;
@@ -201,7 +201,7 @@ const homeStyles = css`
   }
 
   .stats-row {
-    display: inline-flex;
+    display: flex;
     flex-wrap: wrap;
     justify-content: center;
     gap: 0.75rem;

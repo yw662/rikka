@@ -60,6 +60,59 @@ container.appendChild(div({},
         ),
       ),
       div({ class: 'doc-section' },
+        h2({ class: 'section-title' }, 'Slicing a Complex Signal'),
+        p({},
+          'When the source of truth is one large object — e.g. a record loaded from the server — wrap each reader in a ',
+          sharedStyles.inlineCode('computed'),
+          ' that pulls out only the slice it needs. The ',
+          sharedStyles.inlineCode('computed'),
+          ' then depends precisely on that slice, not on the whole object.',
+        ),
+        p({},
+          sharedStyles.inlineCode('Computed'),
+          ' uses reference equality by default. If the slice value is unchanged, downstream readers do not re-run — even though the parent ',
+          sharedStyles.inlineCode('signal'),
+          ' was reassigned to a brand-new object.',
+        ),
+        sharedStyles.createPlayground(
+          `const user = signal({
+  info: { name: 'Alice', email: 'a@b.c', age: 30 },
+  settings: { theme: 'dark', lang: 'en' },
+});
+
+// Each computed depends on exactly one slice
+const userName = computed(() => user.get().info.name);
+const userTheme = computed(() => user.get().settings.theme);
+
+// Effects fire only when their slice actually changes
+effect(() => console.log('name ->', userName.get()));
+effect(() => console.log('theme ->', userTheme.get()));
+
+container.appendChild(div({},
+  h2({}, 'Slices'),
+  p({}, 'name: ', userName),
+  p({}, 'theme: ', userTheme),
+  h2({}, 'Mutate one slice at a time'),
+  div({ style: { display: 'flex', gap: '8px' } },
+    button({
+      onclick: () => {
+        const u = user.get();
+        user.set({ ...u, info: { ...u.info, name: u.info.name + '!' } });
+      },
+    }, 'Bump name'),
+    button({
+      onclick: () => {
+        const u = user.get();
+        user.set({ ...u, settings: { ...u.settings, theme: u.settings.theme === 'dark' ? 'light' : 'dark' } });
+      },
+    }, 'Toggle theme'),
+  ),
+));`,
+          420,
+          'Slicing a Signal'
+        ),
+      ),
+      div({ class: 'doc-section' },
         h2({ class: 'section-title' }, 'Try It'),
         sharedStyles.createPlayground(
           `import { signal, computed } from '@rikka/signal';
