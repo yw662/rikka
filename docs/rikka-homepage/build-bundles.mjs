@@ -23,7 +23,7 @@ const alias = {
 const outDir = resolve(__dirname, "bundles");
 
 const shared = {
-  entryPoints: [resolve(__dirname, "bundles/entry.ts")],
+  entryPoints: [resolve(__dirname, "bundle-entry.ts")],
   bundle: true,
   alias,
   target: "es2022",
