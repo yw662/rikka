@@ -1,4 +1,4 @@
-import { computed, effect, store, raw, signalOf } from '@rikka/signal';
+import { signal, computed, effect } from '@rikka/signal';
 
 export interface Bookmark {
   id: string;
@@ -8,13 +8,6 @@ export interface Bookmark {
   tags: string[];
   read: boolean;
   createdAt: number;
-}
-
-export interface AppState {
-  bookmarks: Bookmark[];
-  searchQuery: string;
-  selectedTags: string[];
-  isLoading: boolean;
 }
 
 function generateId(): string {
@@ -29,33 +22,56 @@ export function getDomain(url: string): string {
   }
 }
 
-const defaultState: AppState = {
-  bookmarks: [],
-  searchQuery: '',
-  selectedTags: [],
-  isLoading: false,
-};
+const defaultBookmarks: Bookmark[] = [];
+const defaultSearchQuery = '';
+const defaultSelectedTags: string[] = [];
 
-function loadState(): AppState {
+function loadBookmarks(): Bookmark[] {
   try {
     const saved = localStorage.getItem('bookmark-manager-state');
     if (saved) {
       const parsed = JSON.parse(saved);
-      return { ...defaultState, ...parsed };
+      return parsed.bookmarks || defaultBookmarks;
     }
   } catch (e) {
     console.warn('Failed to load state from localStorage:', e);
   }
-  return defaultState;
+  return defaultBookmarks;
 }
 
-export const appStore = store(loadState());
+function loadSearchQuery(): string {
+  try {
+    const saved = localStorage.getItem('bookmark-manager-state');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return parsed.searchQuery ?? defaultSearchQuery;
+    }
+  } catch {
+  }
+  return defaultSearchQuery;
+}
+
+function loadSelectedTags(): string[] {
+  try {
+    const saved = localStorage.getItem('bookmark-manager-state');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return parsed.selectedTags || defaultSelectedTags;
+    }
+  } catch {
+  }
+  return defaultSelectedTags;
+}
+
+export const bookmarks = signal<Bookmark[]>(loadBookmarks());
+export const searchQuery = signal<string>(loadSearchQuery());
+export const selectedTags = signal<string[]>(loadSelectedTags());
 
 export const filteredBookmarks = computed(() => {
-  const query = appStore.searchQuery.toLowerCase().trim();
-  const tags = appStore.selectedTags;
+  const query = searchQuery.get().toLowerCase().trim();
+  const tags = selectedTags.get();
 
-  return appStore.bookmarks.filter((bookmark: Bookmark) => {
+  return bookmarks.get().filter((bookmark: Bookmark) => {
     if (query) {
       const matchesTitle = bookmark.title.toLowerCase().includes(query);
       const matchesUrl = bookmark.url.toLowerCase().includes(query);
@@ -80,7 +96,7 @@ export const filteredBookmarks = computed(() => {
 export const tagCloud = computed(() => {
   const tagCounts = new Map<string, number>();
 
-  appStore.bookmarks.forEach((bookmark: Bookmark) => {
+  bookmarks.get().forEach((bookmark: Bookmark) => {
     bookmark.tags.forEach((tag: string) => {
       const normalizedTag = tag.toLowerCase();
       tagCounts.set(normalizedTag, (tagCounts.get(normalizedTag) || 0) + 1);
@@ -93,8 +109,9 @@ export const tagCloud = computed(() => {
 });
 
 export const stats = computed(() => {
-  const total = appStore.bookmarks.length;
-  const read = appStore.bookmarks.filter((b: Bookmark) => b.read).length;
+  const bks = bookmarks.get();
+  const total = bks.length;
+  const read = bks.filter((b: Bookmark) => b.read).length;
   const unread = total - read;
   const topTags = tagCloud.get().slice(0, 5);
 
@@ -112,56 +129,54 @@ export function addBookmark(url: string, title: string, description: string, tag
     createdAt: Date.now(),
   };
 
-  appStore.bookmarks.push(bookmark);
+  bookmarks.set([...bookmarks.get(), bookmark]);
 }
 
 export function removeBookmark(id: string): void {
-  const index = appStore.bookmarks.findIndex((b: Bookmark) => b.id === id);
-  if (index !== -1) {
-    appStore.bookmarks.splice(index, 1);
-  }
+  bookmarks.set(bookmarks.get().filter((b: Bookmark) => b.id !== id));
 }
 
 export function toggleRead(id: string): void {
-  const bookmark = appStore.bookmarks.find((b: Bookmark) => b.id === id);
-  if (bookmark) {
-    bookmark.read = !bookmark.read;
-  }
+  bookmarks.set(bookmarks.get().map((b: Bookmark) =>
+    b.id === id ? { ...b, read: !b.read } : b
+  ));
 }
 
 export function updateBookmarkTags(id: string, tags: string[]): void {
-  const bookmark = appStore.bookmarks.find((b: Bookmark) => b.id === id);
-  if (bookmark) {
-    bookmark.tags = tags.map((t: string) => t.trim()).filter((t: string) => t);
-  }
+  bookmarks.set(bookmarks.get().map((b: Bookmark) =>
+    b.id === id ? { ...b, tags: tags.map((t: string) => t.trim()).filter((t: string) => t) } : b
+  ));
 }
 
 export function updateBookmarkTitle(id: string, title: string): void {
-  const bookmark = appStore.bookmarks.find((b: Bookmark) => b.id === id);
-  if (bookmark) {
-    bookmark.title = title;
-  }
+  bookmarks.set(bookmarks.get().map((b: Bookmark) =>
+    b.id === id ? { ...b, title } : b
+  ));
 }
 
 export function toggleTagFilter(tag: string): void {
-  const current = appStore.selectedTags;
+  const current = selectedTags.get();
   const normalizedTag = tag.toLowerCase();
   const index = current.findIndex((t: string) => t.toLowerCase() === normalizedTag);
 
   if (index !== -1) {
-    appStore.selectedTags = [...current.slice(0, index), ...current.slice(index + 1)];
+    selectedTags.set([...current.slice(0, index), ...current.slice(index + 1)]);
   } else {
-    appStore.selectedTags = [...current, tag];
+    selectedTags.set([...current, tag]);
   }
 }
 
 export function clearFilters(): void {
-  appStore.searchQuery = '';
-  appStore.selectedTags = [];
+  searchQuery.set('');
+  selectedTags.set([]);
 }
 
 effect(() => {
-  const state = raw(appStore);
+  const state = {
+    bookmarks: bookmarks.get(),
+    searchQuery: searchQuery.get(),
+    selectedTags: selectedTags.get(),
+  };
   try {
     localStorage.setItem('bookmark-manager-state', JSON.stringify(state));
   } catch (e) {

@@ -1,7 +1,7 @@
-import { defineElement } from @rikka/elements;
-import { div, input, button, svg, circle, line, css } from @rikka/dom;
-import { signal } from @rikka/signal;
-import { appStore, clearFilters } from "../store.js";
+import { defineElement } from '@rikka/elements';
+import { div, input, button, svg, circle, line, css } from '@rikka/dom';
+import { signal } from '@rikka/signal';
+import { searchQuery as searchQuerySignal, clearFilters } from "../store.js";
 
 export const searchBar = defineElement("search-bar", {
   attributes: {},
@@ -11,7 +11,7 @@ export const searchBar = defineElement("search-bar", {
     }
   `,
   render() {
-    const localQuery = signal(appStore.searchQuery);
+    const localQuery = signal(searchQuerySignal.get());
 
     let debounceTimer: number | null = null;
 
@@ -26,13 +26,13 @@ export const searchBar = defineElement("search-bar", {
       }
 
       debounceTimer = window.setTimeout(() => {
-        appStore.searchQuery = value;
+        searchQuerySignal.set(value);
       }, 200);
     };
 
     const handleClear = () => {
       localQuery.set("");
-      appStore.searchQuery = "";
+      searchQuerySignal.set("");
     };
 
     return div(

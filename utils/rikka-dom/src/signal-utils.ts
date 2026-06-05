@@ -3,10 +3,12 @@ import { Signal } from '@rikka/signal';
 export function isSignal(
   value: unknown,
 ): value is Signal.State<unknown> | Signal.Computed<unknown> {
+  if (value == null || typeof value !== "object") return false;
   return Signal.isState(value) || Signal.isComputed(value);
 }
 
 export function isWritableSignal(value: unknown): value is Signal.State<unknown> {
+  if (value == null || typeof value !== "object") return false;
   return Signal.isState(value);
 }
 

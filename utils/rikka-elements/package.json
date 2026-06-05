@@ -36,6 +36,7 @@
   "devDependencies": {
     "@rslib/core": "catalog:",
     "@rstest/core": "catalog:",
+    "@rstest/coverage-v8": "catalog:",
     "happy-dom": "catalog:",
     "typescript": "catalog:"
   }

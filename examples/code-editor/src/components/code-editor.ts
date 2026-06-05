@@ -1,7 +1,7 @@
 import { defineElement, css } from '@rikka/elements';
 import { div, textarea } from '@rikka/dom';
 import { effect } from '@rikka/signal';
-import { activeTab, editorState } from '../editor-store';
+import { activeTab, htmlCode, cssCode, jsCode } from '../editor-store';
 
 const editorStyles = css`
 :host {
@@ -44,7 +44,10 @@ const CodeEditor = defineElement(
         spellcheck: false,
         oninput: (e: Event) => {
           const value = (e.target as HTMLTextAreaElement).value;
-          editorState[activeTab.get()] = value;
+          const tab = activeTab.get();
+          if (tab === 'html') htmlCode.set(value);
+          else if (tab === 'css') cssCode.set(value);
+          else jsCode.set(value);
         },
         onkeydown: (e: KeyboardEvent) => {
           if (e.key === 'Tab') {
@@ -60,7 +63,10 @@ const CodeEditor = defineElement(
       });
 
       effect(() => {
-        ta.value = editorState[activeTab.get()];
+        const tab = activeTab.get();
+        if (tab === 'html') ta.value = htmlCode.get();
+        else if (tab === 'css') ta.value = cssCode.get();
+        else ta.value = jsCode.get();
       });
 
       return div(

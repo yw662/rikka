@@ -59,7 +59,7 @@ export function inlineStyle(
   strings: TemplateStringsArray,
   ...values: (string | number | SignalLike)[]
 ): Record<string, unknown> {
-  const SIGNAL_MARKER = "__RK_IS_";
+  const SIGNAL_MARKER = "__RIKKA_SIG_";
   const signalMap = new Map<string, SignalLike>();
 
   let cssText = "";
@@ -78,10 +78,26 @@ export function inlineStyle(
   }
 
   const result: Record<string, unknown> = {};
-  const declarations = cssText
-    .split(";")
-    .map((d) => d.trim())
-    .filter(Boolean);
+  const declarations: string[] = [];
+  let current = "";
+  let inString: string | null = null;
+  for (const ch of cssText) {
+    if (inString) {
+      current += ch;
+      if (ch === inString) inString = null;
+    } else if (ch === '"' || ch === "'") {
+      current += ch;
+      inString = ch;
+    } else if (ch === ";") {
+      const trimmed = current.trim();
+      if (trimmed) declarations.push(trimmed);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  const trimmed = current.trim();
+  if (trimmed) declarations.push(trimmed);
 
   for (const decl of declarations) {
     const colonIndex = decl.indexOf(":");
@@ -108,7 +124,8 @@ export function inlineStyle(
       result[camelProp] = computed(() => {
         let val = valueTemplate;
         for (const { marker, signal } of captured) {
-          val = val.replaceAll(marker, String(signal.get()));
+          const v = signal.get();
+          val = val.replaceAll(marker, v == null ? "" : String(v));
         }
         return val;
       });

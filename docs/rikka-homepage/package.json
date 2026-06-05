@@ -1,0 +1,24 @@
+{
+  "name": "rikka-homepage",
+  "version": "0.1.0",
+  "description": "Project Rikka homepage — documentation site and CDN bundle host",
+  "type": "module",
+  "scripts": {
+    "dev": "node build-bundles.mjs && rsbuild dev",
+    "build": "node build-bundles.mjs && rsbuild build",
+    "preview": "rsbuild preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@rikka/signal": "workspace:*",
+    "@rikka/dom": "workspace:*",
+    "@rikka/elements": "workspace:*",
+    "@rikka/live-playground": "workspace:*"
+  },
+  "devDependencies": {
+    "@rsbuild/core": "catalog:",
+    "@types/node": "catalog:",
+    "esbuild": "catalog:",
+    "typescript": "catalog:"
+  }
+}

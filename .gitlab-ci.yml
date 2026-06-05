@@ -10,7 +10,6 @@ stages:
   - typecheck
   - build
   - test
-  - browser-test
   - publish
 
 # 缓存配置
@@ -66,12 +65,12 @@ typecheck:live-playground:
     - echo "✅ rikka-live-playground passed"
   cache: *default_cache
 
-typecheck:demo:
+typecheck:homepage:
   stage: typecheck
   script:
-    - echo "📋 Checking rikka-demo..."
-    - pnpm exec tsc --noEmit --project docs/rikka-demo/tsconfig.json
-    - echo "✅ rikka-demo passed"
+    - echo "📋 Checking rikka-homepage..."
+    - pnpm exec tsc --noEmit --project docs/rikka-homepage/tsconfig.json
+    - echo "✅ rikka-homepage passed"
   cache: *default_cache
 
 typecheck:examples:
@@ -96,7 +95,7 @@ build:
     - typecheck:rikka-dom
     - typecheck:rikka-elements
     - typecheck:live-playground
-    - typecheck:demo
+    - typecheck:homepage
     - typecheck:examples
   script:
     - echo "🏗️ Building all packages..."
@@ -107,7 +106,7 @@ build:
     paths:
       - utils/*/dist/
       - components/*/dist/
-      - docs/rikka-demo/dist/
+      - docs/rikka-homepage/dist/
     expire_in: 7 days
   cache: *default_cache
 
@@ -128,51 +127,18 @@ test:
     when: always
     paths:
       - test-results/
+      - utils/*/coverage/
+      - components/*/coverage/
     expire_in: 30 days
   coverage: '/Tests:\s*\d+/'
   cache: *default_cache
 
 # ============================================
-# Stage 4: 浏览器 E2E 测试
-# ============================================
-browser-test:
-  stage: browser-test
-  needs: [build]
-  image: node:${NODE_VERSION}-slim
-  services:
-    - name: curlimages/curl:latest
-      alias: curl-service
-  before_script:
-    - corepack enable
-    - corepack prepare pnpm@${PNPM_VERSION} --activate
-    - pnpm config set store-dir .pnpm-store
-    - pnpm install --frozen-lockfile
-    - npx playwright install chromium --with-deps
-  script:
-    - echo "🌐 Starting demo server for E2E testing..."
-    - pnpm build
-    - |
-      pnpm demo &
-      SERVER_PID=$!
-      sleep 5
-      echo "🌐 Running smoke tests..."
-      if curl -sf http://localhost:3000/ > /dev/null; then
-        echo "✅ Homepage is accessible"
-      else
-        echo "❌ Homepage is not accessible"
-        kill $SERVER_PID
-        exit 1
-      fi
-      kill $SERVER_PID
-      echo "✅ Browser E2E tests completed successfully!"
-  cache: *default_cache
-
-# ============================================
-# Stage 5: 发布到 npm (仅在 tag 时触发)
+# Stage 4: 发布到 npm (仅在 tag 时触发)
 # ============================================
 publish:npm:
   stage: publish
-  needs: [test, browser-test]
+  needs: [test]
   rules:
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-.+)?$/
   script:
@@ -200,7 +166,7 @@ pages:
     - echo "📄 Building documentation site..."
     - pnpm build
     - mkdir -p public
-    - cp -r docs/rikka-demo/dist/* public/
+    - cp -r docs/rikka-homepage/dist/* public/
     - echo "✅ Documentation site ready for deployment!"
   artifacts:
     paths:

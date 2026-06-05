@@ -4,9 +4,19 @@
 
 Rikka provides a set of zero-dependency utilities for building web components using **native browser APIs**. No framework runtime, no virtual DOM, no build-time compilation required for core features.
 
+## 🤖 For AI Coding Agents
+
+If you're an LLM/agent generating rikka code, **read the skills index first**:
+
+- **Skills index:** <https://yw662.github.io/rikka/skills/README.md>
+- **llms.txt:** <https://yw662.github.io/rikka/llms.txt>
+- **Homepage index:** <https://yw662.github.io/rikka/skills/index.html>
+
+These contain task-oriented guides (`reactive-state.md`, `dom-creation.md`, `signal-binding.md`, `custom-element.md`, `common-pitfalls.md`, etc.) that explain patterns and the most common LLM-specific mistakes. See also [`AGENTS.md`](./AGENTS.md) at the project root.
+
 ## ✨ Features
 
-- 🔥 **Reactive State** — TC39 Signals-based reactivity (`signal`, `computed`, `effect`, `store`)
+- 🔥 **Reactive State** — TC39 Signals-based reactivity (`signal`, `computed`, `effect`)
 - 🎨 **DOM Utilities** — Hyperscript `h()`, tag helpers, `For`/`Show`/`Switch` control flow
 - 🧩 **Custom Elements** — Function-based `defineElement()` with Shadow DOM, attributes, events
 - 🎮 **Live Playground** — Real-time code editor component for interactive demos
@@ -48,13 +58,13 @@ npm install @rikka/signal
 ### Counter Example
 
 ```typescript
-import { defineElement } from "@rikka/elements";
+import { defineElement, NumberAttr } from "@rikka/elements";
 import { div, p, button } from "@rikka/dom";
 
 const MyCounter = defineElement("my-counter", {
-  shadow: true,
+  shadow: { mode: "open" },
   attributes: {
-    count: { type: Number, default: 0 },
+    count: { ...NumberAttr, default: 0 },
   },
   render() {
     return div(
@@ -80,7 +90,7 @@ counter.setAttribute("count", "10");
 Based on [TC39 Signals proposal](https://github.com/proposal-signals/signal-polyfill) (Stage 1).
 
 ```typescript
-import { signal, computed, effect, store, raw } from "@rikka/signal";
+import { signal, computed, effect } from "@rikka/signal";
 
 // Basic signals
 const count = signal(0);
@@ -89,16 +99,6 @@ const doubled = computed(() => count.get() * 2);
 effect(() => console.log(doubled.get())); // 0
 
 count.set(5); // logs: 10
-
-// Reactive store (deep proxy)
-const user = store({
-  name: "Alice",
-  role: "Developer",
-  skills: ["TypeScript"],
-});
-
-effect(() => console.log(user.name)); // Alice
-user.name = "Bob"; // logs: Bob
 ```
 
 **API Surface:**
@@ -150,15 +150,15 @@ Function-based custom element definition. No base class required — just extend
 // Simple attribute binding
 defineElement("my-input", {
   attributes: {
-    value: String,
+    value: StringAttr,
   },
 });
 
 // With Shadow DOM + render function
 defineElement("my-counter", {
-  shadow: true,
+  shadow: { mode: "open" },
   attributes: {
-    count: { type: Number, default: 0 },
+    count: { ...NumberAttr, default: 0 },
   },
   render() {
     return div(
@@ -188,13 +188,13 @@ defineElement("my-counter", {
 #### Event Helper
 
 ```typescript
-import { event, defineElement } from "@rikka/elements";
+import { event, defineElement, NumberAttr } from "@rikka/elements";
 import { div, button, span } from "@rikka/dom";
 
 const MyCounter = defineElement("my-counter", {
-  shadow: true,
+  shadow: { mode: "open" },
   attributes: {
-    count: { type: Number, default: 0 },
+    count: { ...NumberAttr, default: 0 },
   },
   events: {
     countChange: event<number>(),
@@ -291,7 +291,7 @@ import { RikkaLivePlayground } from "@rikka/live-playground";
 import { div } from "@rikka/dom";
 
 defineElement("my-demo-page", {
-  shadow: true,
+  shadow: { mode: "open" },
   render() {
     return div(
       RikkaLivePlayground.h({
@@ -361,7 +361,7 @@ Uses native browser APIs:
 | Metric              | Value                                |
 | ------------------- | ------------------------------------ |
 | TypeScript Errors   | **0**                                |
-| Unit Tests          | **481** passing                      |
+| Unit Tests          | **313** passing                      |
 | Test Coverage       | Signal / DOM / Elements / Playground |
 | Bundle Size (total) | **~16KB** gzip                       |
 | Tree Shakeable      | ✅ Yes                               |

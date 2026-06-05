@@ -4,6 +4,8 @@ import type { Child, CommonHTMLAttributes } from "@rikka/dom";
 import type { CamelCase, PascalCase } from "./utils.js";
 import { toCamelCase, toPascalCase } from "./utils.js";
 
+// Extended isPlainObject that also excludes Element and DocumentFragment,
+// since defineElement deals with DOM APIs where these are common.
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return (
     typeof value === "object" &&
@@ -21,14 +23,43 @@ const eventTransformsKey = Symbol.for("rikka.eventTransforms");
 // Attribute Types
 // ---------------------------------------------------------------------------
 
-export type AttributeSpec<T> =
-  | ((attr: string | undefined) => T)
-  | {
-      type: (attr: string | undefined) => T;
-      default?: T;
-    };
+/**
+ * Declarative attribute binding.
+ *
+ * - `toProp`: parses the HTML attribute string (or `undefined` when absent) into the prop value.
+ * - `toAttribute`: serializes the prop back to an attribute string. Return `undefined`/`null` to
+ *   remove the attribute. If omitted, the default is `v == null ? undefined : String(v)`.
+ * - `default`: value used when the attribute is missing and no DOM source exists.
+ */
+export type AttributeSpec<T> = {
+  toProp: (attr: string | undefined) => T;
+  toAttribute?: (prop: T) => string | undefined;
+  default?: T;
+};
 
 type AttrValueType<S> = S extends AttributeSpec<infer T> ? T : unknown;
+
+// ---------------------------------------------------------------------------
+// Built-in Attribute Specs
+// ---------------------------------------------------------------------------
+
+/** Identity: `undefined` → `""`, otherwise the raw string. */
+export const StringAttr: AttributeSpec<string> = {
+  toProp: (attr) => attr ?? "",
+  toAttribute: (prop) => prop,
+};
+
+/** `Number`: `"42"` → `42`, `undefined` → `NaN`. `toAttribute` returns `undefined` for `null`/`undefined`, otherwise `String(v)` (so `NaN` round-trips as `"NaN"`). */
+export const NumberAttr: AttributeSpec<number> = {
+  toProp: Number,
+  toAttribute: (prop) => (prop == null ? undefined : String(prop)),
+};
+
+/** HTML boolean attribute: any value other than `undefined`/`null`/`"false"` is `true`; serializes `true` as `""` (attribute present) and `false` as `undefined` (attribute removed). */
+export const BooleanAttr: AttributeSpec<boolean> = {
+  toProp: (attr) => attr !== undefined && attr !== null && attr !== "false",
+  toAttribute: (prop) => (prop ? "" : undefined),
+};
 
 // ---------------------------------------------------------------------------
 // Event Types
@@ -60,7 +91,10 @@ type BaseConfig = {
 
 export type ElementConfig<C extends BaseConfig = BaseConfig> =
   | (BaseConfig & { template: HTMLTemplateElement; render?: never })
-  | (BaseConfig & { template?: never; render?: (this: RikkaElement<C>) => Element })
+  | (BaseConfig & {
+      template?: never;
+      render?: (this: RikkaElement<C>) => Element;
+    })
   | BaseConfig;
 
 export type RikkaElement<C extends BaseConfig> = HTMLElement &
@@ -156,13 +190,16 @@ export type ElementConstructor<C extends BaseConfig> =
 // Runtime: Signal helpers
 // ---------------------------------------------------------------------------
 
+type SignalMap = Map<string, Signal.State<unknown>>;
+
 function getOrCreateSignal<T>(
   el: HTMLElement,
   name: string,
   parse: (v: string | undefined) => T,
   defaultValue?: T,
 ): Signal.State<T> {
-  let signals = (el as any)[signalKey];
+  const internal = el as unknown as Record<symbol, SignalMap | undefined>;
+  let signals = internal[signalKey];
   if (!signals) {
     signals = new Map<string, Signal.State<unknown>>();
     Object.defineProperty(el, signalKey, {
@@ -200,19 +237,17 @@ interface NormalizedAttribute {
   serialize: (v: unknown) => string | undefined;
 }
 
+const defaultSerialize = (v: unknown): string | undefined =>
+  v == null ? undefined : String(v);
+
 function normalizeAttribute<T>(
   spec: AttributeSpec<T>,
 ): NormalizedAttribute & { defaultValue?: T } {
-  if (typeof spec === "function") {
-    return {
-      parse: spec,
-      serialize: (v) => (v == null ? undefined : String(v)),
-    };
-  }
-
   return {
-    parse: spec.type,
-    serialize: (v) => (v == null ? undefined : String(v)),
+    parse: spec.toProp,
+    serialize: spec.toAttribute
+      ? (spec.toAttribute as (v: unknown) => string | undefined)
+      : defaultSerialize,
     defaultValue: spec.default,
   };
 }
@@ -222,11 +257,11 @@ function normalizeAttribute<T>(
 // ---------------------------------------------------------------------------
 
 function applyAttributes(
-  proto: any,
-  Class: Function,
+  proto: Record<string, unknown>,
+  Class: { observedAttributes?: string[] },
   attributes: Record<string, AttributeSpec<unknown>>,
 ): string[] {
-  const observed: string[] = (Class as any).observedAttributes ?? [];
+  const observed: string[] = Class.observedAttributes ? [...Class.observedAttributes] : [];
 
   for (const [name, spec] of Object.entries(attributes)) {
     const { parse, serialize, defaultValue } = normalizeAttribute(spec);
@@ -260,7 +295,9 @@ function applyAttributes(
       configurable: true,
     });
 
-    const originalCallback = proto.attributeChangedCallback;
+    const originalCallback = proto.attributeChangedCallback as
+      | ((this: HTMLElement, attrName: string, oldValue: string | null, newValue: string | null) => void)
+      | undefined;
     proto.attributeChangedCallback = function (
       this: HTMLElement,
       attrName: string,
@@ -269,7 +306,10 @@ function applyAttributes(
     ) {
       if (attrName === name) {
         const sig = getOrCreateSignal(this, name, parse, defaultValue);
-        sig.set(parse(newValue ?? undefined));
+        const next = newValue === null
+          ? (defaultValue !== undefined ? defaultValue : parse(undefined))
+          : parse(newValue);
+        sig.set(next);
       }
       originalCallback?.call(this, attrName, oldValue, newValue);
     };
@@ -283,8 +323,8 @@ function applyAttributes(
 // ---------------------------------------------------------------------------
 
 function applyEvents(
-  proto: any,
-  Class: Function,
+  proto: Record<string, unknown>,
+  Class: object,
   events: Record<string, EventSpec>,
 ): void {
   Object.defineProperty(Class, eventTransformsKey, {
@@ -356,7 +396,9 @@ function applyEvents(
   }
 
   if (customEventNames.length > 0) {
-    const originalDisconnected = proto.disconnectedCallback;
+    const originalDisconnected = proto.disconnectedCallback as
+      | ((this: HTMLElement) => void)
+      | undefined;
     proto.disconnectedCallback = function (this: HTMLElement) {
       for (const [name, map] of customWrapperMaps) {
         const wrapper = map.get(this);
@@ -373,8 +415,11 @@ function applyEvents(
 
 const disposablesKey = Symbol.for("rikka.disposables");
 
+type DisposablesList = (() => void)[];
+
 function trackDisposable(el: HTMLElement, dispose: () => void): void {
-  let list = (el as any)[disposablesKey] as (() => void)[] | undefined;
+  const internal = el as unknown as Record<symbol, DisposablesList | undefined>;
+  let list = internal[disposablesKey];
   if (!list) {
     list = [];
     Object.defineProperty(el, disposablesKey, {
@@ -388,14 +433,40 @@ function trackDisposable(el: HTMLElement, dispose: () => void): void {
 }
 
 function runDisposables(el: HTMLElement): void {
-  const list = (el as any)[disposablesKey] as (() => void)[] | undefined;
+  const internal = el as unknown as Record<symbol, DisposablesList | undefined>;
+  const list = internal[disposablesKey];
   if (list) {
     for (const dispose of list) dispose();
     list.length = 0;
   }
 }
 
-const SLOT_REGEX = /\{\{(\w+)\}\}/g;
+const SLOT_REGEX = /\{\{(\w+)\}\}/;
+
+function asDynamicRecord(el: unknown): Record<string, unknown> {
+  return el as Record<string, unknown>;
+}
+
+function getElementBinding(
+  element: HTMLElement,
+  name: string,
+): unknown {
+  const record = asDynamicRecord(element);
+  const signalLike = record[`$${name}`];
+  if (isSignal(signalLike)) return signalLike;
+  return record[name];
+}
+
+function readTemplateVar(
+  element: HTMLElement,
+  name: string,
+): { kind: "signal"; value: { get(): unknown } } | { kind: "value"; value: unknown } | { kind: "absent" } {
+  const record = asDynamicRecord(element);
+  const signalLike = record[`$${name}`];
+  if (isSignal(signalLike)) return { kind: "signal", value: signalLike };
+  if (name in record) return { kind: "value", value: record[name] };
+  return { kind: "absent" };
+}
 
 function bindSlots(element: HTMLElement, root: HTMLElement | ShadowRoot): void {
   bindTextSlots(element, root);
@@ -422,9 +493,7 @@ function bindTextSlots(
     const singleMatch = /^\{\{(\w+)\}\}$/.exec(original);
     if (singleMatch) {
       const name = singleMatch[1];
-      // Prefer $-prefixed signal for reactive updates
-      let reactiveValue = (element as any)["$" + name];
-      if (!isSignal(reactiveValue)) reactiveValue = (element as any)[name];
+      const reactiveValue = getElementBinding(element, name);
 
       if (isSignal(reactiveValue)) {
         node.textContent = String(reactiveValue.get());
@@ -439,9 +508,7 @@ function bindTextSlots(
       }
     } else {
       node.textContent = original.replace(/\{\{(\w+)\}\}/g, (_match, name) => {
-        // Prefer $-prefixed signal for reactive updates
-        let reactiveValue = (element as any)["$" + name];
-        if (!isSignal(reactiveValue)) reactiveValue = (element as any)[name];
+        const reactiveValue = getElementBinding(element, name);
         if (isSignal(reactiveValue)) {
           queueMicrotask(() => {
             trackDisposable(
@@ -450,12 +517,10 @@ function bindTextSlots(
                 node.textContent = original.replace(
                   /\{\{(\w+)\}\}/g,
                   (_m: string, n: string) => {
-                    const rv = (element as any)["$" + n];
-                    return isSignal(rv)
-                      ? String(rv.get())
-                      : (element as any)[n] != null
-                        ? String((element as any)[n])
-                        : "";
+                    const result = readTemplateVar(element, n);
+                    if (result.kind === "signal") return String(result.value.get());
+                    if (result.kind === "value") return result.value != null ? String(result.value) : "";
+                    return "";
                   },
                 );
               }),
@@ -474,6 +539,10 @@ function bindAttributeSlots(
   root: HTMLElement | ShadowRoot,
 ): void {
   const allElements = root.querySelectorAll("*");
+  const eventTransforms = (
+    element.constructor as unknown as Record<symbol, unknown>
+  )[eventTransformsKey] as Record<string, EventSpec> | undefined;
+
   for (const el of allElements) {
     for (const attr of Array.from(el.attributes)) {
       const value = attr.value;
@@ -487,42 +556,42 @@ function bindAttributeSlots(
       if (attrName.startsWith("on") && attrName.length > 2) {
         const dispatchMatch = /^\{\{@(\w+)\}\}$/.exec(value);
         if (dispatchMatch) {
-          // {{@event}} syntax: DOM event → transform → dispatch element's custom event
           const customEventName = dispatchMatch[1];
           const domEventName = attrName.slice(2).toLowerCase();
           const dispatchMethod = "dispatch" + toPascalCase(customEventName);
-          const transforms = (element.constructor as any)[
-            eventTransformsKey
-          ] as Record<string, EventSpec> | undefined;
-          const transform = transforms?.[customEventName];
+          const transform = eventTransforms?.[customEventName];
           el.removeAttribute(attrName);
-          el.addEventListener(domEventName, (domEvent: Event) => {
+          const domHandler = (domEvent: Event) => {
             const detail =
               typeof transform === "function" ? transform(domEvent) : undefined;
-            (element as any)[dispatchMethod]?.(detail);
-          });
+            (asDynamicRecord(element)[dispatchMethod] as ((d: unknown) => boolean) | undefined)?.(detail);
+          };
+          el.addEventListener(domEventName, domHandler);
+          trackDisposable(element, () =>
+            el.removeEventListener(domEventName, domHandler),
+          );
         } else {
-          // Legacy {{handler}} syntax: read handler from element
           const singleMatch = /^\{\{(\w+)\}\}$/.exec(value);
           if (singleMatch) {
             const name = singleMatch[1];
-            let handler = (element as any)["$" + name];
+            const handler = getElementBinding(element, name);
             const isHandlerSignal = isSignal(handler);
-            if (!isHandlerSignal) handler = (element as any)[name];
 
             const eventName = attrName.slice(2).toLowerCase();
             el.removeAttribute(attrName);
 
             const bindHandler = (fn: unknown) => {
               if (typeof fn === "function") {
-                (el as any)[eventName] = fn.bind(element);
+                (asDynamicRecord(el)[eventName] as unknown) = (
+                  fn as (...a: unknown[]) => unknown
+                ).bind(element);
               }
             };
 
             if (isHandlerSignal) {
               trackDisposable(
                 element,
-                effect(() => bindHandler(handler.get())),
+                effect(() => bindHandler((handler as { get(): unknown }).get())),
               );
             } else {
               queueMicrotask(() => bindHandler(handler));
@@ -535,15 +604,14 @@ function bindAttributeSlots(
       const singleMatch = /^\{\{(\w+)\}\}$/.exec(value);
       if (singleMatch) {
         const name = singleMatch[1];
-        let prop = (element as any)["$" + name];
-        if (!isSignal(prop)) prop = (element as any)[name];
+        const prop = getElementBinding(element, name);
 
         if (isSignal(prop)) {
           el.removeAttribute(attrName);
           trackDisposable(
             element,
             effect(() => {
-              const v = prop.get();
+              const v = (prop as { get(): unknown }).get();
               if (v === null || v === undefined || v === false) {
                 el.removeAttribute(attrName);
               } else {
@@ -561,9 +629,10 @@ function bindAttributeSlots(
         el.setAttribute(
           attrName,
           value.replace(/\{\{(\w+)\}\}/g, (_match, name) => {
-            let v = (element as any)["$" + name];
-            if (!isSignal(v)) v = (element as any)[name];
-            return isSignal(v) ? String(v.get()) : v != null ? String(v) : "";
+            const result = readTemplateVar(element, name);
+            if (result.kind === "signal") return String(result.value.get());
+            if (result.kind === "value") return result.value != null ? String(result.value) : "";
+            return "";
           }),
         );
       }
@@ -572,6 +641,7 @@ function bindAttributeSlots(
 }
 
 function isSignal(value: unknown): value is { get(): unknown } {
+  if (value == null || typeof value !== "object") return false;
   return Signal.isState(value) || Signal.isComputed(value);
 }
 
@@ -594,14 +664,11 @@ export function defineElement<C extends BaseConfig = BaseConfig>(
       ? config.styles
       : [config.styles]
     : [];
-  const templateEl =
-    "template" in (config ?? {})
-      ? ((config as any).template as HTMLTemplateElement | undefined)
-      : undefined;
-  const renderFn =
-    "render" in (config ?? {})
-      ? ((config as any).render as (() => Element) | undefined)
-      : undefined;
+  const configRecord = (config ?? {}) as Record<string, unknown>;
+  const templateEl = configRecord.template as HTMLTemplateElement | undefined;
+  const renderFn = configRecord.render as unknown as
+    | ((this: HTMLElement) => Element)
+    | undefined;
 
   class RikkaElementInner extends HTMLElement {
     static observedAttributes: string[] = [];
@@ -634,7 +701,7 @@ export function defineElement<C extends BaseConfig = BaseConfig>(
           shadow.appendChild(templateEl.content.cloneNode(true));
           bindSlots(this, shadow);
         } else if (renderFn) {
-          const result = (this as any).render();
+          const result = renderFn.call(this);
           if (result instanceof Element) {
             shadow.appendChild(result);
           }
@@ -644,23 +711,25 @@ export function defineElement<C extends BaseConfig = BaseConfig>(
 
     disconnectedCallback() {
       runDisposables(this);
+      this.#initialized = false;
     }
   }
 
+  const proto = RikkaElementInner.prototype as unknown as Record<string, unknown>;
   if (renderFn) {
-    (RikkaElementInner.prototype as any).render = renderFn;
+    proto.render = renderFn;
   }
 
   const methods = config?.methods;
   if (methods) {
     for (const [name, fn] of Object.entries(methods)) {
-      (RikkaElementInner.prototype as any)[name] = fn;
+      proto[name] = fn;
     }
   }
 
   const observed = applyAttributes(
-    RikkaElementInner.prototype,
-    RikkaElementInner,
+    proto,
+    RikkaElementInner as unknown as { observedAttributes?: string[] },
     attributes,
   );
   Object.defineProperty(RikkaElementInner, "observedAttributes", {
@@ -671,24 +740,24 @@ export function defineElement<C extends BaseConfig = BaseConfig>(
     enumerable: true,
   });
 
-  applyEvents(RikkaElementInner.prototype, RikkaElementInner, events);
+  applyEvents(proto, RikkaElementInner, events);
 
-  queueMicrotask(() => {
+  if (!customElements.get(tagName)) {
     customElements.define(
       tagName,
-      RikkaElementInner as CustomElementConstructor,
+      RikkaElementInner as unknown as CustomElementConstructor,
     );
-  });
+  }
 
-  const tagHelper = (...args: any[]) => {
+  const tagHelper = (...args: unknown[]) => {
     if (isPlainObject(args[0])) {
-      return (h as any)(
+      return h(
         tagName,
-        args[0] as Record<string, unknown>,
-        ...args.slice(1),
+        args[0] as Parameters<typeof h>[1],
+        ...(args.slice(1) as Child[]),
       ) as RikkaElement<C>;
     }
-    return (h as any)(tagName, ...args) as RikkaElement<C>;
+    return h(tagName, ...(args as Child[])) as RikkaElement<C>;
   };
 
   const result = RikkaElementInner as unknown as ElementConstructor<C>;

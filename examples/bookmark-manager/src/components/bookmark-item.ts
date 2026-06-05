@@ -1,4 +1,4 @@
-import { defineElement } from @rikka/elements;
+import { defineElement, NumberAttr, StringAttr, BooleanAttr } from '@rikka/elements';
 import {
   svg,
   path,
@@ -15,8 +15,8 @@ import {
   Show,
   When,
   css,
-} from @rikka/dom;
-import { signal, computed } from @rikka/signal;
+} from '@rikka/dom';
+import { signal, computed } from '@rikka/signal';
 import {
   removeBookmark,
   toggleRead,
@@ -26,14 +26,14 @@ import {
 
 export const bookmarkItem = defineElement("bookmark-item", {
   attributes: {
-    id: String,
-    url: String,
-    title: String,
-    description: String,
-    tags: String,
-    read: Boolean,
-    createdAt: Number,
-    selectedTags: String,
+    id: StringAttr,
+    url: StringAttr,
+    title: StringAttr,
+    description: StringAttr,
+    tags: StringAttr,
+    read: BooleanAttr,
+    createdAt: NumberAttr,
+    selectedTags: StringAttr,
   },
   events: {
     tagClick: (e: Event) => (e as CustomEvent).detail,

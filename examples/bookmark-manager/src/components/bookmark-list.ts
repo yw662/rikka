@@ -1,12 +1,12 @@
-import { defineElement } from @rikka/elements;
-import { div, svg, path, h3, p, For, Show, When, css } from @rikka/dom;
-import { computed } from @rikka/signal;
+import { defineElement, StringAttr } from '@rikka/elements';
+import { div, svg, path, h3, p, For, Show, When, css } from '@rikka/dom';
+import { computed } from '@rikka/signal';
 import { filteredBookmarks, stats } from "../store.js";
 import { bookmarkItem } from "./bookmark-item.js";
 
 export const bookmarkList = defineElement("bookmark-list", {
   attributes: {
-    selectedTags: String,
+    selectedTags: StringAttr,
   },
   styles: css`
     :host {

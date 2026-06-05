@@ -1,4 +1,4 @@
-import { effect, Signal } from "@rikka/signal";
+import { effect, computed, Signal } from "@rikka/signal";
 import {
   HTML_NS,
   SVG_NS,
@@ -18,6 +18,14 @@ export type ElementTagNameMap = HTMLElementTagNameMap &
   >;
 
 const TWO_WAY_ATTRS = new Set(["value", "checked", "selectedIndex"]);
+
+/** Maps JS DOM property names to their HTML attribute equivalents. */
+const PROPERTY_TO_ATTR: Readonly<Record<string, string>> = {
+  className: "class",
+  htmlFor: "for",
+  readOnly: "readonly",
+  tabIndex: "tabindex",
+};
 
 function resolveNamespace(tag: string): string {
   if (tag === "svg") return SVG_NS;
@@ -127,7 +135,8 @@ export type Child =
   | Signal.Computed<Child>
   | Child[]
   | Signal.State<Child[]>
-  | Signal.Computed<Child[]>;
+  | Signal.Computed<Child[]>
+  | (() => Child);
 
 const elementDisposables = new WeakMap<Element, Set<() => void>>();
 
@@ -149,12 +158,19 @@ export function registerDisposable(el: Element, dispose: () => void): void {
   set.add(dispose);
 }
 
+function getStyle(el: Element): CSSStyleDeclaration | null {
+  if (typeof (el as HTMLElement).style?.setProperty === "function") {
+    return (el as HTMLElement).style;
+  }
+  return null;
+}
+
 function applyStyle(
   el: Element,
   styleObj: Record<string, unknown>,
   clear = false,
 ): void {
-  const style = (el as any).style;
+  const style = getStyle(el);
   if (!style) return;
   if (clear) style.cssText = "";
   for (const [prop, val] of Object.entries(styleObj)) {
@@ -164,19 +180,48 @@ function applyStyle(
       const dispose = effect(() => {
         const target = weakRef.deref();
         if (!target) return;
-        (target as any).style[prop] = signal.get();
+        const targetStyle = getStyle(target);
+        if (!targetStyle) return;
+        const value = signal.get();
+        if (value == null) {
+          if (prop.startsWith("--")) {
+            targetStyle.removeProperty(prop);
+          } else {
+            (targetStyle as unknown as Record<string, unknown>)[prop] = "";
+          }
+        } else if (prop.startsWith("--")) {
+          targetStyle.setProperty(prop, String(value));
+        } else {
+          (targetStyle as unknown as Record<string, unknown>)[prop] = value;
+        }
       });
       registerDisposable(el, dispose);
     } else if (val != null) {
-      style[prop] = val;
+      if (prop.startsWith("--")) {
+        style.setProperty(prop, String(val));
+      } else {
+        (style as unknown as Record<string, unknown>)[prop] = val;
+      }
     }
   }
+}
+
+function assignDomProperty(el: Element, key: string, value: unknown): void {
+  (el as unknown as Record<string, unknown>)[key] = value;
+}
+
+function readDomProperty<T>(el: Element, key: string): T {
+  return (el as unknown as Record<string, T>)[key];
+}
+
+function toAttrName(key: string): string {
+  return PROPERTY_TO_ATTR[key] ?? key;
 }
 
 function setAttr(el: Element, key: string, value: unknown): void {
   if (key.startsWith("on") && key.length > 2) {
     if (typeof value === "function") {
-      (el as any)[key] = value;
+      assignDomProperty(el, key, value);
     }
     return;
   }
@@ -190,7 +235,7 @@ function setAttr(el: Element, key: string, value: unknown): void {
       const target = weakRef.deref();
       if (!target) return;
       if (TWO_WAY_ATTRS.has(attrKey) && isInputElement(target)) {
-        (target as any)[attrKey] = signal.get();
+        assignDomProperty(target, attrKey, signal.get());
       } else {
         setAttr(target, attrKey, signal.get());
       }
@@ -206,19 +251,17 @@ function setAttr(el: Element, key: string, value: unknown): void {
       const eventType = getTwoWayEventType(attrKey, el);
       const handler = () => {
         const target = weakRef.deref();
-        if (!target) {
-          el.removeEventListener(eventType, handler);
-          return;
-        }
-        signal.set((target as any)[attrKey]);
+        if (!target) return;
+        signal.set(readDomProperty<unknown>(target, attrKey));
       };
       el.addEventListener(eventType, handler);
+      registerDisposable(el, () => el.removeEventListener(eventType, handler));
     }
     return;
   }
 
   if (key === "style") {
-    const style = (el as any).style;
+    const style = getStyle(el);
     if (!style) return;
     if (typeof value === "string") {
       style.cssText = value;
@@ -240,14 +283,14 @@ function setAttr(el: Element, key: string, value: unknown): void {
   }
 
   if (value == null || value === false) {
-    el.removeAttribute(key);
+    el.removeAttribute(toAttrName(key));
     return;
   }
   if (value === true) {
-    el.setAttribute(key, "");
+    el.setAttribute(toAttrName(key), "");
     return;
   }
-  el.setAttribute(key, String(value));
+  el.setAttribute(toAttrName(key), String(value));
 }
 
 function getTwoWayEventType(attrKey: string, el: Element): string {
@@ -269,6 +312,10 @@ function insertChildBefore(
   ref: ChildNode | null,
 ): void {
   if (child == null) return;
+
+  if (typeof child === "function") {
+    return insertChildBefore(parent, computed(child), ref);
+  }
 
   if (typeof child === "string" || typeof child === "number") {
     parent.insertBefore(document.createTextNode(String(child)), ref);
@@ -384,7 +431,9 @@ export type Attributes<K extends keyof ElementTagNameMap> =
   };
 
 function isTemplateStringsArray(arg: unknown): arg is TemplateStringsArray {
-  return Array.isArray(arg) && "raw" in arg && Array.isArray((arg as any).raw);
+  if (!Array.isArray(arg) || !("raw" in arg)) return false;
+  const raw = (arg as { raw: unknown }).raw;
+  return Array.isArray(raw);
 }
 
 export interface TagFunction<
@@ -392,15 +441,13 @@ export interface TagFunction<
   A extends Record<string, unknown> = Record<string, unknown>,
 > {
   new (...args: any[]): T;
-  readonly h: (this: any, ...args: any[]) => T;
+  readonly h: (this: unknown, ...args: any[]) => T;
 }
 
 function isTagFunction(arg: unknown): arg is TagFunction {
-  return (
-    typeof arg === "function" &&
-    "h" in arg &&
-    typeof (arg as any).h === "function"
-  );
+  if (typeof arg !== "function" || !("h" in arg)) return false;
+  const h = (arg as { h: unknown }).h;
+  return typeof h === "function";
 }
 
 export function h<K extends keyof ElementTagNameMap>(

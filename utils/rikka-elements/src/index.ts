@@ -5,14 +5,14 @@
  * shadow DOM, styles, and template binding.
  *
  * @example
- * import { defineElement, event } from 'rikka-elements';
- * import { css } from 'rikka-dom';
+ * import { defineElement, event, StringAttr, NumberAttr, BooleanAttr } from '@rikka/elements';
+ * import { css } from '@rikka/dom';
  *
  * const MyCounter = defineElement('my-counter', {
  *   attributes: {
- *     count: Number,
- *     label: String,
- *     active: Boolean,
+ *     count: { ...NumberAttr, default: 0 },
+ *     label: StringAttr,
+ *     active: BooleanAttr,
  *   },
  *   events: {
  *     change: Number,
@@ -25,6 +25,9 @@
 
 export {
   defineElement,
+  StringAttr,
+  NumberAttr,
+  BooleanAttr,
   type AttributeSpec,
   type EventSpec,
   type ElementConfig,

@@ -5,14 +5,14 @@
 ## 定位
 
 ```
-utils/rikka-signal      响应式原语（signal, computed, effect, store）
+utils/rikka-signal      响应式原语（signal, computed, effect）
 utils/rikka-dom         DOM 创建（h, tag helpers, For, Show, css）
 utils/rikka-elements    Custom Element 定义（defineElement）
         ↓
 components/*            基于 utils 层构建的可复用组件和工具
         ↓
 examples/*              具体应用
-docs/rikka-demo         文档站
+docs/rikka-homepage     文档站
 ```
 
 `components/` 与 `utils/` 的区别：
@@ -85,9 +85,9 @@ docs/rikka-demo         文档站
 ```typescript
 const Combobox = defineElement("r-combobox", {
   attributes: {
-    value: String,
-    placeholder: String,
-    disabled: Boolean,
+    value: StringAttr,
+    placeholder: StringAttr,
+    disabled: BooleanAttr,
   },
   events: {
     change: (e: CustomEvent) => e.detail,
@@ -99,8 +99,8 @@ const Combobox = defineElement("r-combobox", {
 
 const ComboboxOption = defineElement("r-combobox-option", {
   attributes: {
-    value: String,
-    disabled: Boolean,
+    value: StringAttr,
+    disabled: BooleanAttr,
   },
 });
 ```
@@ -124,7 +124,7 @@ const ComboboxOption = defineElement("r-combobox-option", {
 const DropdownMenu = defineElement("r-dropdown-menu", {
   attributes: {
     open: Boolean,
-    placement: { type: (v) => v ?? "bottom-start" },
+    placement: { toProp: (v) => v ?? "bottom-start", toAttribute: (v) => v },
   },
   events: {
     open: undefined,
@@ -174,7 +174,7 @@ export const toast = {
 // 容器组件
 const ToastContainer = defineElement('r-toast-container', {
   attributes: {
-    placement: { type: (v) => v ?? 'bottom-right' },
+    placement: { toProp: (v) => v ?? 'bottom-right', toAttribute: (v) => v },
   },
 });
 ```
@@ -233,11 +233,11 @@ interface VirtualListOptions<T> {
 ```typescript
 const DatePicker = defineElement('r-date-picker', {
   attributes: {
-    value: String,
-    min: String,
-    max: String,
-    disabled: Boolean,
-    placeholder: String,
+    value: StringAttr,
+    min: StringAttr,
+    max: StringAttr,
+    disabled: BooleanAttr,
+    placeholder: StringAttr,
   },
   events: {
     change: (e: CustomEvent) => e.detail,
@@ -250,8 +250,8 @@ const Calendar = defineElement('r-calendar', {
     min: String,
     max: String,
     disabledDates: String,
-    weekStartsOn: { type: (v) => v ?? '0' },
-    selectionMode: { type: (v) => v ?? 'single' },
+    weekStartsOn: { toProp: (v) => v ?? '0', toAttribute: (v) => v },
+    selectionMode: { toProp: (v) => v ?? 'single', toAttribute: (v) => v },
   },
   events: {
     change: (e: CustomEvent) => e.detail,
@@ -298,11 +298,11 @@ const DataTable = defineElement('r-data-table', {
 
 const DataTableColumn = defineElement('r-data-table-column', {
   attributes: {
-    key: String,
-    label: String,
-    sortable: Boolean,
-    width: String,
-    align: String,
+    key: StringAttr,
+    label: StringAttr,
+    sortable: BooleanAttr,
+    width: StringAttr,
+    align: StringAttr,
   },
 });
 ```

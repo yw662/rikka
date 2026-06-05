@@ -1,4 +1,4 @@
-import { signal, computed, effect, store } from '@rikka/signal';
+import { signal, computed, effect } from '@rikka/signal';
 
 export type FileType = 'html' | 'css' | 'js';
 export type ConsoleEntry = {
@@ -6,12 +6,6 @@ export type ConsoleEntry = {
   message: string;
   timestamp: Date;
 };
-
-interface EditorState {
-  html: string;
-  css: string;
-  js: string;
-}
 
 const STORAGE_KEY_CODE = 'rikka-code-editor-code';
 const STORAGE_KEY_THEME = 'rikka-code-editor-theme';
@@ -81,11 +75,10 @@ function saveToStorage<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    // Storage errors are non-fatal - editor should still work
   }
 }
 
-function loadInitialState(): EditorState {
+function loadInitialCode() {
   return loadFromStorage(STORAGE_KEY_CODE, {
     html: DEFAULT_HTML,
     css: DEFAULT_CSS,
@@ -97,7 +90,11 @@ function loadInitialTheme(): 'dark' | 'light' {
   return loadFromStorage(STORAGE_KEY_THEME, 'dark');
 }
 
-export const editorState = store<EditorState>(loadInitialState());
+const initialCode = loadInitialCode();
+
+export const htmlCode = signal(initialCode.html);
+export const cssCode = signal(initialCode.css);
+export const jsCode = signal(initialCode.js);
 
 export const activeTab = signal<FileType>('html');
 
@@ -117,16 +114,18 @@ export function clearConsole(): void {
 }
 
 export const combinedPreviewHTML = computed(() => {
-  const { html, css, js } = editorState;
+  const html = htmlCode.get();
+  const css = cssCode.get();
+  const js = jsCode.get();
   return html.replace('</head>', `<style>${css}</style></head>`)
     .replace('</body>', `<script>${js}<\/script></body>`);
 });
 
 effect(() => {
   saveToStorage(STORAGE_KEY_CODE, {
-    html: editorState.html,
-    css: editorState.css,
-    js: editorState.js,
+    html: htmlCode.get(),
+    css: cssCode.get(),
+    js: jsCode.get(),
   });
 });
 

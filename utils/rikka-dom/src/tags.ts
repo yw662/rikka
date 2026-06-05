@@ -17,17 +17,22 @@ type TagFactory<K extends keyof ElementTagNameMap> = {
   ): ElementTagNameMap[K];
 };
 
-function makeTag(tag: string, forcedNS?: string): any {
+type UntypedTagFactory = {
+  (...args: unknown[]): Element;
+};
+
+function makeTag(
+  tag: string,
+  forcedNS?: string,
+): UntypedTagFactory {
   if (forcedNS) {
-    return (...args: any[]) => {
-      return createElement(tag, args, forcedNS);
-    };
+    return (...args: unknown[]) => createElement(tag, args, forcedNS);
   }
-  return (...args: any[]) => {
+  return (...args: unknown[]) => {
     if (isPlainObject(args[0])) {
-      return (hFn as any)(tag, args[0], ...args.slice(1));
+      return createElement(tag, args);
     }
-    return (hFn as any)(tag, ...args);
+    return createElement(tag, args);
   };
 }
 

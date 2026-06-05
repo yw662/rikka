@@ -1,7 +1,7 @@
-import { defineElement } from @rikka/elements;
-import { div, span, For, Show, When, css } from @rikka/dom;
-import { computed } from @rikka/signal;
-import { appStore, tagCloud, toggleTagFilter } from "../store.js";
+import { defineElement } from '@rikka/elements';
+import { div, span, For, Show, When, css } from '@rikka/dom';
+import { computed } from '@rikka/signal';
+import { selectedTags, tagCloud, toggleTagFilter } from "../store.js";
 
 export const tagFilter = defineElement("tag-filter", {
   attributes: {},
@@ -14,7 +14,7 @@ export const tagFilter = defineElement("tag-filter", {
     const tags = tagCloud;
 
     const isTagActive = (tag: string) => {
-      return appStore.selectedTags.some(
+      return selectedTags.get().some(
         (t) => t.toLowerCase() === tag.toLowerCase(),
       );
     };

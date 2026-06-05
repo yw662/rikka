@@ -1,4 +1,4 @@
-export { For, applyChild, insertChildBefore, ReactiveRange, createElement, registerDisposable } from "./h.js";
+export { applyChild, insertChildBefore, ReactiveRange, createElement, registerDisposable } from "./h.js";
 export type {
   Child,
   Attributes,
@@ -63,7 +63,7 @@ export type {
   SVGAttributes,
   MathMLAttributes,
 } from "./attributes.js";
-export { Show, When, Switch, Match } from "./control-flow.js";
+export { For, Show, When, Switch, Match } from "./control-flow.js";
 export type { Case } from "./control-flow.js";
 export { css, inlineStyle } from "./template.js";
 export {
@@ -130,6 +130,9 @@ export {
   symbol,
   filter,
   ellipse,
+  text,
+  tspan,
+  textPath,
   svga,
   svgscript,
   svgstyle,

@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build:
-    name: 🏗️ Build Demo Site
+    name: 🏗️ Build Homepage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -37,15 +37,15 @@ jobs:
       - name: Build all packages
         run: pnpm build
 
-      - name: Build demo site
+      - name: Build homepage
         run: |
-          cd docs/rikka-demo
+          cd docs/rikka-homepage
           pnpm build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: docs/rikka-demo/dist
+          path: docs/rikka-homepage/dist
 
   deploy:
     name: 🚀 Deploy to GitHub Pages

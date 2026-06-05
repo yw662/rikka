@@ -1,7 +1,7 @@
-import { defineElement } from @rikka/elements;
-import { div, h1, p, button, span, svg, path, css } from @rikka/dom;
-import { effect } from @rikka/signal;
-import { appStore, stats, clearFilters, toggleTagFilter } from "../store.js";
+import { defineElement } from '@rikka/elements';
+import { div, h1, p, button, span, svg, path, css } from '@rikka/dom';
+import { effect } from '@rikka/signal';
+import { searchQuery, selectedTags, stats, clearFilters, toggleTagFilter } from "../store.js";
 import { tagFilter } from "./tag-filter.js";
 import { searchBar } from "./search-bar.js";
 import { bookmarkForm } from "./bookmark-form.js";
@@ -31,8 +31,8 @@ export const app = defineElement("bookmark-app", {
     });
 
     effect(() => {
-      const q = appStore.searchQuery.trim();
-      const tags = appStore.selectedTags;
+      const q = searchQuery.get().trim();
+      const tags = selectedTags.get();
       const parts: string[] = [];
       if (q) parts.push(`Search: "${q}"`);
       if (tags.length > 0) parts.push(`Tags: ${tags.join(", ")}`);
@@ -40,12 +40,12 @@ export const app = defineElement("bookmark-app", {
     });
 
     effect(() => {
-      const hasFilters = appStore.selectedTags.length > 0 || appStore.searchQuery.trim().length > 0;
+      const hasFilters = selectedTags.get().length > 0 || searchQuery.get().trim().length > 0;
       (clearBtn as any).style.display = hasFilters ? "" : "none";
     });
 
     effect(() => {
-      listEl.setAttribute("selectedTags", appStore.selectedTags.join(","));
+      listEl.setAttribute("selectedTags", selectedTags.get().join(","));
     });
 
     this.addEventListener(

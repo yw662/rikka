@@ -3,5 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "PWA-style Read Later app like Pocket/Instapaper built with Rikka"
+  "description": "PWA-style Read Later app like Pocket/Instapaper built with Rikka",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@rikka/signal": "workspace:*",
+    "@rikka/dom": "workspace:*",
+    "@rikka/elements": "workspace:*"
+  }
 }

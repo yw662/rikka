@@ -1,6 +1,7 @@
 import { describe, it, expect, rs } from "@rstest/core";
 import { css, span, input, h } from "@rikka/dom";
 import { toCamelCase, toPascalCase } from "../src/utils.js";
+import { signal as createSignal } from "@rikka/signal";
 
 describe("css", () => {
   it("creates a CSSStyleSheet from a template string", () => {
@@ -48,7 +49,7 @@ describe("toCamelCase", () => {
 
 describe("defineElement", () => {
   it("registers a custom element with no config", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-basic-${Date.now()}`;
 
     const TestEl = defineElement(tag);
@@ -60,11 +61,11 @@ describe("defineElement", () => {
 
 describe("defineElement attributes (Number)", () => {
   it("Number creates observedAttributes", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-num-obs-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { count: Number },
+      attributes: { count: NumberAttr },
     });
 
     await new Promise((r) => setTimeout(r, 20));
@@ -72,11 +73,11 @@ describe("defineElement attributes (Number)", () => {
   });
 
   it("Number creates typed getter/setter", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-num-rw-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { count: Number },
+      attributes: { count: NumberAttr },
     });
 
     await new Promise((r) => setTimeout(r, 20));
@@ -97,11 +98,11 @@ describe("defineElement attributes (Number)", () => {
   });
 
   it("Number(undefined) returns NaN for missing attribute", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-num-nan-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { count: Number },
+      attributes: { count: NumberAttr },
     });
 
     await new Promise((r) => setTimeout(r, 20));
@@ -115,11 +116,11 @@ describe("defineElement attributes (Number)", () => {
   });
 
   it("Number with setAttribute syncs to signal", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-num-sync-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { count: Number },
+      attributes: { count: NumberAttr },
     });
 
     await new Promise((r) => setTimeout(r, 20));
@@ -137,11 +138,11 @@ describe("defineElement attributes (Number)", () => {
 
 describe("defineElement attributes (String)", () => {
   it("String creates string attribute", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-str-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { name: String },
+      attributes: { name: StringAttr },
     });
 
     await new Promise((r) => setTimeout(r, 20));
@@ -149,7 +150,7 @@ describe("defineElement attributes (String)", () => {
     document.body.appendChild(el);
     await new Promise((r) => setTimeout(r, 10));
 
-    expect(el.name).toBe("undefined");
+    expect(el.name).toBe("");
 
     el.name = "hello";
     expect(el.name).toBe("hello");
@@ -164,11 +165,11 @@ describe("defineElement attributes (String)", () => {
 
 describe("defineElement attributes (Boolean)", () => {
   it("Boolean creates boolean attribute", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-bool-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { active: Boolean },
+      attributes: { active: { toProp: Boolean } },
     });
 
     await new Promise((r) => setTimeout(r, 20));
@@ -186,16 +187,41 @@ describe("defineElement attributes (Boolean)", () => {
 
     el.remove();
   });
+
+  it("BooleanAttr spec parses 'true' as true, others as false; serializes true as '' (present), false as undefined (removed)", async () => {
+    const { defineElement, BooleanAttr } = await import("../src/defineElement.js");
+    const tag = `test-boolattr-${Date.now()}`;
+
+    const TestEl = defineElement(tag, {
+      attributes: { active: BooleanAttr },
+    });
+
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(el.active).toBe(false);
+    expect(el.hasAttribute("active")).toBe(false);
+
+    el.active = true;
+    expect(el.getAttribute("active")).toBe("");
+
+    el.active = false;
+    expect(el.hasAttribute("active")).toBe(false);
+
+    el.remove();
+  });
 });
 
 describe("defineElement attributes (custom transform function)", () => {
   it("bare transform function works", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-fn-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
       attributes: {
-        count: (v) => (v !== undefined ? Number(v) : 0),
+        count: { toProp: (v) => (v !== undefined ? Number(v) : 0) },
       },
     });
 
@@ -212,13 +238,13 @@ describe("defineElement attributes (custom transform function)", () => {
   });
 
   it("object form with type works", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-custom-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
       attributes: {
         items: {
-          type: (v: string | undefined) => (v ? v.split(",") : ["default"]),
+          toProp: (v) => (v ? v.split(",") : ["default"]),
         },
       },
     });
@@ -240,12 +266,12 @@ describe("defineElement attributes (custom transform function)", () => {
   });
 
   it("default value is used when attribute is missing", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-default-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
       attributes: {
-        count: { type: Number, default: 42 },
+        count: { toProp: Number, default: 42 },
       },
     });
 
@@ -265,12 +291,12 @@ describe("defineElement attributes (custom transform function)", () => {
   });
 
   it("default value is overridden by attribute", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-default-attr-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
       attributes: {
-        count: { type: Number, default: 42 },
+        count: { toProp: Number, default: 42 },
       },
     });
 
@@ -284,15 +310,42 @@ describe("defineElement attributes (custom transform function)", () => {
 
     el.remove();
   });
+
+  it("default value is restored after removeAttribute", async () => {
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
+    const tag = `test-default-remove-${Date.now()}`;
+
+    const TestEl = defineElement(tag, {
+      attributes: {
+        count: { toProp: Number, default: 42 },
+      },
+    });
+
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as InstanceType<typeof TestEl>;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(el.count).toBe(42);
+
+    el.count = 5;
+    expect(el.count).toBe(5);
+
+    el.removeAttribute("count");
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.count).toBe(42);
+
+    el.remove();
+  });
 });
 
 describe("defineElement attributes ($signal accessors)", () => {
   it("creates $signal accessors", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-sig-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { count: Number },
+      attributes: { count: NumberAttr },
     });
 
     await new Promise((r) => setTimeout(r, 20));
@@ -309,11 +362,11 @@ describe("defineElement attributes ($signal accessors)", () => {
   });
 
   it("attributeChangedCallback syncs to signal", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-sync-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { value: Number },
+      attributes: { value: NumberAttr },
     });
 
     await new Promise((r) => setTimeout(r, 20));
@@ -329,11 +382,11 @@ describe("defineElement attributes ($signal accessors)", () => {
   });
 
   it("removing attribute calls transform with undefined", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-attrrm-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { count: (v) => (v !== undefined ? Number(v) : 0) },
+      attributes: { count: { toProp: (v) => (v !== undefined ? Number(v) : 0) } },
     });
 
     await new Promise((r) => setTimeout(r, 20));
@@ -353,7 +406,7 @@ describe("defineElement attributes ($signal accessors)", () => {
 
 describe("defineElement events", () => {
   it("Number creates dispatch method", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-num-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -366,7 +419,7 @@ describe("defineElement events", () => {
   });
 
   it("dispatches and receives events via addEventListener", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-disp-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -386,7 +439,7 @@ describe("defineElement events", () => {
   });
 
   it("native event onchange property works", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-native-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -410,7 +463,7 @@ describe("defineElement events", () => {
   });
 
   it("native event onchange receives correct detail", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-native-detail-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -433,7 +486,7 @@ describe("defineElement events", () => {
   });
 
   it("custom event onmove property works", async () => {
-    const { defineElement, event } = await import("../src/defineElement.js");
+    const { defineElement, event, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-custom-prop-${Date.now()}`;
 
     interface Payload {
@@ -469,7 +522,7 @@ describe("defineElement events", () => {
   });
 
   it("custom event onmove receives correct detail", async () => {
-    const { defineElement, event } = await import("../src/defineElement.js");
+    const { defineElement, event, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-custom-detail-${Date.now()}`;
 
     interface Payload {
@@ -497,7 +550,7 @@ describe("defineElement events", () => {
   });
 
   it("native events do not register extra listeners", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-native-noextra-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -527,7 +580,7 @@ describe("defineElement events", () => {
   });
 
   it("custom events register addEventListener via setter", async () => {
-    const { defineElement, event } = await import("../src/defineElement.js");
+    const { defineElement, event, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-custom-addlistener-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -557,7 +610,7 @@ describe("defineElement events", () => {
   });
 
   it("replacing onmove removes old listener and adds new one", async () => {
-    const { defineElement, event } = await import("../src/defineElement.js");
+    const { defineElement, event, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-replace-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -585,7 +638,7 @@ describe("defineElement events", () => {
   });
 
   it("onmove getter returns the wrapper function", async () => {
-    const { defineElement, event } = await import("../src/defineElement.js");
+    const { defineElement, event, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-getter-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -610,7 +663,7 @@ describe("defineElement events", () => {
   });
 
   it("dispatchXxx with options", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-options-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -635,7 +688,7 @@ describe("defineElement events", () => {
   });
 
   it("void event dispatch works without detail", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-void-dispatch-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -657,7 +710,7 @@ describe("defineElement events", () => {
   });
 
   it("multiple events on same element work independently", async () => {
-    const { defineElement, event } = await import("../src/defineElement.js");
+    const { defineElement, event, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-multi-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -689,7 +742,7 @@ describe("defineElement events", () => {
   });
 
   it("setting onmove to null removes the listener", async () => {
-    const { defineElement, event } = await import("../src/defineElement.js");
+    const { defineElement, event, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-null-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -713,7 +766,7 @@ describe("defineElement events", () => {
   });
 
   it("kebab-case custom event works", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-kebab-custom-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -733,7 +786,7 @@ describe("defineElement events", () => {
   });
 
   it("undefined creates void event", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-void-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -746,7 +799,7 @@ describe("defineElement events", () => {
   });
 
   it("String creates string event", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-str-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -759,7 +812,7 @@ describe("defineElement events", () => {
   });
 
   it("event<T>() for custom types", async () => {
-    const { defineElement, event } = await import("../src/defineElement.js");
+    const { defineElement, event, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-evt-custom-${Date.now()}`;
 
     interface Payload {
@@ -779,7 +832,7 @@ describe("defineElement events", () => {
 
 describe("defineElement shadow & styles", () => {
   it("creates shadow root by default", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-shadow-${Date.now()}`;
 
     const TestEl = defineElement(tag);
@@ -793,7 +846,7 @@ describe("defineElement shadow & styles", () => {
   });
 
   it("adopts styles into shadow root", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-styles-${Date.now()}`;
 
     const sheet = css`
@@ -814,7 +867,7 @@ describe("defineElement shadow & styles", () => {
   });
 
   it("adopts multiple styles", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-multistyle-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -841,7 +894,7 @@ describe("defineElement shadow & styles", () => {
   });
 
   it("does not create shadow root when shadow: false", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-noshadow-${Date.now()}`;
 
     const TestEl = defineElement(tag, { shadow: false });
@@ -857,11 +910,11 @@ describe("defineElement shadow & styles", () => {
 
 describe("defineElement combined", () => {
   it("works with attributes + events + shadow + styles", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-combined-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { count: Number },
+      attributes: { count: NumberAttr },
       events: { change: Number },
       styles: css`
         :host {
@@ -886,16 +939,16 @@ describe("defineElement combined", () => {
   });
 
   it("mixed attribute spec styles work together", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-mixed-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
       attributes: {
-        count: Number,
-        name: String,
-        active: Boolean,
+        count: NumberAttr,
+        name: StringAttr,
+        active: { toProp: Boolean },
         items: {
-          type: (v: string | undefined) => (v ? v.split(",") : []),
+          toProp: (v) => (v ? v.split(",") : []),
         },
       },
       events: {
@@ -926,7 +979,7 @@ describe("defineElement combined", () => {
 
 describe("defineElement render function", () => {
   it("render function receives element as this", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-render-this-${Date.now()}`;
     let thisValue: any = null;
 
@@ -947,7 +1000,7 @@ describe("defineElement render function", () => {
   });
 
   it("render function output is inserted into shadow root", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-render-output-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -966,11 +1019,11 @@ describe("defineElement render function", () => {
   });
 
   it("render function can access attributes via this", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-render-attr-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { label: String },
+      attributes: { label: StringAttr },
       render(this: any) {
         return span(this.label);
       },
@@ -989,14 +1042,14 @@ describe("defineElement render function", () => {
 
 describe("defineElement slot binding ({{name}})", () => {
   it("text slot with attribute signal updates reactively", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-slot-text-${Date.now()}`;
 
     const tpl = document.createElement("template");
     tpl.innerHTML = `<span>{{name}}</span>`;
 
     const TestEl = defineElement(tag, {
-      attributes: { name: String },
+      attributes: { name: StringAttr },
       template: tpl,
     });
 
@@ -1017,14 +1070,14 @@ describe("defineElement slot binding ({{name}})", () => {
   });
 
   it("attribute slot with signal updates reactively", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-slot-attr-${Date.now()}`;
 
     const tpl = document.createElement("template");
     tpl.innerHTML = `<span class="{{theme}}">text</span>`;
 
     const TestEl = defineElement(tag, {
-      attributes: { theme: String },
+      attributes: { theme: StringAttr },
       template: tpl,
     });
 
@@ -1045,14 +1098,14 @@ describe("defineElement slot binding ({{name}})", () => {
   });
 
   it("{{@event}} dispatch binding bridges DOM event to custom event", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-slot-dispatch-${Date.now()}`;
 
     const tpl = document.createElement("template");
     tpl.innerHTML = `<input onchange="{{@change}}" />`;
 
     const TestEl = defineElement(tag, {
-      attributes: { value: String },
+      attributes: { value: StringAttr },
       events: { change: String },
       template: tpl,
     });
@@ -1077,14 +1130,14 @@ describe("defineElement slot binding ({{name}})", () => {
   });
 
   it("slot with boolean attribute value reflects signal", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-slot-bool-${Date.now()}`;
 
     const tpl = document.createElement("template");
     tpl.innerHTML = `<span data-active="{{active}}">click</span>`;
 
     const TestEl = defineElement(tag, {
-      attributes: { active: Boolean },
+      attributes: { active: { toProp: Boolean } },
       template: tpl,
     });
 
@@ -1105,14 +1158,14 @@ describe("defineElement slot binding ({{name}})", () => {
   });
 
   it("mixed text with multiple slots", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-slot-multi-${Date.now()}`;
 
     const tpl = document.createElement("template");
     tpl.innerHTML = `<span>{{first}} {{last}}</span>`;
 
     const TestEl = defineElement(tag, {
-      attributes: { first: String, last: String },
+      attributes: { first: StringAttr, last: StringAttr },
       template: tpl,
     });
 
@@ -1132,18 +1185,16 @@ describe("defineElement slot binding ({{name}})", () => {
 });
 
 describe("defineElement disconnectedCallback cleanup", () => {
-  it("disconnectedCallback runs disposables", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+  it("disconnectedCallback runs registered disposables (template binding)", async () => {
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-disconnect-${Date.now()}`;
-    let effectRuns = 0;
+
+    const tpl = document.createElement("template");
+    tpl.innerHTML = `<span data-count="{{count}}">x</span>`;
 
     const TestEl = defineElement(tag, {
-      attributes: { count: Number },
-      render(this: any) {
-        effectRuns++;
-        this.$count.get();
-        return String(this.count);
-      },
+      attributes: { count: NumberAttr },
+      template: tpl,
     });
 
     await new Promise((r) => setTimeout(r, 20));
@@ -1152,21 +1203,22 @@ describe("defineElement disconnectedCallback cleanup", () => {
     document.body.appendChild(el);
     await new Promise((r) => setTimeout(r, 50));
 
-    expect(effectRuns).toBeGreaterThanOrEqual(1);
+    const span = el.shadowRoot!.querySelector("span")!;
+    expect(span.getAttribute("data-count")).toBe("1");
 
     el.remove();
-    await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 20));
 
-    const prevRuns = effectRuns;
     el.setAttribute("count", "2");
     await new Promise((r) => setTimeout(r, 50));
-    expect(effectRuns).toBe(prevRuns);
+
+    expect(span.getAttribute("data-count")).toBe("1");
   });
 });
 
 describe("defineElement dispatchXxx return value", () => {
   it("dispatchChange returns boolean", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-dispatch-ret-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -1186,11 +1238,11 @@ describe("defineElement dispatchXxx return value", () => {
 
 describe("defineElement attribute before connectedCallback", () => {
   it("setting attribute before connecting initializes signal correctly", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-pre-attr-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { count: { type: Number, default: 0 } },
+      attributes: { count: { toProp: Number, default: 0 } },
     });
 
     await new Promise((r) => setTimeout(r, 20));
@@ -1208,7 +1260,7 @@ describe("defineElement attribute before connectedCallback", () => {
 
 describe("defineElement shadow mode closed", () => {
   it("creates closed shadow root", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-closed-shadow-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -1228,7 +1280,7 @@ describe("defineElement shadow mode closed", () => {
 
 describe("defineElement .h tag function", () => {
   it("TestEl.h() creates an element with no args", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-h-noargs-${Date.now()}`;
 
     const TestEl = defineElement(tag);
@@ -1246,11 +1298,11 @@ describe("defineElement .h tag function", () => {
   });
 
   it("TestEl.h(attrs, ...children) creates element with attributes and children", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-h-attrs-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { count: { type: Number, default: 0 } },
+      attributes: { count: { toProp: Number, default: 0 } },
     });
 
     await new Promise((r) => setTimeout(r, 20));
@@ -1265,7 +1317,7 @@ describe("defineElement .h tag function", () => {
   });
 
   it("TestEl.h(children) with plain children only", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-h-children-${Date.now()}`;
 
     const TestEl = defineElement(tag, { shadow: false });
@@ -1281,7 +1333,7 @@ describe("defineElement .h tag function", () => {
   });
 
   it("TestEl.h with event listener props", async () => {
-    const { defineElement, event } = await import("../src/defineElement.js");
+    const { defineElement, event, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-h-events-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -1306,7 +1358,7 @@ describe("defineElement .h tag function", () => {
   });
 
   it("TestEl is the element constructor", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-ctor-prop-${Date.now()}`;
 
     const TestEl = defineElement(tag);
@@ -1320,7 +1372,7 @@ describe("defineElement .h tag function", () => {
 
 describe("defineElement h(TestEl) integration", () => {
   it("h(TestEl) creates an element via .h", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-h-tagfn-${Date.now()}`;
 
     const TestEl = defineElement(tag);
@@ -1337,11 +1389,11 @@ describe("defineElement h(TestEl) integration", () => {
   });
 
   it("h(TestEl, attrs, children) passes attributes and children", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-h-tagfn-attrs-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { label: String },
+      attributes: { label: StringAttr },
     });
 
     await new Promise((r) => setTimeout(r, 20));
@@ -1355,7 +1407,7 @@ describe("defineElement h(TestEl) integration", () => {
   });
 
   it("h(TestEl) with nested elements", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-h-nested-${Date.now()}`;
 
     const TestEl = defineElement(tag, { shadow: false });
@@ -1375,7 +1427,7 @@ describe("defineElement h(TestEl) integration", () => {
 
 describe("defineElement new TestEl()", () => {
   it("new TestEl() creates an element instance", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-new-basic-${Date.now()}`;
 
     const TestEl = defineElement(tag);
@@ -1392,11 +1444,11 @@ describe("defineElement new TestEl()", () => {
   });
 
   it("new TestEl() element has attribute accessors", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-new-attr-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { count: { type: Number, default: 0 } },
+      attributes: { count: { toProp: Number, default: 0 } },
     });
 
     await new Promise((r) => setTimeout(r, 20));
@@ -1413,11 +1465,11 @@ describe("defineElement new TestEl()", () => {
   });
 
   it("new TestEl() element has signal accessors", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-new-signal-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { value: { type: Number, default: 0 } },
+      attributes: { value: { toProp: Number, default: 0 } },
     });
 
     await new Promise((r) => setTimeout(r, 20));
@@ -1434,7 +1486,7 @@ describe("defineElement new TestEl()", () => {
   });
 
   it("new TestEl() element has dispatch methods", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-new-dispatch-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
@@ -1456,7 +1508,7 @@ describe("defineElement new TestEl()", () => {
   });
 
   it("new TestEl() element has shadow root", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-new-shadow-${Date.now()}`;
 
     const TestEl = defineElement(tag);
@@ -1472,11 +1524,11 @@ describe("defineElement new TestEl()", () => {
   });
 
   it("new TestEl() vs TestEl.h() produce equivalent elements", async () => {
-    const { defineElement } = await import("../src/defineElement.js");
+    const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-new-vs-h-${Date.now()}`;
 
     const TestEl = defineElement(tag, {
-      attributes: { count: { type: Number, default: 0 } },
+      attributes: { count: { toProp: Number, default: 0 } },
       events: { change: Number },
     });
 
@@ -1498,5 +1550,328 @@ describe("defineElement new TestEl()", () => {
 
     elFromH.remove();
     elFromNew.remove();
+  });
+});
+
+describe("defineElement config.methods", () => {
+  it("attaches a single method to the element prototype", async () => {
+    const { defineElement, StringAttr } = await import("../src/defineElement.js");
+    const tag = `test-methods-single-${Date.now()}`;
+
+    function greet(this: any) {
+      return `Hello, ${this.getAttribute("name") || "world"}`;
+    }
+
+    const TestEl = defineElement(tag, {
+      attributes: { name: StringAttr },
+      methods: { greet },
+    });
+
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(typeof el.greet).toBe("function");
+    expect(el.greet()).toBe("Hello, world");
+    el.setAttribute("name", "Alice");
+    expect(el.greet()).toBe("Hello, Alice");
+
+    el.remove();
+  });
+
+  it("attaches multiple methods to the element prototype", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-methods-multi-${Date.now()}`;
+
+    const TestEl = defineElement(tag, {
+      methods: {
+        foo(this: any) { return 1; },
+        bar(this: any) { return "two"; },
+      },
+    });
+
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(el.foo()).toBe(1);
+    expect(el.bar()).toBe("two");
+
+    el.remove();
+  });
+});
+
+describe("defineElement non-signal prop in {{name}} attribute slot", () => {
+  it("sets the attribute from a non-signal string property", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-slot-nonsignal-${Date.now()}`;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = `<span class="{{label}}">text</span>`;
+
+    const TestEl = defineElement(tag, { template: tpl });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.label = "hello";
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 30));
+
+    const spanEl = el.shadowRoot?.querySelector("span");
+    expect(spanEl?.getAttribute("class")).toBe("hello");
+    el.remove();
+  });
+
+  it("removes the attribute when the non-signal property is null", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-slot-null-prop-${Date.now()}`;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = `<span class="{{label}}">text</span>`;
+
+    const TestEl = defineElement(tag, { template: tpl });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.label = null;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 30));
+
+    const spanEl = el.shadowRoot?.querySelector("span");
+    expect(spanEl?.hasAttribute("class")).toBe(false);
+    el.remove();
+  });
+
+  it("removes the attribute when the non-signal property is false", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-slot-false-prop-${Date.now()}`;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = `<span class="{{label}}">text</span>`;
+
+    const TestEl = defineElement(tag, { template: tpl });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.label = false;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 30));
+
+    const spanEl = el.shadowRoot?.querySelector("span");
+    expect(spanEl?.hasAttribute("class")).toBe(false);
+    el.remove();
+  });
+});
+
+describe("defineElement mixed content in attribute slot", () => {
+  it("substitutes multiple signal markers in a single attribute value", async () => {
+    const { defineElement, StringAttr } = await import("../src/defineElement.js");
+    const tag = `test-slot-mixed-signal-${Date.now()}`;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = `<span data-prefix="{{first}}-{{last}}">text</span>`;
+
+    const TestEl = defineElement(tag, {
+      attributes: { first: StringAttr, last: StringAttr },
+      template: tpl,
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.setAttribute("first", "John");
+    el.setAttribute("last", "Doe");
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 30));
+
+    const spanEl = el.shadowRoot?.querySelector("span");
+    expect(spanEl?.getAttribute("data-prefix")).toBe("John-Doe");
+    el.remove();
+  });
+
+  it("substitutes a mix of signal and non-signal markers", async () => {
+    const { defineElement, StringAttr } = await import("../src/defineElement.js");
+    const tag = `test-slot-mixed-signal-value-${Date.now()}`;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = `<span data-prefix="{{first}}-{{literal}}">text</span>`;
+
+    const TestEl = defineElement(tag, {
+      attributes: { first: StringAttr },
+      template: tpl,
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.setAttribute("first", "John");
+    el.literal = "const";
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 30));
+
+    const spanEl = el.shadowRoot?.querySelector("span");
+    expect(spanEl?.getAttribute("data-prefix")).toBe("John-const");
+    el.remove();
+  });
+
+  it("substitutes a non-signal null value as empty string", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-slot-mixed-null-value-${Date.now()}`;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = `<span data-prefix="x-{{nullable}}-y">text</span>`;
+
+    const TestEl = defineElement(tag, { template: tpl });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.nullable = null;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 30));
+
+    const spanEl = el.shadowRoot?.querySelector("span");
+    expect(spanEl?.getAttribute("data-prefix")).toBe("x--y");
+    el.remove();
+  });
+
+  it("substitutes an absent marker as empty string", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-slot-absent-marker-${Date.now()}`;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = `<span data-prefix="before-{{absent}}">text</span>`;
+
+    const TestEl = defineElement(tag, { template: tpl });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 30));
+
+    const spanEl = el.shadowRoot?.querySelector("span");
+    expect(spanEl?.getAttribute("data-prefix")).toBe("before-");
+    el.remove();
+  });
+});
+
+describe("defineElement text content binding (single {{name}} + mixed)", () => {
+  it("replaces a single {{name}} text node with a non-signal string value", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-text-singleslot-${Date.now()}`;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = `<span>{{who}}</span>`;
+
+    const TestEl = defineElement(tag, { template: tpl });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.who = "World";
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 30));
+
+    const spanEl = el.shadowRoot?.querySelector("span");
+    expect(spanEl?.textContent).toBe("World");
+    el.remove();
+  });
+
+  it("replaces a non-signal marker in mixed text as String(value)", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-text-mixed-nonsignal-${Date.now()}`;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = `<span>Hi {{name}}, welcome!</span>`;
+
+    const TestEl = defineElement(tag, { template: tpl });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.name = "Alice";
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 30));
+
+    const spanEl = el.shadowRoot?.querySelector("span");
+    expect(spanEl?.textContent).toBe("Hi Alice, welcome!");
+    el.remove();
+  });
+
+  it("renders a signal + absent marker in mixed text (covers readTemplateVar absent branch)", async () => {
+    const { defineElement, StringAttr } = await import("../src/defineElement.js");
+    const tag = `test-text-mixed-absent-${Date.now()}`;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = `<span>{{first}} {{absent}}</span>`;
+
+    const TestEl = defineElement(tag, {
+      attributes: { first: StringAttr },
+      template: tpl,
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.setAttribute("first", "John");
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 30));
+
+    const spanEl = el.shadowRoot?.querySelector("span");
+    // The effect re-runs the replace; the absent marker falls into the
+    // readTemplateVar "absent" branch and returns "".
+    expect(spanEl?.textContent).toBe("John ");
+    el.remove();
+  });
+});
+
+describe("defineElement on{{name}} non-signal event handler binding", () => {
+  it("binds a non-signal function property to the element's event name", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-on-handler-nonsignal-${Date.now()}`;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = `<button onclick="{{onClick}}">Click</button>`;
+
+    const TestEl = defineElement(tag, { template: tpl });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    let clicked = 0;
+    el.onClick = function (this: HTMLElement) { clicked++; };
+    document.body.appendChild(el);
+    // queueMicrotask inside bindSlots defers the binding; wait for it.
+    await new Promise((r) => setTimeout(r, 30));
+
+    const btn = el.shadowRoot?.querySelector("button") as HTMLElement;
+    btn?.click();
+    expect(clicked).toBe(1);
+    el.remove();
+  });
+
+  it("binds a signal-valued handler (reactive) to the element's event name", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-on-handler-signal-${Date.now()}`;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = `<button onclick="{{onClick}}">Click</button>`;
+
+    // onClick is declared as an attribute → element gets a $onClick signal.
+    // The parse function ignores the raw attribute value and returns a sentinel;
+    // the real handler is set via $onClick.set().
+    const noop = () => {};
+    const TestEl = defineElement(tag, {
+      attributes: { onClick: { toProp: () => noop, default: noop } },
+      template: tpl,
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    let clicks = 0;
+    const handler = function (this: HTMLElement) { clicks++; };
+    el.$onClick.set(handler as any);
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 30));
+
+    const btn = el.shadowRoot?.querySelector("button") as HTMLElement;
+    btn?.click();
+    expect(clicks).toBe(1);
+
+    // Update the signal; effect should rebind.
+    let clicks2 = 0;
+    el.$onClick.set(function (this: HTMLElement) { clicks2++; } as any);
+    await new Promise((r) => setTimeout(r, 30));
+    btn?.click();
+    expect(clicks2).toBe(1);
+    el.remove();
+  });
+});
+
+describe("defineElement property setter: null serialization removes attribute", () => {
+  it("removes the attribute when the property is set to null", async () => {
+    const { defineElement, NumberAttr } = await import("../src/defineElement.js");
+    const tag = `test-setter-null-${Date.now()}`;
+    const TestEl = defineElement(tag, {
+      attributes: { count: NumberAttr },
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.setAttribute("count", "42");
+    expect(el.getAttribute("count")).toBe("42");
+    el.count = null;
+    expect(el.hasAttribute("count")).toBe(false);
+    el.remove();
   });
 });

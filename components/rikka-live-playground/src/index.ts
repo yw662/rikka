@@ -4,45 +4,186 @@ import {
   event,
   type RikkaElement,
   type ElementConfig,
+  type AttributeSpec,
 } from "@rikka/elements";
 import { div, textarea, button, pre, span, section } from "@rikka/dom";
+import { computed, effect } from "@rikka/signal";
 import * as esbuild from "esbuild-wasm";
 import wasmUrl from "esbuild-wasm/esbuild.wasm?url";
 
 const livePlaygroundStyles = css`
   :host {
     display: block;
+
+    --pg-bg: #0d1117;
+    --pg-surface: #161b22;
+    --pg-surface-elevated: #1a1a2e;
+    --pg-surface-2: #0f0f1a;
+    --pg-surface-hover: #1f2937;
+
+    --pg-border: #334155;
+
+    --pg-text: #e6edf3;
+    --pg-text-muted: #94a3b8;
+    --pg-text-subtle: #64748b;
+    --pg-text-strong: #e2e8f0;
+    --pg-text-inverse: #ffffff;
+
+    --pg-accent: #6366f1;
+    --pg-accent-soft: rgba(99, 102, 241, 0.12);
+    --pg-accent-soft-strong: rgba(99, 102, 241, 0.22);
+    --pg-accent-active: #a5b4fc;
+    --pg-success: #238636;
+    --pg-success-hover: #2ea043;
+    --pg-warn: #d29922;
+    --pg-error: #f85149;
+    --pg-error-bg: rgba(248, 81, 73, 0.08);
+    --pg-info: #58a6ff;
+
+    --pg-handle-grip: #475569;
+    --pg-spinner-track: #334155;
+    --pg-spinner-active: #6366f1;
+  }
+  :host([fullscreen]) {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    background: var(--pg-bg);
+  }
+  :host([fullscreen]) .container {
+    height: 100%;
+    border-radius: 0;
+    border: none;
+  }
+  :host([fullscreen]) .preview-handle {
+    display: none;
   }
   .container {
-    border: 1px solid #334155;
+    border: 1px solid var(--pg-border);
     border-radius: 0.75rem;
     overflow: hidden;
-    background: #0d1117;
+    background: var(--pg-bg);
+    display: flex;
+    flex-direction: column;
+  }
+  .body {
+    display: flex;
+    flex-direction: column; /* always column: split-area + previewHandle at bottom */
+    min-height: 0;
+    overflow: hidden;
+  }
+  .split-area {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .body.layout-vertical .split-area {
+    flex-direction: column;
+  }
+  .body.layout-horizontal .split-area {
+    flex-direction: row;
+  }
+  .editor-pane,
+  .preview-pane {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+  }
+  /* Vertical split: editor has fixed height, preview fills rest */
+  .body.layout-vertical .editor-pane {
+    flex: 0 0 auto;
+  }
+  .body.layout-vertical .preview-pane {
+    flex: 1 1 auto;
+  }
+  /* When only one pane is visible, it fills the entire split-area */
+  .split-area.single-editor > .editor-pane,
+  .split-area.single-preview > .preview-pane {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+  /* Horizontal split: editor has fixed width, preview fills rest */
+  .body.layout-horizontal .editor-pane {
+    flex: 0 0 auto;
+    height: 100%;
+  }
+  .body.layout-horizontal .preview-pane {
+    flex: 1 1 auto;
+    height: 100%;
+  }
+  .pane-hidden {
+    display: none !important;
   }
   .header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0.5rem 1rem;
-    background: #161b22;
-    border-bottom: 1px solid #334155;
+    background: var(--pg-surface);
+    border-bottom: 1px solid var(--pg-border);
+    flex-shrink: 0;
   }
   .title {
     font-size: 0.75rem;
     font-weight: 600;
-    color: #94a3b8;
+    color: var(--pg-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
   .actions {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.4rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .btn-group {
+    display: inline-flex;
+    border: 1px solid var(--pg-border);
+    border-radius: 0.375rem;
+    overflow: hidden;
+    background: transparent;
+  }
+  .icon-btn {
+    padding: 0.35rem 0.55rem;
+    font-size: 0.75rem;
+    background: transparent;
+    color: var(--pg-text-muted);
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      background 0.15s,
+      color 0.15s;
+    line-height: 1;
+  }
+  .icon-btn:hover {
+    background: var(--pg-accent-soft);
+    color: var(--pg-text-strong);
+  }
+  .icon-btn.active {
+    background: var(--pg-accent-soft-strong);
+    color: var(--pg-accent-active);
+  }
+  .icon-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .btn-divider {
+    width: 1px;
+    background: var(--pg-border);
   }
   .run-btn {
     padding: 0.35rem 0.75rem;
     font-size: 0.75rem;
-    background: #238636;
-    color: white;
+    background: var(--pg-success);
+    color: var(--pg-text-inverse);
     border: none;
     border-radius: 0.375rem;
     cursor: pointer;
@@ -52,87 +193,123 @@ const livePlaygroundStyles = css`
     transition: background 0.2s;
   }
   .run-btn:hover {
-    background: #2ea043;
+    background: var(--pg-success-hover);
   }
   .reset-btn {
     padding: 0.35rem 0.75rem;
     font-size: 0.75rem;
     background: transparent;
-    color: #94a3b8;
-    border: 1px solid #334155;
+    color: var(--pg-text-muted);
+    border: 1px solid var(--pg-border);
     border-radius: 0.375rem;
     cursor: pointer;
   }
   .reset-btn:hover {
-    border-color: #6366f1;
-    color: #e2e8f0;
+    border-color: var(--pg-accent);
+    color: var(--pg-text-strong);
   }
   .editor-area {
     width: 100%;
+    height: 100%;
     box-sizing: border-box;
     font-family: "JetBrains Mono", "Fira Code", monospace;
     font-size: 0.85rem;
     line-height: 1.6;
-    background: #0d1117;
-    color: #e6edf3;
+    background: var(--pg-bg);
+    color: var(--pg-text);
     padding: 1rem;
     border: none;
-    border-bottom: 1px solid #334155;
-    resize: vertical;
+    resize: none;
     outline: none;
-    min-height: 120px;
+    flex: 1;
+    min-height: 60px;
+  }
+  .body.layout-horizontal .editor-area {
+    min-width: 120px;
   }
   .preview-section {
     display: flex;
     flex-direction: column;
-    background: #1a1a2e;
-    min-height: 80px;
-    height: 250px;
+    background: var(--pg-surface-elevated);
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
   }
   .preview-label {
     font-size: 0.7rem;
     font-weight: 600;
-    color: #64748b;
+    color: var(--pg-text-subtle);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     padding: 0.75rem 1rem 0 1rem;
+    flex-shrink: 0;
   }
   .preview-area {
     flex: 1;
-    background: #0f0f1a;
-    border: 1px solid #334155;
+    background: var(--pg-surface-2);
+    border: 1px solid var(--pg-border);
     border-radius: 0.5rem;
-    margin: 0.5rem 1rem;
+    margin: 0.5rem 1rem 1rem 1rem;
     padding: 1rem;
     min-height: 40px;
     overflow: auto;
   }
-  .resize-handle {
-    height: 8px;
-    background: #161b22;
+  /* ===== Split handle: between editor and preview ===== */
+  .resize-handle.editor-handle {
+    flex-shrink: 0;
+    background: var(--pg-surface);
     cursor: ns-resize;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-top: 1px solid #334155;
-    flex-shrink: 0;
+    border-top: 1px solid var(--pg-border);
+    border-bottom: 1px solid var(--pg-border);
     transition: background 0.2s;
+    position: relative;
   }
+  /* Horizontal layout: split handle becomes vertical bar */
+  .body.layout-horizontal .resize-handle.editor-handle {
+    width: 8px;
+    height: auto;
+    cursor: ew-resize;
+    border-top: none;
+    border-bottom: none;
+    border-left: 1px solid var(--pg-border);
+    border-right: 1px solid var(--pg-border);
+  }
+
+  /* ===== Bottom handle: adjusts total playground height ===== */
+  .resize-handle.preview-handle {
+    flex-shrink: 0;
+    background: var(--pg-surface);
+    cursor: ns-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-top: 1px solid var(--pg-border);
+    transition: background 0.2s;
+    position: relative;
+  }
+
   .resize-handle:hover,
   .resize-handle.active {
-    background: #1f2937;
+    background: var(--pg-surface-hover);
   }
   .resize-handle::after {
     content: "";
     width: 32px;
     height: 3px;
     border-radius: 2px;
-    background: #475569;
+    background: var(--pg-handle-grip);
     transition: background 0.2s;
+  }
+  .body.layout-horizontal .resize-handle.editor-handle::after {
+    width: 3px;
+    height: 32px;
   }
   .resize-handle:hover::after,
   .resize-handle.active::after {
-    background: #6366f1;
+    background: var(--pg-accent);
   }
   .preview-iframe {
     width: 100%;
@@ -145,12 +322,13 @@ const livePlaygroundStyles = css`
     font-family: "JetBrains Mono", monospace;
     font-size: 0.8rem;
     padding: 0.75rem 1rem;
-    color: #f85149;
-    background: rgba(248, 81, 73, 0.08);
-    border-top: 1px solid #334155;
+    color: var(--pg-error);
+    background: var(--pg-error-bg);
+    border-top: 1px solid var(--pg-border);
     white-space: pre-wrap;
     margin: 0;
     display: none;
+    flex-shrink: 0;
   }
   .error-area.has-error {
     display: block;
@@ -163,30 +341,109 @@ const livePlaygroundStyles = css`
     height: 100%;
     min-height: 60px;
     gap: 0.75rem;
-    color: #64748b;
+    color: var(--pg-text-subtle);
   }
   .loading-spinner {
     width: 24px;
     height: 24px;
-    border: 2.5px solid #334155;
-    border-top-color: #6366f1;
+    border: 2.5px solid var(--pg-spinner-track);
+    border-top-color: var(--pg-spinner-active);
     border-radius: 50%;
     animation: rikka-spin 0.8s linear infinite;
   }
   @keyframes rikka-spin {
-    to { transform: rotate(360deg); }
+    to {
+      transform: rotate(360deg);
+    }
   }
   .loading-text {
     font-size: 0.75rem;
     letter-spacing: 0.03em;
   }
+  .icon-svg {
+    width: 14px;
+    height: 14px;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
 `;
+
+const PLAYGROUND_DISPOSABLES_KEY = Symbol.for("rikka.disposables");
+
+function registerElementDisposable(el: HTMLElement, dispose: () => void): void {
+  const internal = el as unknown as Record<symbol, (() => void)[] | undefined>;
+  let list = internal[PLAYGROUND_DISPOSABLES_KEY];
+  if (!list) {
+    list = [];
+    internal[PLAYGROUND_DISPOSABLES_KEY] = list;
+  }
+  list.push(dispose);
+}
+
+const PLAYGROUND_CSS_VARS = [
+  "--pg-bg",
+  "--pg-surface",
+  "--pg-surface-elevated",
+  "--pg-surface-2",
+  "--pg-surface-hover",
+  "--pg-border",
+  "--pg-text",
+  "--pg-text-muted",
+  "--pg-text-subtle",
+  "--pg-text-strong",
+  "--pg-text-inverse",
+  "--pg-accent",
+  "--pg-accent-soft",
+  "--pg-accent-soft-strong",
+  "--pg-accent-active",
+  "--pg-success",
+  "--pg-success-hover",
+  "--pg-warn",
+  "--pg-error",
+  "--pg-error-bg",
+  "--pg-info",
+  "--pg-handle-grip",
+  "--pg-spinner-track",
+  "--pg-spinner-active",
+] as const;
+
+function getPlaygroundVars(host: HTMLElement): string {
+  const cs = getComputedStyle(host);
+  return PLAYGROUND_CSS_VARS.map(
+    (v) => `${v}: ${cs.getPropertyValue(v).trim() || "initial"};`,
+  ).join(" ");
+}
+
+const THEME_WATCHER_KEY = Symbol.for("rikka.livePlayground.themeWatcher");
+const THEME_MESSAGE_TYPE = "__rikka_playground_theme";
+
+function watchDocumentTheme(callback: () => void): () => void {
+  if (
+    typeof document === "undefined" ||
+    typeof MutationObserver === "undefined"
+  ) {
+    return () => {};
+  }
+  const observer = new MutationObserver(() => callback());
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
+  return () => observer.disconnect();
+}
 
 let esbuildInitPromise: Promise<void> | null = null;
 
 async function ensureEsbuild() {
   if (!esbuildInitPromise) {
-    esbuildInitPromise = esbuild.initialize({ wasmURL: wasmUrl });
+    esbuildInitPromise = esbuild.initialize({ wasmURL: wasmUrl }).catch((e) => {
+      esbuildInitPromise = null;
+      throw e;
+    });
   }
   await esbuildInitPromise;
 }
@@ -209,7 +466,7 @@ function getBasePath(): string {
   return match ? match[0] : "";
 }
 
-function generateIframeHtml(basePath: string): string {
+function generateIframeHtml(basePath: string, themeVarsCss: string): string {
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -227,32 +484,46 @@ function generateIframeHtml(basePath: string): string {
     }
   }
   </script>
-  <style>
+  <style id="__rikka_theme_vars">
+    :root {
+      ${themeVarsCss}
+    }
     body {
       margin: 0;
       padding: 0;
       font-family: system-ui, -apple-system, sans-serif;
-      color: #e2e8f0;
+      color: var(--pg-text);
       background: transparent;
     }
     #app { padding: 0; }
     #console-output {
       margin-top: 1rem;
       padding: 0.75rem;
-      background: #0d1117;
-      border: 1px solid #30363d;
+      background: var(--pg-surface-2);
+      border: 1px solid var(--pg-border);
       border-radius: 0.375rem;
       font-family: 'Monaco', 'Menlo', monospace;
       font-size: 0.8125rem;
       max-height: 200px;
       overflow-y: auto;
+      color: var(--pg-text);
     }
     #console-output:empty { display: none; }
-    .console-log { color: #e2e8f0; margin: 0.125rem 0; }
-    .console-warn { color: #d29922; margin: 0.125rem 0; }
-    .console-error { color: #f85149; margin: 0.125rem 0; }
-    .console-info { color: #58a6ff; margin: 0.125rem 0; }
+    .console-log { color: var(--pg-text); margin: 0.125rem 0; }
+    .console-warn { color: var(--pg-warn); margin: 0.125rem 0; }
+    .console-error { color: var(--pg-error); margin: 0.125rem 0; }
+    .console-info { color: var(--pg-info); margin: 0.125rem 0; }
   </style>
+  <script>
+    (function() {
+      window.addEventListener("message", function(e) {
+        if (e.data && e.data.type === ${JSON.stringify(THEME_MESSAGE_TYPE)} && typeof e.data.css === "string") {
+          var s = document.getElementById("__rikka_theme_vars");
+          if (s) s.textContent = ":root { " + e.data.css + " }";
+        }
+      });
+    })();
+  </script>
 </head>
 <body>
   <div id="app"></div>
@@ -291,13 +562,15 @@ const SETUP_SCRIPT = `
     window.signal = RS.signal;
     window.computed = RS.computed;
     window.effect = RS.effect;
-    window.store = RS.store;
-    window.raw = RS.raw;
   }
   var RD = RikkaDom;
   if (RD) {
     window.h = RD.h;
     window.For = RD.For;
+    window.Show = RD.Show;
+    window.When = RD.When;
+    window.Switch = RD.Switch;
+    window.Match = RD.Match;
     window.div = RD.div;
     window.span = RD.span;
     window.a = RD.a;
@@ -340,22 +613,59 @@ const SETUP_SCRIPT = `
     window.template = RD.template;
     window.svg = RD.svg;
     window.circle = RD.circle;
+    window.path = RD.path;
+    window.rect = RD.rect;
+    window.line = RD.line;
+    window.polygon = RD.polygon;
+    window.polyline = RD.polyline;
+    window.g = RD.g;
+    window.defs = RD.defs;
+    window.use = RD.use;
+    window.foreignObject = RD.foreignObject;
+    window.clipPath = RD.clipPath;
+    window.pattern = RD.pattern;
+    window.marker = RD.marker;
+    window.mask = RD.mask;
+    window.image = RD.image;
+    window.linearGradient = RD.linearGradient;
+    window.radialGradient = RD.radialGradient;
+    window.stop = RD.stop;
+    window.symbol = RD.symbol;
+    window.filter = RD.filter;
+    window.ellipse = RD.ellipse;
+    window.text = RD.text;
+    window.tspan = RD.tspan;
+    window.textPath = RD.textPath;
+    window.svga = RD.svga;
+    window.svgscript = RD.svgscript;
+    window.svgstyle = RD.svgstyle;
+    window.svgtitle = RD.svgtitle;
+    window.svgtext = RD.svgtext;
+    window.svgspan = RD.svgspan;
+    window.svgtextPath = RD.svgtextPath;
     window.css = RD.css;
     window.inlineStyle = RD.inlineStyle;
-    window.render = RD.render;
   }
   var RE = RikkaElements;
   if (RE) {
     window.defineElement = RE.defineElement;
     window.event = RE.event;
+    window.StringAttr = RE.StringAttr;
+    window.NumberAttr = RE.NumberAttr;
+    window.BooleanAttr = RE.BooleanAttr;
   }
 `;
 
+type Panel = "both" | "editor" | "preview";
+type Layout = "vertical" | "horizontal";
+
 type LivePlaygroundConfig = ElementConfig & {
   attributes: {
-    code: (v: string | undefined) => string;
-    height: (v: string | undefined) => string;
-    title: (v: string | undefined) => string;
+    code: AttributeSpec<string>;
+    height: AttributeSpec<string>;
+    title: AttributeSpec<string>;
+    layout: AttributeSpec<Layout>;
+    panel: AttributeSpec<Panel>;
   };
   events: {
     error: ((domEvent: Event) => string) | undefined;
@@ -366,17 +676,82 @@ type LivePlaygroundConfig = ElementConfig & {
 type LivePlaygroundElement = RikkaElement<LivePlaygroundConfig> & {
   run: () => Promise<void>;
   reset: () => void;
+  toggleLayout: () => void;
+  togglePanel: (target: Panel) => void;
+  setLayout: (layout: Layout) => void;
+  setPanel: (panel: Panel) => void;
+  toggleFullscreen: () => Promise<void>;
+  exitFullscreen: () => Promise<void>;
   dispatchError: (
     msg: string,
     options?: Omit<CustomEventInit<string>, "detail">,
   ) => boolean;
 };
 
+function isValidLayout(v: string | undefined): v is Layout {
+  return v === "vertical" || v === "horizontal";
+}
+
+function isValidPanel(v: string | undefined): v is Panel {
+  return v === "both" || v === "editor" || v === "preview";
+}
+
+function iconFor(name: string): SVGSVGElement {
+  const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svgEl.setAttribute("class", "icon-svg");
+  svgEl.setAttribute("viewBox", "0 0 24 24");
+  const ns = "http://www.w3.org/2000/svg";
+  const make = (tag: string, attrs: Record<string, string>) => {
+    const node = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    svgEl.appendChild(node);
+    return node;
+  };
+  if (name === "layout-vertical") {
+    make("rect", { x: "3", y: "3", width: "18", height: "9", rx: "1" });
+    make("rect", { x: "3", y: "15", width: "18", height: "6", rx: "1" });
+  } else if (name === "layout-horizontal") {
+    make("rect", { x: "3", y: "3", width: "9", height: "18", rx: "1" });
+    make("rect", { x: "15", y: "3", width: "6", height: "18", rx: "1" });
+  } else if (name === "code") {
+    make("polyline", { points: "16 18 22 12 16 6" });
+    make("polyline", { points: "8 6 2 12 8 18" });
+  } else if (name === "eye") {
+    make("path", { d: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" });
+    make("circle", { cx: "12", cy: "12", r: "3" });
+  } else if (name === "expand") {
+    make("polyline", { points: "4 14 10 14 10 20" });
+    make("polyline", { points: "20 10 14 10 14 4" });
+    make("line", { x1: "14", y1: "10", x2: "21", y2: "3" });
+    make("line", { x1: "3", y1: "21", x2: "10", y2: "14" });
+  } else if (name === "shrink") {
+    make("polyline", { points: "4 20 4 14 10 14" });
+    make("polyline", { points: "20 4 14 4 14 10" });
+    make("line", { x1: "14", y1: "10", x2: "21", y2: "3" });
+    make("line", { x1: "3", y1: "21", x2: "10", y2: "14" });
+  }
+  return svgEl;
+}
+
 const RikkaLivePlayground = defineElement("rikka-live-playground", {
   attributes: {
-    code: (v: string | undefined) => v ?? "",
-    height: (v: string | undefined) => v ?? "200",
-    title: (v: string | undefined) => v ?? "Example",
+    code: { toProp: (v?: string) => v ?? "", toAttribute: (v?: string) => v },
+    height: {
+      toProp: (v?: string) => v ?? "200",
+      toAttribute: (v?: string) => v,
+    },
+    title: {
+      toProp: (v?: string) => v ?? "Example",
+      toAttribute: (v?: string) => v,
+    },
+    layout: {
+      toProp: (v?: string) => (isValidLayout(v) ? v : "vertical"),
+      toAttribute: (v?: string) => v,
+    },
+    panel: {
+      toProp: (v?: string) => (isValidPanel(v) ? v : "both"),
+      toAttribute: (v?: string) => v,
+    },
   },
   events: {
     error: event<string>(),
@@ -386,53 +761,17 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
     const self = this as LivePlaygroundElement;
     const initialCode = this.textContent?.trim() || this.code;
 
-    if (initialCode) {
-      queueMicrotask(() => self.run());
-    }
-
-    return div(
-      { class: "container" },
-      div(
-        { class: "header" },
-        span({ class: "title" }, this.title),
-        div(
-          { class: "actions" },
-          button({ class: "run-btn", onclick: () => self.run() }, "▶ Run"),
-          button({ class: "reset-btn", onclick: () => self.reset() }, "Reset"),
-        ),
-      ),
+    const editorPane = div(
+      { class: "editor-pane" },
       textarea({
         class: "editor-area",
-        style: { height: `${this.height}px` },
         spellcheck: false,
         defaultValue: this.textContent?.trim() || this.code,
       }),
-      div({
-        class: "resize-handle",
-        onmousedown: (e: MouseEvent) => {
-          e.preventDefault();
-          const handle = e.currentTarget as HTMLElement;
-          const editor = handle.previousElementSibling as HTMLElement;
-          if (!editor) return;
+    );
 
-          handle.classList.add("active");
-          const startY = e.clientY;
-          const startH = editor.offsetHeight;
-
-          const onMouseMove = (ev: MouseEvent) => {
-            editor.style.height = `${Math.max(60, startH + ev.clientY - startY)}px`;
-          };
-
-          const onMouseUp = () => {
-            handle.classList.remove("active");
-            document.removeEventListener("mousemove", onMouseMove);
-            document.removeEventListener("mouseup", onMouseUp);
-          };
-
-          document.addEventListener("mousemove", onMouseMove);
-          document.addEventListener("mouseup", onMouseUp);
-        },
-      }),
+    const previewPane = div(
+      { class: "preview-pane" },
       section(
         { class: "preview-section" },
         div({ class: "preview-label" }, "Preview"),
@@ -444,136 +783,608 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
             span({ class: "loading-text" }, "Loading..."),
           ),
         ),
-        div({
-          class: "resize-handle",
-          onmousedown: (e: MouseEvent) => {
-            e.preventDefault();
-            const handle = e.currentTarget as HTMLElement;
-            const section = handle.parentElement as HTMLElement;
-            if (!section) return;
-
-            handle.classList.add("active");
-            const startY = e.clientY;
-            const startH = section.offsetHeight;
-
-            const onMouseMove = (ev: MouseEvent) => {
-              section.style.height = `${Math.max(40, startH + ev.clientY - startY)}px`;
-            };
-
-            const onMouseUp = () => {
-              handle.classList.remove("active");
-              document.removeEventListener("mousemove", onMouseMove);
-              document.removeEventListener("mouseup", onMouseUp);
-            };
-
-            document.addEventListener("mousemove", onMouseMove);
-            document.addEventListener("mouseup", onMouseUp);
-          },
-        }),
       ),
+    );
+
+    const editorHandle = div({
+      class: "resize-handle editor-handle",
+      onmousedown: (e: MouseEvent) => {
+        e.preventDefault();
+        const handle = e.currentTarget as HTMLElement;
+        const editor = handle.previousElementSibling as HTMLElement;
+        if (!editor) return;
+
+        handle.classList.add("active");
+        const root = self.shadowRoot;
+        const body = root?.querySelector(".body") as HTMLElement | null;
+        const isHorizontal = body?.classList.contains("layout-horizontal");
+
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const startSize = isHorizontal
+          ? editor.offsetWidth
+          : editor.offsetHeight;
+
+        const onMouseMove = (ev: MouseEvent) => {
+          const delta = isHorizontal
+            ? ev.clientX - startX
+            : ev.clientY - startY;
+          const min = isHorizontal ? 120 : 60;
+          const next = Math.max(min, startSize + delta);
+          if (isHorizontal) {
+            editor.style.width = `${next}px`;
+            editor.style.height = "100%";
+          } else {
+            editor.style.height = `${next}px`;
+            editor.style.width = "100%";
+          }
+        };
+
+        const onMouseUp = () => {
+          handle.classList.remove("active");
+          document.removeEventListener("mousemove", onMouseMove);
+          document.removeEventListener("mouseup", onMouseUp);
+        };
+
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
+      },
+    });
+
+    const previewHandle = div({
+      class: "resize-handle preview-handle",
+      onmousedown: (e: MouseEvent) => {
+        e.preventDefault();
+        const handle = e.currentTarget as HTMLElement;
+        const bodyEl = handle.parentElement as HTMLElement;
+        if (!bodyEl) return;
+
+        handle.classList.add("active");
+        const startY = e.clientY;
+        const startH = bodyEl.offsetHeight;
+
+        const onMouseMove = (ev: MouseEvent) => {
+          const next = Math.max(120, startH + ev.clientY - startY);
+          bodyEl.style.height = `${next}px`;
+        };
+
+        const onMouseUp = () => {
+          handle.classList.remove("active");
+          document.removeEventListener("mousemove", onMouseMove);
+          document.removeEventListener("mouseup", onMouseUp);
+        };
+
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
+      },
+    });
+
+    const splitArea = div(
+      { class: "split-area" },
+      editorPane,
+      editorHandle,
+      previewPane,
+    );
+    const body = div(
+      {
+        class: `body layout-${this.layout}`,
+        style: computed(() => `height: ${this.$height.get()}px`),
+      },
+      splitArea,
+      previewHandle,
+    );
+
+    const layoutVerticalBtn = button(
+      {
+        class: "icon-btn",
+        type: "button",
+        "data-action": "layout-vertical",
+        "aria-label": "Vertical layout",
+        title: "Vertical layout",
+        onclick: () => self.setLayout("vertical"),
+      },
+      iconFor("layout-vertical"),
+    );
+    const layoutHorizontalBtn = button(
+      {
+        class: "icon-btn",
+        type: "button",
+        "data-action": "layout-horizontal",
+        "aria-label": "Horizontal layout",
+        title: "Horizontal layout",
+        onclick: () => self.setLayout("horizontal"),
+      },
+      iconFor("layout-horizontal"),
+    );
+
+    const layoutGroup = div(
+      { class: "btn-group" },
+      layoutVerticalBtn,
+      div({ class: "btn-divider" }),
+      layoutHorizontalBtn,
+    );
+
+    const showBothBtn = button(
+      {
+        class: "icon-btn",
+        type: "button",
+        "data-action": "panel-both",
+        "aria-label": "Show both panels",
+        title: "Show both panels",
+        onclick: () => self.setPanel("both"),
+      },
+      iconFor("layout-vertical"),
+    );
+    const editorToggleBtn = button(
+      {
+        class: "icon-btn",
+        type: "button",
+        "data-action": "panel-editor",
+        "aria-label": "Show editor only",
+        title: "Show editor only",
+        onclick: () => self.togglePanel("editor"),
+      },
+      iconFor("code"),
+    );
+    const previewToggleBtn = button(
+      {
+        class: "icon-btn",
+        type: "button",
+        "data-action": "panel-preview",
+        "aria-label": "Show preview only",
+        title: "Show preview only",
+        onclick: () => self.togglePanel("preview"),
+      },
+      iconFor("eye"),
+    );
+
+    const panelGroup = div(
+      { class: "btn-group" },
+      showBothBtn,
+      div({ class: "btn-divider" }),
+      editorToggleBtn,
+      div({ class: "btn-divider" }),
+      previewToggleBtn,
+    );
+
+    const fullscreenBtn = button(
+      {
+        class: "icon-btn",
+        type: "button",
+        "data-action": "fullscreen",
+        "aria-label": "Enter fullscreen",
+        title: "Enter fullscreen",
+        onclick: () => self.toggleFullscreen(),
+      },
+      iconFor("expand"),
+    );
+
+    const header = div(
+      { class: "header" },
+      span({ class: "title" }, this.title),
+      div(
+        { class: "actions" },
+        layoutGroup,
+        panelGroup,
+        fullscreenBtn,
+        div({ class: "btn-divider" }),
+        button({ class: "run-btn", onclick: () => self.run() }, "\u25B6 Run"),
+        button({ class: "reset-btn", onclick: () => self.reset() }, "Reset"),
+      ),
+    );
+
+    if (initialCode) {
+      queueMicrotask(() => self.run());
+    }
+
+    const slot = self as unknown as { [THEME_WATCHER_KEY]?: () => void };
+    slot[THEME_WATCHER_KEY]?.();
+    slot[THEME_WATCHER_KEY] = watchDocumentTheme(() => {
+      const iframe = self.shadowRoot?.querySelector(
+        ".preview-iframe",
+      ) as HTMLIFrameElement | null;
+      if (iframe?.contentWindow) {
+        try {
+          iframe.contentWindow.postMessage(
+            { type: THEME_MESSAGE_TYPE, css: getPlaygroundVars(self) },
+            "*",
+          );
+        } catch {
+          // ignore
+        }
+      }
+    });
+
+    const applyLayoutClass = (layout: Layout) => {
+      body.classList.toggle("layout-vertical", layout === "vertical");
+      body.classList.toggle("layout-horizontal", layout === "horizontal");
+      layoutVerticalBtn.classList.toggle("active", layout === "vertical");
+      layoutHorizontalBtn.classList.toggle("active", layout === "horizontal");
+      // Clear inline dimensions from previous layout's resize drag to avoid conflicts
+      if (layout === "horizontal") {
+        editorPane.style.removeProperty("width");
+        editorPane.style.setProperty("height", "100%");
+      } else {
+        editorPane.style.removeProperty("height");
+        editorPane.style.setProperty("width", "100%");
+      }
+    };
+
+    const applyPanelClass = (panel: Panel) => {
+      editorPane.classList.toggle("pane-hidden", panel === "preview");
+      previewPane.classList.toggle("pane-hidden", panel === "editor");
+      // Hide split handle when only one panel is visible
+      editorHandle.style.display = panel === "both" ? "" : "none";
+      // Mark split-area so CSS can make sole visible pane fill
+      splitArea.classList.remove("single-editor", "single-preview");
+      if (panel !== "both") {
+        splitArea.classList.add(
+          panel === "editor" ? "single-editor" : "single-preview",
+        );
+      }
+      showBothBtn.classList.toggle("active", panel === "both");
+      editorToggleBtn.classList.toggle("active", panel === "editor");
+      previewToggleBtn.classList.toggle("active", panel === "preview");
+    };
+
+    applyLayoutClass(this.layout);
+    applyPanelClass(this.panel);
+    applyFullscreenState(self, document.fullscreenElement === self);
+
+    effect(() => {
+      applyLayoutClass(this.$layout.get());
+    });
+
+    effect(() => {
+      applyPanelClass(this.$panel.get());
+    });
+
+    const fsHandler = () => {
+      applyFullscreenState(self, document.fullscreenElement === self);
+    };
+    document.addEventListener("fullscreenchange", fsHandler);
+    registerElementDisposable(self, () => {
+      document.removeEventListener("fullscreenchange", fsHandler);
+    });
+    registerElementDisposable(self, () => {
+      const themeSlot = self as unknown as { [THEME_WATCHER_KEY]?: () => void };
+      themeSlot[THEME_WATCHER_KEY]?.();
+      themeSlot[THEME_WATCHER_KEY] = undefined;
+    });
+
+    return div(
+      { class: "container" },
+      header,
+      body,
       pre({ class: "error-area" }),
     );
   },
 });
 
-(RikkaLivePlayground as any).prototype.run = async function (
-  this: LivePlaygroundElement,
-) {
-  const textareaEl = this.shadowRoot?.querySelector(
-    ".editor-area",
-  ) as HTMLTextAreaElement | null;
-  const previewEl = this.shadowRoot?.querySelector(
-    ".preview-area",
-  ) as HTMLElement | null;
-  const errorEl = this.shadowRoot?.querySelector(
-    ".error-area",
-  ) as HTMLPreElement | null;
-  const iframeEl = this.shadowRoot?.querySelector(
-    ".preview-iframe",
-  ) as HTMLIFrameElement | null;
-
-  if (!textareaEl || !previewEl || !errorEl) return;
-
-  const currentCode = textareaEl.value || this.textContent?.trim() || this.code;
-
-  errorEl.classList.remove("has-error");
-  errorEl.textContent = "";
-
-  if (iframeEl) {
-    iframeEl.remove();
+function applyFullscreenState(self: LivePlaygroundElement, isFs: boolean) {
+  const root = self.shadowRoot;
+  const btn = root?.querySelector(
+    '[data-action="fullscreen"]',
+  ) as HTMLButtonElement | null;
+  if (isFs) {
+    self.setAttribute("fullscreen", "");
+    if (btn) {
+      btn.replaceChildren();
+      btn.appendChild(iconFor("shrink"));
+      btn.setAttribute("aria-label", "Exit fullscreen");
+      btn.setAttribute("title", "Exit fullscreen");
+    }
+  } else {
+    self.removeAttribute("fullscreen");
+    if (btn) {
+      btn.replaceChildren();
+      btn.appendChild(iconFor("expand"));
+      btn.setAttribute("aria-label", "Enter fullscreen");
+      btn.setAttribute("title", "Enter fullscreen");
+    }
   }
+}
 
-  previewEl.innerHTML = "";
-  const loadingEl = document.createElement("div");
-  loadingEl.className = "loading-indicator";
-  loadingEl.innerHTML = '<div class="loading-spinner"></div><span class="loading-text">Loading...</span>';
-  previewEl.appendChild(loadingEl);
+(RikkaLivePlayground.prototype as unknown as Record<string, unknown>).run =
+  async function (this: LivePlaygroundElement) {
+    const textareaEl = this.shadowRoot?.querySelector(
+      ".editor-area",
+    ) as HTMLTextAreaElement | null;
+    const previewEl = this.shadowRoot?.querySelector(
+      ".preview-area",
+    ) as HTMLElement | null;
+    const errorEl = this.shadowRoot?.querySelector(
+      ".error-area",
+    ) as HTMLPreElement | null;
+    const iframeEl = this.shadowRoot?.querySelector(
+      ".preview-iframe",
+    ) as HTMLIFrameElement | null;
 
-  let compiledCode: string;
-  try {
-    compiledCode = await transformCode(currentCode);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    loadingEl.remove();
-    errorEl.textContent = `Compile Error: ${msg}`;
-    errorEl.classList.add("has-error");
-    this.dispatchError(msg);
+    if (!textareaEl || !previewEl || !errorEl) return;
+
+    const currentCode =
+      textareaEl.value || this.textContent?.trim() || this.code;
+
+    errorEl.classList.remove("has-error");
+    errorEl.textContent = "";
+
+    if (iframeEl) {
+      const resizer = (
+        iframeEl as HTMLIFrameElement & { __resizer?: ResizeObserver }
+      ).__resizer;
+      resizer?.disconnect();
+      iframeEl.remove();
+    }
+
+    previewEl.innerHTML = "";
+    const loadingEl = document.createElement("div");
+    loadingEl.className = "loading-indicator";
+    loadingEl.innerHTML =
+      '<div class="loading-spinner"></div><span class="loading-text">Loading...</span>';
+    previewEl.appendChild(loadingEl);
+
+    let compiledCode: string;
+    try {
+      compiledCode = await transformCode(currentCode);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      loadingEl.remove();
+      errorEl.textContent = `Compile Error: ${msg}`;
+      errorEl.classList.add("has-error");
+      this.dispatchError(msg);
+      return;
+    }
+
+    try {
+      const codeHtml = generateIframeWithCode(
+        compiledCode,
+        getPlaygroundVars(this),
+      );
+      const newIframe = document.createElement("iframe");
+      newIframe.className = "preview-iframe";
+      newIframe.sandbox.add("allow-scripts", "allow-same-origin");
+      newIframe.srcdoc = codeHtml;
+      previewEl.appendChild(newIframe);
+
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error("Iframe load timeout")),
+          10000,
+        );
+        newIframe.onload = () => {
+          clearTimeout(timeout);
+          loadingEl.remove();
+          let lastSetHeight = 0;
+          let rafId = 0;
+          const fitIframeToContent = () => {
+            if (!newIframe.isConnected) return;
+            const doc = newIframe.contentDocument;
+            if (!doc) return;
+            const body = doc.body;
+            const html = doc.documentElement;
+            const contentHeight = Math.max(
+              body?.scrollHeight || 0,
+              body?.offsetHeight || 0,
+              html?.clientHeight || 0,
+              html?.scrollHeight || 0,
+            );
+            const next = contentHeight > 0 ? contentHeight + 8 : 0;
+            if (next !== lastSetHeight) {
+              lastSetHeight = next;
+              cancelAnimationFrame(rafId);
+              rafId = requestAnimationFrame(() => {
+                if (!newIframe.isConnected) return;
+                newIframe.style.height = next > 0 ? `${next}px` : "";
+              });
+            }
+          };
+          fitIframeToContent();
+          const doc = newIframe.contentDocument;
+          if (doc?.body) {
+            const observer = new ResizeObserver(fitIframeToContent);
+            observer.observe(doc.body);
+            (
+              newIframe as HTMLIFrameElement & { __resizer?: ResizeObserver }
+            ).__resizer = observer;
+            registerElementDisposable(this, () => {
+              observer.disconnect();
+            });
+          }
+          resolve();
+        };
+        newIframe.onerror = () => {
+          clearTimeout(timeout);
+          reject(new Error("Iframe load error"));
+        };
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      loadingEl.remove();
+      errorEl.textContent = `Error: ${msg}`;
+      errorEl.classList.add("has-error");
+      this.dispatchError(msg);
+    }
+  };
+
+(RikkaLivePlayground.prototype as unknown as Record<string, unknown>).reset =
+  function (this: LivePlaygroundElement) {
+    const textareaEl = this.shadowRoot?.querySelector(
+      ".editor-area",
+    ) as HTMLTextAreaElement | null;
+    if (textareaEl) {
+      const originalCode = this.textContent?.trim() || this.code;
+      textareaEl.defaultValue = originalCode;
+      textareaEl.value = originalCode;
+    }
+    this.run();
+  };
+
+(
+  RikkaLivePlayground.prototype as unknown as Record<string, unknown>
+).toggleLayout = function (this: LivePlaygroundElement) {
+  this.setLayout(this.layout === "vertical" ? "horizontal" : "vertical");
+};
+
+(
+  RikkaLivePlayground.prototype as unknown as Record<string, unknown>
+).setLayout = function (this: LivePlaygroundElement, layout: Layout) {
+  this.layout = layout;
+};
+
+(
+  RikkaLivePlayground.prototype as unknown as Record<string, unknown>
+).togglePanel = function (this: LivePlaygroundElement, target: Panel) {
+  const next: Panel = this.panel === target ? "both" : target;
+  this.setPanel(next);
+};
+
+(RikkaLivePlayground.prototype as unknown as Record<string, unknown>).setPanel =
+  function (this: LivePlaygroundElement, panel: Panel) {
+    this.panel = panel;
+  };
+
+(
+  RikkaLivePlayground.prototype as unknown as Record<string, unknown>
+).toggleFullscreen = async function (this: LivePlaygroundElement) {
+  if (document.fullscreenElement || this.hasAttribute("fullscreen")) {
+    applyFullscreenState(this, false);
+    if (document.fullscreenElement) {
+      try {
+        await document.exitFullscreen();
+      } catch {
+        // exitFullscreen may fail in some browsers; state already cleaned up above
+      }
+    }
     return;
   }
-
   try {
-    const codeHtml = generateIframeWithCode(compiledCode);
-    const newIframe = document.createElement("iframe");
-    newIframe.className = "preview-iframe";
-    newIframe.sandbox.add("allow-scripts", "allow-same-origin");
-    newIframe.srcdoc = codeHtml;
-    previewEl.appendChild(newIframe);
-
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(
-        () => reject(new Error("Iframe load timeout")),
-        10000,
-      );
-      newIframe.onload = () => {
-        clearTimeout(timeout);
-        loadingEl.remove();
-        resolve();
-      };
-      newIframe.onerror = () => {
-        clearTimeout(timeout);
-        reject(new Error("Iframe load error"));
-      };
-    });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    loadingEl.remove();
-    errorEl.textContent = `Error: ${msg}`;
-    errorEl.classList.add("has-error");
-    this.dispatchError(msg);
+    await this.requestFullscreen();
+  } catch {
+    applyFullscreenState(this, false);
   }
 };
 
-(RikkaLivePlayground as any).prototype.reset = function (
-  this: LivePlaygroundElement,
-) {
-  const textareaEl = this.shadowRoot?.querySelector(
-    ".editor-area",
-  ) as HTMLTextAreaElement | null;
-  if (textareaEl) {
-    const originalCode = this.textContent?.trim() || this.code;
-    textareaEl.defaultValue = originalCode;
-    textareaEl.value = originalCode;
+(
+  RikkaLivePlayground.prototype as unknown as Record<string, unknown>
+).exitFullscreen = async function (this: LivePlaygroundElement) {
+  if (document.fullscreenElement) {
+    try {
+      await document.exitFullscreen();
+    } catch {
+      // ignore
+    }
   }
-  this.run();
+  applyFullscreenState(this, false);
 };
 
-function generateIframeWithCode(compiledCode: string): string {
+function generateIframeWithCode(
+  compiledCode: string,
+  themeVarsCss: string,
+): string {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const basePath = getBasePath();
 
   const sanitizedCode = compiledCode
-    .replace(/^import\s+.*?;?\s*$/gm, "")
+    .replace(
+      /^import\s+(?:(?:[\w*\s,{}]*)\s*from\s*)?['"][^'"]+['"]\s*;?\s*$/gm,
+      "",
+    )
     .trim();
+
+  const EXPOSED = [
+    "signal",
+    "computed",
+    "effect",
+    "h",
+    "For",
+    "Show",
+    "When",
+    "Switch",
+    "Match",
+    "div",
+    "span",
+    "a",
+    "p",
+    "button",
+    "input",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "section",
+    "article",
+    "aside",
+    "nav",
+    "header",
+    "footer",
+    "main",
+    "ul",
+    "ol",
+    "li",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
+    "form",
+    "select",
+    "option",
+    "label",
+    "textarea",
+    "pre",
+    "code",
+    "br",
+    "hr",
+    "img",
+    "slot",
+    "template",
+    "svg",
+    "circle",
+    "path",
+    "rect",
+    "line",
+    "polygon",
+    "polyline",
+    "g",
+    "defs",
+    "use",
+    "foreignObject",
+    "clipPath",
+    "pattern",
+    "marker",
+    "mask",
+    "image",
+    "linearGradient",
+    "radialGradient",
+    "stop",
+    "symbol",
+    "filter",
+    "ellipse",
+    "text",
+    "tspan",
+    "textPath",
+    "svga",
+    "svgscript",
+    "svgstyle",
+    "svgtitle",
+    "svgtext",
+    "svgspan",
+    "svgtextPath",
+    "css",
+    "inlineStyle",
+    "defineElement",
+    "event",
+    "StringAttr",
+    "NumberAttr",
+    "BooleanAttr",
+  ];
+  const exposedParamDecls = EXPOSED.join(",");
+  const exposedArgList = EXPOSED.map(
+    (n) => `window[${JSON.stringify(n)}]`,
+  ).join(",");
 
   const userScript = [
     `import * as RikkaSignal from '${origin}${basePath}/esm/rikka-signal.js';`,
@@ -600,15 +1411,16 @@ function generateIframeWithCode(compiledCode: string): string {
     "",
     "try {",
     "  var container = document.getElementById('app');",
-    "  var result = (function() {",
-    sanitizedCode,
-    "  })();",
+    "  var runUserCode = new Function('container', " +
+      JSON.stringify(sanitizedCode) +
+      ");",
+    "  var result = runUserCode(container);",
     "  if (result != null && result !== false) {",
     "    safeAppend(container, result);",
     "  }",
     "} catch (err) {",
     "  var errorDiv = document.createElement('div');",
-    "  errorDiv.style.color = '#f85149';",
+    "  errorDiv.style.color = 'var(--pg-error, #f85149)';",
     "  errorDiv.style.padding = '0.75rem';",
     "  errorDiv.textContent = 'Error: ' + err.message;",
     "  var output = document.getElementById('console-output') || document.body;",
@@ -616,7 +1428,7 @@ function generateIframeWithCode(compiledCode: string): string {
     "}",
   ].join("\n");
 
-  const iframeHtml = generateIframeHtml(basePath);
+  const iframeHtml = generateIframeHtml(basePath, themeVarsCss);
   return iframeHtml.replace(
     "</body>",
     `<script type="module">${userScript}</script></body>`,

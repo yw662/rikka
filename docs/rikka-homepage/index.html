@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rikka — Native Reactivity for the Modern Web</title>
+  <meta name="description" content="Rikka is a modern Web Components toolkit with fine-grained reactivity based on TC39 Signals. Zero virtual DOM, ~16KB gzip, type-safe, and LLM-friendly.">
+  <meta name="keywords" content="Rikka, Web Components, TC39 Signals, reactive, fine-grained, TypeScript, no virtual DOM, custom elements, shadow DOM">
+  <meta name="author" content="Project Rikka">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="canonical" href="https://yw662.github.io/rikka/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Rikka — Native Reactivity for the Modern Web">
+  <meta property="og:description" content="Build Web Components with fine-grained signals. No virtual DOM, no framework tax — just standards-based, LLM-friendly code.">
+  <meta property="og:url" content="https://yw662.github.io/rikka/">
+  <meta property="og:site_name" content="Project Rikka">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Rikka — Native Reactivity for the Modern Web">
+  <meta name="twitter:description" content="Build Web Components with fine-grained signals. No virtual DOM, no framework tax.">
+
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>">
+  <link rel="manifest" href="manifest.json">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: var(--color-background, #0d1117);
+      color: var(--color-text-primary, #e2e8f0);
+      line-height: 1.6;
+      font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--color-primary, #6366f1);
+      outline-offset: 2px;
+    }
+    :focus:not(:focus-visible) {
+      outline: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    .skip-to-content {
+      position: absolute;
+      top: -100%;
+      left: var(--spacing-md);
+      z-index: 9999;
+      padding: var(--spacing-sm) var(--spacing-md);
+      background: var(--color-primary, #6366f1);
+      color: white;
+      border-radius: var(--radius-md, 8px);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: top 0.2s ease;
+    }
+    
+    .skip-to-content:focus {
+      top: var(--spacing-md);
+    }
+  </style>
+  <script>
+    window.onerror = function(msg, url, line, col, error) {
+      var el = document.createElement('pre');
+      el.style.cssText = 'color:#ff6b6b;padding:20px;font-size:14px;white-space:pre-wrap;background:#1a1a2e;margin:10px;border-radius:8px;border:1px solid #ff6b6b;';
+      el.textContent = 'JS Error: ' + msg + '\n' + url + ':' + line + ':' + col + '\n' + (error && error.stack || '');
+      document.body.appendChild(el);
+      return false;
+    };
+    window.addEventListener('unhandledrejection', function(e) {
+      var el = document.createElement('pre');
+      el.style.cssText = 'color:#ff6b6b;padding:20px;font-size:14px;white-space:pre-wrap;background:#1a1a2e;margin:10px;border-radius:8px;border:1px solid #ff6b6b;';
+      el.textContent = 'Unhandled Promise: ' + (e.reason && e.reason.stack || e.reason);
+      document.body.appendChild(el);
+    });
+  </script>
+</head>
+<body>
+  <a href="#main-content" class="skip-to-content">Skip to main content</a>
+  
+  <rikka-app></rikka-app>
+</body>
+</html>

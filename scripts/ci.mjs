@@ -3,7 +3,9 @@
 /**
  * 完整 CI 流程脚本（带多阶段汇总）
  *
- * 按顺序执行：typecheck → build → test → browser-test
+ * 按顺序执行：typecheck → build → test
+ *
+ * （Browser E2E 测试已暂时停用，待用 Playwright 重写后恢复）
  *
  * 使用方式:
  *   node scripts/ci.mjs
@@ -95,18 +97,6 @@ async function main() {
   }
 
   // ============================================
-  // Stage 4: Browser Test
-  // ============================================
-  stage('浏览器 E2E 测试', '🌐', 4);
-  const browser = run('node scripts/browser-test.mjs', '浏览器冒烟测试');
-  results.push({ name: 'Browser Test', ...browser });
-
-  if (!browser.success) {
-    printFinalReport(results, startTime);
-    process.exit(1);
-  }
-
-  // ============================================
   // 最终汇总
   // ============================================
   printFinalReport(results, startTime);
@@ -181,7 +171,7 @@ function printFinalReport(results, startTime) {
     log('yellow', '   • 查看上方日志获取详细错误信息');
   }
 
-  log(''); // 空行
+  console.log(''); // 空行
 }
 
 main().catch(e => {

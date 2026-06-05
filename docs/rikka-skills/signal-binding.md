@@ -1,0 +1,202 @@
+# Signal Binding
+
+The single most important rule: **pass the signal itself, not the result of `.get()`**. This is the difference between a live, fine-grained binding and a static value.
+
+```typescript
+const count = signal(0);
+
+// ✅ Reactive — text node updates when count changes
+p({}, count);
+
+// ❌ Static — `p` receives a plain number, never updates
+p({}, count.get());
+```
+
+`p({}, count)` is equivalent to: create a `Text` node, run an `effect` that calls `count.get()` on every change, update only that text node. No re-render of the parent, no loss of focus or cursor position.
+
+## Children
+
+A child of `h()` / tag helpers may be a signal:
+
+```typescript
+import { signal } from "@rikka/signal";
+import { div, span } from "@rikka/dom";
+
+const name = signal("Alice");
+
+div({}, "Hello, ", name);            // "Hello, Alice" — reactive
+div({}, "Count: ", count, "!");      // signal can sit between other children
+```
+
+The signal is wrapped in an auto-created `effect` that updates just the corresponding text node. Implementation uses comment markers (`<!---->`) to delimit the live region so siblings are untouched.
+
+### Function children (auto-wrapped as `computed`)
+
+A function child is auto-wrapped in `computed`, so any `.get()` inside the function is tracked:
+
+```typescript
+import { signal } from "@rikka/signal";
+import { div, span } from "@rikka/dom";
+
+const count = signal(0);
+
+// Reactive — equivalent to div({}, computed(() => `count=${count.get()}`))
+div({}, () => `count=${count.get()}`);
+
+// Conditional element from a function child
+const visible = signal(true);
+div({}, () => (visible.get() ? span({}, "on") : null));
+```
+
+Use function children for **coarse-grained** updates where the child's *type or structure* changes. For simple text/attribute changes, pass the signal directly.
+
+## Attributes
+
+A signal may be used as any attribute value. The attribute updates when the signal changes.
+
+```typescript
+import { signal } from "@rikka/signal";
+import { div } from "@rikka/dom";
+
+const color = signal("red");
+
+// ✅ Reactive — `style.color` updates
+div({ style: { color } }, "Dynamic");
+
+// ❌ Static — captures "red" once
+div({ style: { color: color.get() } }, "Static");
+```
+
+Event handlers are set as DOM property handlers (`el.onclick = fn`), not via `addEventListener`:
+
+```typescript
+button({ onclick: (e) => console.log(e) }, "Click me");
+```
+
+### `defineElement` attributes — `this.xxx` vs `this.$xxx`
+
+Inside a `render()` function, declared attributes expose two accessors:
+
+| Accessor | Type | Use it for |
+|----------|------|-----------|
+| `this.name` | `T` (raw value) | Reading the value; non-reactive logic |
+| `this.$name` | `Signal.State<T>` | DOM bindings — fine-grained reactive update |
+
+```typescript
+defineElement("my-el", {
+  attributes: { count: NumberAttr },
+  render() {
+    return div(
+      // ✅ Fine-grained — text node updates
+      p({}, this.$count),
+      // ❌ Static — captured at render time
+      // p({}, this.count),
+    );
+  },
+});
+```
+
+Use the `$`-prefix signal for DOM bindings; use the raw attribute value for non-reactive logic.
+
+## Template literal binding (`h\`\``)
+
+Inside `h\`\``, `${signal}` interpolates as a fine-grained binding:
+
+```typescript
+const count = signal(0);
+
+// ✅ Fine-grained: only the digit updates
+h`<span>Count: ${count}</span>`;
+
+// ❌ Lost reactivity
+h`<span>Count: ${count.get()}</span>`;
+```
+
+In attributes too:
+
+```typescript
+const color = signal("red");
+h`<div style="color: ${color}">Text</div>`;
+```
+
+When the template structure itself changes (e.g. switch between two different layouts), wrap the whole thing in `computed`:
+
+```typescript
+const mode = signal("edit");
+const tmpl = computed(() => {
+  if (mode.get() === "edit") return h`<textarea></textarea>`;
+  return h`<div>Preview</div>`;
+});
+```
+
+See [common-pitfalls.md § Signal interpolation modes](./common-pitfalls.md#signal-interpolation-modes).
+
+## `defineElement` template binding — `{{name}}` auto-resolves to `$name`
+
+When using the `template` option, `{{name}}` in text content automatically prefers `$name` (the signal) and falls back to `name` (the raw value). You only need to declare the attribute in the config:
+
+```typescript
+defineElement("my-counter", {
+  attributes: { clickCount: NumberAttr },
+  template: h`<template>
+    <p>Clicked {{clickCount}} times</p>
+  </template>`[0],
+});
+```
+
+This is equivalent to manually writing `p({}, this.$clickCount)` in a `render()` function.
+
+For attribute and event bindings in templates, see [template-binding.md](./template-binding.md).
+
+## Function values vs `computed`
+
+**Function children** are auto-wrapped as `computed`. But **function values** (e.g. an `inlineStyle` argument, or a prop expecting a signal) are not. Use `computed()` explicitly:
+
+```typescript
+import { computed } from "@rikka/signal";
+
+// ❌ Plain function in inlineStyle arg — not reactive
+div({ style: { color: () => count.get() % 2 ? "red" : "blue" } });
+
+// ✅ Computed — reactive
+div({ style: { color: computed(() => count.get() % 2 ? "red" : "blue") } });
+```
+
+This was the #1 LLM error in the rikka benchmark (Task 7, Theme Switcher). See [`docs/research/llm/llm-benchmark.md`](../research/llm/llm-benchmark.md) for details.
+
+## Effect cleanup — automatic in DOM bindings
+
+`effect`s created by DOM bindings (signals as children, signals as attrs, function children) are tied to the element via `WeakRef` + `FinalizationRegistry`. When the element is garbage-collected, the effect is automatically disposed. You don't need to manage disposal.
+
+If you create `effect`s manually (e.g. for non-DOM side effects), call the returned dispose function explicitly. See [reactive-state.md § `effect`](./reactive-state.md#effectfn---void).
+
+## Pitfalls
+
+### 1. Passing `.get()` to DOM
+
+The most common mistake. See the top of this file.
+
+### 2. Plain function where `computed` is required
+
+See [Function values vs `computed`](#function-values-vs-computed).
+
+### 3. `this.xxx` (raw) instead of `this.$xxx` (signal) in `render()`
+
+```typescript
+render() {
+  return p({}, this.count);     // ❌ static
+  return p({}, this.$count);    // ✅ reactive
+}
+```
+
+### 4. Coarse-grained `computed(() => h\`\`)` when fine-grained would do
+
+Wrapping a tiny template in `computed` rebuilds the whole element on every change. Use the `${signal}` form unless the template structure itself depends on the signal.
+
+## See also
+
+- [reactive-state.md](./reactive-state.md) — creating signals
+- [dom-creation.md](./dom-creation.md) — `h`, tag helpers
+- [template-binding.md](./template-binding.md) — `{{name}}` / `{{@event}}` in templates
+- [form-binding.md](./form-binding.md) — two-way binding inputs
+- [common-pitfalls.md](./common-pitfalls.md)

@@ -4,6 +4,7 @@ node_modules/
 # Build output
 dist/
 build/
+bundles/
 *.tsbuildinfo
 *.tgz
 
@@ -39,3 +40,12 @@ pnpm-debug.log*
 
 # Output
 out/
+
+# Sisyphus local state
+/.sisyphus/
+
+# Marketing (placeholder)
+/marketing/
+
+# Test results (only the marker file is generated)
+/test-results/

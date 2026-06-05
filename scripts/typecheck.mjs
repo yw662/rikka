@@ -30,11 +30,11 @@ function log(color, msg) {
 }
 
 const projects = [
-  { name: 'rikka-signal', config: 'utils/rikka-signal/tsconfig.json' },
-  { name: 'rikka-dom', config: 'utils/rikka-dom/tsconfig.json' },
-  { name: 'rikka-elements', config: 'utils/rikka-elements/tsconfig.json' },
+  { name: '@rikka/signal', config: 'utils/rikka-signal/tsconfig.json' },
+  { name: '@rikka/dom', config: 'utils/rikka-dom/tsconfig.json' },
+  { name: '@rikka/elements', config: 'utils/rikka-elements/tsconfig.json' },
   { name: 'rikka-live-playground', config: 'components/rikka-live-playground/tsconfig.json' },
-  { name: 'rikka-demo', config: 'docs/rikka-demo/tsconfig.json' },
+  { name: 'rikka-homepage', config: 'docs/rikka-homepage/tsconfig.json' },
   { name: 'bookmark-manager', config: 'examples/bookmark-manager/tsconfig.json' },
   { name: 'code-editor', config: 'examples/code-editor/tsconfig.json' },
   { name: 'finance-tracker', config: 'examples/finance-tracker/tsconfig.json' },

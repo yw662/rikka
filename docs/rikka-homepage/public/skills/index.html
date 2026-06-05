@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Skills — Rikka</title>
+  <meta name="description" content="Task-oriented operational guides for AI coding agents writing code with the Rikka Web Components toolkit. 14 markdown files covering reactive state, DOM creation, custom elements, and more.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://yw662.github.io/rikka/skills/index.html">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface-elevated: #1c2129;
+      --border: #30363d;
+      --text-primary: #e6edf3;
+      --text-secondary: #9da7b3;
+      --text-muted: #6e7681;
+      --primary: #6366f1;
+      --primary-light: #a5b4fc;
+      --accent: #a78bfa;
+      --code-bg: #1a1f29;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+    }
+    a { color: var(--primary-light); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, monospace;
+      font-size: 0.875em;
+      background: var(--code-bg);
+      padding: 0.15em 0.4em;
+      border-radius: 0.3em;
+      color: var(--primary-light);
+    }
+    .topbar {
+      background: rgba(22, 27, 34, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.875rem 1.5rem;
+    }
+    .topbar-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .brand .logo { color: var(--primary); font-size: 1.4rem; }
+    .brand .brand-text {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .topbar-links { display: flex; gap: 1rem; font-size: 0.875rem; }
+    .topbar-links a { color: var(--text-secondary); }
+    .topbar-links a:hover { color: var(--text-primary); text-decoration: none; }
+    main { max-width: 960px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+    h1 { font-size: 2.25rem; margin: 0 0 0.5rem; line-height: 1.2; }
+    h2 { font-size: 1.25rem; margin: 2.5rem 0 1rem; color: var(--text-primary); }
+    h3 { font-size: 1.05rem; margin: 0 0 0.5rem; }
+    .tagline {
+      color: var(--text-secondary);
+      font-size: 1.05rem;
+      margin: 0 0 2rem;
+      max-width: 60ch;
+    }
+    .callout {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--primary);
+      border-radius: 0.5rem;
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .callout-title { font-weight: 600; margin-bottom: 0.5rem; }
+    .callout ul { margin: 0.25rem 0 0; padding-left: 1.25rem; color: var(--text-secondary); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0 0;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.625rem;
+      padding: 1.125rem 1.25rem;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+    .card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+    }
+    .card a.title { color: var(--text-primary); font-weight: 600; font-size: 1rem; }
+    .card a.title:hover { text-decoration: none; color: var(--primary-light); }
+    .card .filename {
+      font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+    .card .desc {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      margin: 0.625rem 0 0;
+    }
+    .copy-snippet {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 0.4rem;
+      padding: 0.5rem 0.75rem;
+      font-family: "SF Mono", Consolas, monospace;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    footer {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+      border-top: 1px solid var(--border);
+    }
+    @media (max-width: 600px) {
+      .topbar-inner { flex-direction: column; align-items: flex-start; }
+      h1 { font-size: 1.75rem; }
+      main { padding: 1.5rem 1rem 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="../">
+        <span class="logo">◈</span>
+        <span class="brand-text">Rikka</span>
+      </a>
+      <div class="topbar-links">
+        <a href="../">Home</a>
+        <a href="../#/docs">Docs</a>
+        <a href="https://github.com/yw662/rikka/" rel="noopener noreferrer">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <h1>Agent Skills</h1>
+    <p class="tagline">
+      Task-oriented operational guides for AI coding agents writing code with the Rikka
+      Web Components toolkit. 14 markdown files, each one file ≈ one task. Read the
+      index first, then load only the file matching the current task.
+    </p>
+
+    <div class="callout">
+      <div class="callout-title">For AI agents</div>
+      <ul>
+        <li>Start: <a href="README.md"><code>README.md</code></a> — index + decision tree</li>
+        <li>Last: <a href="common-pitfalls.md"><code>common-pitfalls.md</code></a> — the 5 rikka-specific footguns</li>
+        <li>Also see <a href="../llms.txt"><code>../llms.txt</code></a> (machine-readable index)</li>
+        <li>Raw URLs: <code>https://yw662.github.io/rikka/skills/&lt;file&gt;.md</code></li>
+      </ul>
+    </div>
+
+    <h2>Start here</h2>
+    <div class="grid">
+      <div class="card">
+        <a class="title" href="README.md">Skills Index</a>
+        <div class="filename">README.md</div>
+        <p class="desc">Entry point. Decision tree mapping tasks to the right skill file. Includes loading strategy.</p>
+      </div>
+      <div class="card">
+        <a class="title" href="overview.md">Overview</a>
+        <div class="filename">overview.md</div>
+        <p class="desc">What rikka is, the three packages, design principles, when (and when not) to use it.</p>
+      </div>
+      <div class="card">
+        <a class="title" href="common-pitfalls.md">Common Pitfalls</a>
+        <div class="filename">common-pitfalls.md</div>
+        <p class="desc">Cross-cutting mistakes. Read before generating rikka code. Covers the 5 LLM-specific footguns.</p>
+      </div>
+    </div>
+
+    <h2>Reactive state</h2>
+    <div class="grid">
+      <div class="card">
+        <a class="title" href="reactive-state.md">Reactive State</a>
+        <div class="filename">reactive-state.md</div>
+        <p class="desc"><code>signal</code>, <code>computed</code>, <code>effect</code>. The TC39-Signals-based primitives.</p>
+      </div>
+    </div>
+
+    <h2>DOM</h2>
+    <div class="grid">
+      <div class="card">
+        <a class="title" href="dom-creation.md">DOM Creation</a>
+        <div class="filename">dom-creation.md</div>
+        <p class="desc"><code>h()</code>, tag helpers, <code>h&#96;...&#96;</code> template literal. Creates real DOM elements — no virtual DOM.</p>
+      </div>
+      <div class="card">
+        <a class="title" href="signal-binding.md">Signal Binding</a>
+        <div class="filename">signal-binding.md</div>
+        <p class="desc">Binding signals to text nodes, attributes, template slots. Fine-grained vs coarse-grained. The most error-prone area.</p>
+      </div>
+      <div class="card">
+        <a class="title" href="control-flow.md">Control Flow</a>
+        <div class="filename">control-flow.md</div>
+        <p class="desc"><code>For</code> (lists), <code>Show</code> / <code>When</code> / <code>Switch</code> / <code>Match</code> (conditionals).</p>
+      </div>
+      <div class="card">
+        <a class="title" href="form-binding.md">Form Binding</a>
+        <div class="filename">form-binding.md</div>
+        <p class="desc">Two-way binding for <code>&lt;input&gt;</code>, <code>&lt;textarea&gt;</code>, <code>&lt;select&gt;</code> via writable signals.</p>
+      </div>
+      <div class="card">
+        <a class="title" href="svg.md">SVG</a>
+        <div class="filename">svg.md</div>
+        <p class="desc">SVG elements, namespace handling, name-collision tags (<code>a</code>, <code>script</code>, <code>style</code>, <code>title</code>, <code>text</code>, <code>span</code>).</p>
+      </div>
+    </div>
+
+    <h2>Custom elements</h2>
+    <div class="grid">
+      <div class="card">
+        <a class="title" href="custom-element.md">Custom Element</a>
+        <div class="filename">custom-element.md</div>
+        <p class="desc"><code>defineElement</code>, <code>attributes</code>, <code>events</code>, <code>methods</code>, <code>render</code> — the full <code>ElementConfig</code> reference.</p>
+      </div>
+      <div class="card">
+        <a class="title" href="shadow-dom-styling.md">Shadow DOM &amp; Styling</a>
+        <div class="filename">shadow-dom-styling.md</div>
+        <p class="desc"><code>css&#96;...&#96;</code>, <code>inlineStyle&#96;...&#96;</code>, <code>adoptStyle</code>, <code>:host</code> selector.</p>
+      </div>
+      <div class="card">
+        <a class="title" href="template-binding.md">Template Binding</a>
+        <div class="filename">template-binding.md</div>
+        <p class="desc">The <code>template</code> option of <code>defineElement</code> with <code>{{name}}</code> / <code>{{@event}}</code> syntax.</p>
+      </div>
+      <div class="card">
+        <a class="title" href="composition.md">Composition</a>
+        <div class="filename">composition.md</div>
+        <p class="desc">Composable functions + <code>MyElement.h(...)</code> to embed a custom element inside another.</p>
+      </div>
+    </div>
+
+    <h2>Operations</h2>
+    <div class="grid">
+      <div class="card">
+        <a class="title" href="browser-compatibility.md">Browser Compatibility</a>
+        <div class="filename">browser-compatibility.md</div>
+        <p class="desc">Browser support matrix and polyfills for Custom Elements / Shadow DOM / CSSStyleSheet. SSR guidance.</p>
+      </div>
+    </div>
+
+    <h2 style="margin-top: 2.5rem;">Use from an AI agent</h2>
+    <p style="color: var(--text-secondary);">
+      The simplest way to load all 14 skills into context: read the index, then
+      fetch the relevant files. Each file is small enough to fit in context
+      individually. The full set totals ~2,600 lines.
+    </p>
+    <div class="copy-snippet">
+      <code>curl https://yw662.github.io/rikka/skills/README.md</code>
+    </div>
+  </main>
+
+  <footer>
+    Rikka · <a href="https://github.com/yw662/rikka/">github.com/yw662/rikka</a> · MIT
+  </footer>
+</body>
+</html>

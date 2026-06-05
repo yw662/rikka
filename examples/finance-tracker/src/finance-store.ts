@@ -1,4 +1,4 @@
-import { computed, effect, store, raw } from '@rikka/signal';
+import { signal, computed, effect } from '@rikka/signal';
 
 export type TransactionType = 'income' | 'expense';
 
@@ -42,16 +42,11 @@ export interface Transaction {
 
 const STORAGE_KEY = 'rikka-finance-transactions';
 
-export interface FinanceState {
-  transactions: Transaction[];
-  nextId: number;
-}
-
-function loadFromStorage(): FinanceState {
+function loadFromStorage(): { transactions: Transaction[]; nextId: number } {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) {
-      const parsed = JSON.parse(data) as FinanceState;
+      const parsed = JSON.parse(data);
       return {
         transactions: parsed.transactions || [],
         nextId: parsed.nextId || 1,
@@ -62,38 +57,33 @@ function loadFromStorage(): FinanceState {
   return { transactions: [], nextId: 1 };
 }
 
-function saveToStorage(state: FinanceState) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({
-    transactions: state.transactions,
-    nextId: state.nextId,
-  }));
+function saveToStorage(transactions: Transaction[], nextId: number) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ transactions, nextId }));
 }
 
 const initialState = loadFromStorage();
 
-export const financeStore = store<FinanceState>({
-  transactions: initialState.transactions,
-  nextId: initialState.nextId,
-});
+export const transactions = signal<Transaction[]>(initialState.transactions);
+export const nextId = signal(initialState.nextId);
 
 effect(() => {
-  saveToStorage(raw(financeStore));
+  saveToStorage(transactions.get(), nextId.get());
 });
 
 export const sortedTransactions = computed(() => {
-  return [...financeStore.transactions].sort((a: Transaction, b: Transaction) => {
+  return [...transactions.get()].sort((a: Transaction, b: Transaction) => {
     return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
 });
 
 export const totalIncome = computed(() => {
-  return financeStore.transactions
+  return transactions.get()
     .filter((t: Transaction) => t.type === 'income')
     .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
 });
 
 export const totalExpenses = computed(() => {
-  return financeStore.transactions
+  return transactions.get()
     .filter((t: Transaction) => t.type === 'expense')
     .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
 });
@@ -105,7 +95,7 @@ export const balance = computed(() => {
 export const monthIncome = computed(() => {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  return financeStore.transactions
+  return transactions.get()
     .filter((t: Transaction) => {
       return t.type === 'income' && new Date(t.date) >= monthStart;
     })
@@ -115,7 +105,7 @@ export const monthIncome = computed(() => {
 export const monthExpenses = computed(() => {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  return financeStore.transactions
+  return transactions.get()
     .filter((t: Transaction) => {
       return t.type === 'expense' && new Date(t.date) >= monthStart;
     })
@@ -130,7 +120,8 @@ export interface CategoryBreakdown {
 }
 
 export const categoryBreakdown = computed((): CategoryBreakdown[] => {
-  const expenses = financeStore.transactions.filter((t: Transaction) => t.type === 'expense');
+  const txs = transactions.get();
+  const expenses = txs.filter((t: Transaction) => t.type === 'expense');
   const totalExpenseAmount = expenses.reduce((sum: number, t: Transaction) => sum + t.amount, 0);
 
   const breakdown: Record<TransactionCategory, number> = {} as Record<TransactionCategory, number>;
@@ -140,7 +131,7 @@ export const categoryBreakdown = computed((): CategoryBreakdown[] => {
   }
 
   for (const tx of expenses) {
-    breakdown[tx.category] += tx.amount;
+    breakdown[tx.category as TransactionCategory] += tx.amount;
   }
 
   return CATEGORIES
@@ -164,7 +155,7 @@ export function addTransaction(
   date: string
 ) {
   const newTransaction: Transaction = {
-    id: financeStore.nextId,
+    id: nextId.get(),
     amount,
     type,
     category,
@@ -172,15 +163,12 @@ export function addTransaction(
     date,
   };
 
-  financeStore.transactions.push(newTransaction);
-  financeStore.nextId += 1;
+  transactions.set([...transactions.get(), newTransaction]);
+  nextId.set(nextId.get() + 1);
 }
 
 export function deleteTransaction(id: number) {
-  const index = financeStore.transactions.findIndex((t: Transaction) => t.id === id);
-  if (index !== -1) {
-    financeStore.transactions.splice(index, 1);
-  }
+  transactions.set(transactions.get().filter((t: Transaction) => t.id !== id));
 }
 
 export function getTodayDate(): string {

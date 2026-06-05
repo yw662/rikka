@@ -1,6 +1,14 @@
 import { Signal } from "signal-polyfill";
 
-export function effect(fn: () => void | (() => void)): () => void {
+export function effect(fn: () => void | (() => void)): () => void;
+export function effect(
+  fn: () => void | (() => void),
+  onError: (err: unknown) => void,
+): () => void;
+export function effect(
+  fn: () => void | (() => void),
+  onError?: (err: unknown) => void,
+): () => void {
   let cleanup: (() => void) | void;
   let disposed = false;
   const watcher = new Signal.subtle.Watcher(() => {
@@ -9,8 +17,7 @@ export function effect(fn: () => void | (() => void)): () => void {
       try {
         computed.get();
       } catch (e) {
-        // Error in effect should not break the watcher or other effects
-        // Just log and continue re-watching for next update
+        handleError(e, onError);
       }
       watcher.watch(computed);
     });
@@ -26,7 +33,7 @@ export function effect(fn: () => void | (() => void)): () => void {
   try {
     computed.get();
   } catch (e) {
-    // Initial execution error - still set up watching for future updates
+    handleError(e, onError);
   }
   watcher.watch(computed);
 
@@ -38,4 +45,19 @@ export function effect(fn: () => void | (() => void)): () => void {
       cleanup = undefined;
     }
   };
+}
+
+function handleError(
+  err: unknown,
+  onError: ((err: unknown) => void) | undefined,
+): void {
+  if (onError) {
+    try {
+      onError(err);
+    } catch {
+      // Swallow to prevent re-entry into the signal watcher notify loop.
+    }
+  }
+  // When no onError is provided the error is intentionally not logged;
+  // callers should pass onError to observe effect failures.
 }

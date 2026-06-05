@@ -26,8 +26,12 @@ import {
   circle as tagCircle,
   svga,
   svgtitle,
+  text as tagText,
+  tspan as tagTspan,
+  textPath as tagTextPath,
 } from "../src/tags.js";
-import { signal, computed, effect } from "@rikka/signal";
+import { isPlainObject, isSignal, isWritableSignal, unwrapSignal } from "../src/signal-utils.js";
+import { signal, computed, effect, Signal } from "@rikka/signal";
 
 describe("h()", () => {
   it("creates an element with tag name", () => {
@@ -249,6 +253,40 @@ describe("Signal children binding", () => {
   });
 });
 
+describe("Function child auto-wrapping", () => {
+  it("renders a function child as a static value", () => {
+    const el = h("div", () => "hello");
+    expect(el.textContent).toBe("hello");
+  });
+
+  it("treats a function child as reactive by reading signals", async () => {
+    const count = signal(1);
+    const el = h("div", () => `count=${count.get()}`);
+    expect(el.textContent).toBe("count=1");
+    count.set(2);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.textContent).toBe("count=2");
+  });
+
+  it("handles a function child returning null", async () => {
+    const visible = signal(true);
+    const el = h("div", () => (visible.get() ? "shown" : null));
+    expect(el.textContent).toBe("shown");
+    visible.set(false);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.textContent).toBe("");
+  });
+
+  it("handles a function child returning an element", async () => {
+    const mode = signal<"a" | "b">("a");
+    const el = h("div", () => h("span", mode.get()));
+    expect(el.textContent).toBe("a");
+    mode.set("b");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.textContent).toBe("b");
+  });
+});
+
 describe("tag shortcuts via h()", () => {
   it('h("div") creates a HTMLDivElement', () => {
     const el = h("div", "hello");
@@ -423,6 +461,24 @@ describe("SVG namespaced tag shortcuts", () => {
     expect(el.namespaceURI).toBe("http://www.w3.org/2000/svg");
     expect(el.tagName).toBe("title");
   });
+
+  it("text() is exported and creates an SVG text element", () => {
+    const el = tagText("hello");
+    expect(el.tagName).toBe("text");
+    expect(el.namespaceURI).toBe("http://www.w3.org/2000/svg");
+  });
+
+  it("tspan() is exported and creates an SVG tspan element", () => {
+    const el = tagTspan("span");
+    expect(el.tagName).toBe("tspan");
+    expect(el.namespaceURI).toBe("http://www.w3.org/2000/svg");
+  });
+
+  it("textPath() is exported and creates an SVG textPath element", () => {
+    const el = tagTextPath("path");
+    expect(el.tagName).toBe("textPath");
+    expect(el.namespaceURI).toBe("http://www.w3.org/2000/svg");
+  });
 });
 
 describe("For", () => {
@@ -507,6 +563,42 @@ describe("Show", () => {
     const restored = container.querySelector("input") as HTMLInputElement;
     expect(restored.value).toBe("typed text");
   });
+
+  it("accepts a static Element directly", async () => {
+    const visible = signal(false);
+    const span = h("span", "static");
+    const content = Show(visible, span);
+    const container = h("div", content);
+    expect(container.textContent).toBe("");
+    visible.set(true);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(container.textContent).toBe("static");
+    visible.set(false);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(container.textContent).toBe("");
+  });
+
+  it("accepts null directly", async () => {
+    const visible = signal(true);
+    const content = Show(visible, null);
+    const container = h("div", content);
+    expect(container.textContent).toBe("");
+  });
+
+  it("preserves DOM state across toggles with static Element", async () => {
+    const visible = signal(true);
+    const inp = h("input", { type: "text" });
+    const content = Show(visible, inp);
+    const container = h("div", content);
+    const input = container.querySelector("input") as HTMLInputElement;
+    input.value = "typed";
+    visible.set(false);
+    await new Promise((r) => setTimeout(r, 50));
+    visible.set(true);
+    await new Promise((r) => setTimeout(r, 50));
+    const restored = container.querySelector("input") as HTMLInputElement;
+    expect(restored.value).toBe("typed");
+  });
 });
 
 describe("When", () => {
@@ -543,6 +635,33 @@ describe("When", () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(container.textContent).toBe("no");
   });
+
+  it("accepts static Elements directly", async () => {
+    const cond = signal(true);
+    const content = When(
+      cond,
+      h("span", "yes"),
+      h("span", "no"),
+    );
+    const container = h("div", content);
+    expect(container.textContent).toBe("yes");
+    cond.set(false);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(container.textContent).toBe("no");
+  });
+
+  it("accepts null for either branch", async () => {
+    const cond = signal(true);
+    const content = When(cond, h("span", "yes"), null);
+    const container = h("div", content);
+    expect(container.textContent).toBe("yes");
+    cond.set(false);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(container.textContent).toBe("");
+    cond.set(true);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(container.textContent).toBe("yes");
+  });
 });
 
 describe("Switch", () => {
@@ -561,6 +680,50 @@ describe("Switch", () => {
       h("span", "default"),
     );
     const container = h("div", content);
+    expect(container.textContent).toBe("default");
+  });
+
+  it("accepts static Element in Match and fallback", () => {
+    const content = Switch("b", [
+      Match("a", h("span", "A")),
+      Match("b", h("span", "B")),
+    ], h("span", "default"));
+    const container = h("div", content);
+    expect(container.textContent).toBe("B");
+    const fallbackContent = Switch("z", [Match("a", h("span", "A"))], h("span", "default"));
+    const fallbackContainer = h("div", fallbackContent);
+    expect(fallbackContainer.textContent).toBe("default");
+  });
+
+  it("reacts to Signal value with static Element matches", async () => {
+    const val = signal("a");
+    const content = Switch(val, [
+      Match("a", h("span", "A")),
+      Match("b", h("span", "B")),
+    ]);
+    const container = h("div", content);
+    expect(container.textContent).toBe("A");
+    val.set("b");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(container.textContent).toBe("B");
+    val.set("a");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(container.textContent).toBe("A");
+  });
+
+  it("accepts null in Match and fallback", async () => {
+    const val = signal("b");
+    const content = Switch(val, [
+      Match("a", h("span", "A")),
+      Match("b", null),
+    ], h("span", "default"));
+    const container = h("div", content);
+    expect(container.textContent).toBe("");
+    val.set("a");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(container.textContent).toBe("A");
+    val.set("z");
+    await new Promise((r) => setTimeout(r, 50));
     expect(container.textContent).toBe("default");
   });
 
@@ -878,6 +1041,12 @@ describe("inlineStyle", () => {
     const size = 16;
     const s = inlineStyle`font-size: ${size}px`;
     expect(s.fontSize).toBe("16px");
+  });
+
+  it("parses string-quoted values inside the declaration", () => {
+    const s = inlineStyle`content: "hello world"; color: red`;
+    expect(s.content).toBe('"hello world"');
+    expect(s.color).toBe("red");
   });
 
   it("can be used as inline style in h()", () => {
@@ -1575,9 +1744,63 @@ describe("h() edge cases", () => {
     expect(el.textContent).toBe("0");
   });
 
+  it("sets defaultValue on input/textarea via the special attribute key", () => {
+    const ta = h("textarea", { defaultValue: "hello" }) as HTMLTextAreaElement;
+    expect(ta.defaultValue).toBe("hello");
+  });
+
   it("handles null child", () => {
     const el = h("div", null, "visible");
     expect(el.textContent).toBe("visible");
+  });
+
+  it("flattens a DocumentFragment child into the parent", () => {
+    const frag = document.createDocumentFragment();
+    frag.appendChild(h("span", "A"));
+    frag.appendChild(h("span", "B"));
+    const el = h("div", frag as any);
+    expect(el.children.length).toBe(2);
+    expect(el.children[0].textContent).toBe("A");
+    expect(el.children[1].textContent).toBe("B");
+  });
+
+  it("sets CSS custom property (--var) via Signal<StyleRecord>", async () => {
+    const color = signal("#ff0000");
+    const el = h("div", { style: { "--accent": color } }) as HTMLElement;
+    expect(el.style.getPropertyValue("--accent")).toBe("#ff0000");
+    color.set("#00ff00");
+    await new Promise((r) => setTimeout(r, 30));
+    expect(el.style.getPropertyValue("--accent")).toBe("#00ff00");
+  });
+
+  it("removes a CSS custom property when its Signal value goes null", async () => {
+    const color = signal<string | null>("#ff0000");
+    const el = h("div", { style: { "--accent": color } }) as HTMLElement;
+    expect(el.style.getPropertyValue("--accent")).toBe("#ff0000");
+    color.set(null);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(el.style.getPropertyValue("--accent")).toBe("");
+  });
+
+  it("sets CSS custom property (--var) via static value", () => {
+    const el = h("div", { style: { "--accent": "#ff0000" } }) as HTMLElement;
+    expect(el.style.getPropertyValue("--accent")).toBe("#ff0000");
+  });
+
+  it("renders Signal<Child[]> whose array contains non-Element items", async () => {
+    // When the array contains non-Element items, the non-Every-Element branch
+    // in the signal child binding falls through to insertChildBefore per item.
+    const s = signal<unknown[]>([h("span", "A"), "text-between", h("span", "B")]);
+    const container = h("div", s as any);
+    expect(container.querySelectorAll("span").length).toBe(2);
+    expect(container.textContent).toContain("A");
+    expect(container.textContent).toContain("text-between");
+    expect(container.textContent).toContain("B");
+
+    s.set([h("span", "X"), h("span", "Y"), h("span", "Z")]);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(container.querySelectorAll("span").length).toBe(3);
+    expect(container.textContent).toBe("XYZ");
   });
 });
 
@@ -1622,6 +1845,18 @@ describe("inlineStyle edge cases", () => {
     color.set("blue");
     await new Promise((r) => setTimeout(r, 50));
     expect((el as HTMLElement).style.color).toBe("blue");
+  });
+
+  it("handles null/undefined signal in inlineStyle mixed template", async () => {
+    const value = signal<string | null>("red");
+    const el = h("div", { style: inlineStyle`background: ${value}` });
+    expect((el as HTMLElement).style.background).toBe("red");
+    value.set(null);
+    await new Promise((r) => setTimeout(r, 50));
+    expect((el as HTMLElement).style.background).toBe("");
+    value.set("blue");
+    await new Promise((r) => setTimeout(r, 50));
+    expect((el as HTMLElement).style.background).toBe("blue");
   });
 });
 
@@ -1674,5 +1909,181 @@ describe("insertChildBefore()", () => {
     insertChildBefore(parent, child, ref);
     expect(parent.childNodes.length).toBe(2);
     expect((parent.childNodes[0] as Element).textContent).toBe("child");
+  });
+});
+
+describe("isPlainObject()", () => {
+  it("returns true for plain object literal", () => {
+    expect(isPlainObject({})).toBe(true);
+    expect(isPlainObject({ a: 1 })).toBe(true);
+  });
+
+  it("returns false for null and undefined", () => {
+    expect(isPlainObject(null)).toBe(false);
+    expect(isPlainObject(undefined)).toBe(false);
+  });
+
+  it("returns false for primitive values", () => {
+    expect(isPlainObject(0)).toBe(false);
+    expect(isPlainObject("")).toBe(false);
+    expect(isPlainObject(true)).toBe(false);
+  });
+
+  it("returns false for class instances (non-Object prototype)", () => {
+    class Thing {
+      x = 1;
+    }
+    expect(isPlainObject(new Thing())).toBe(false);
+  });
+
+  it("returns false for arrays", () => {
+    expect(isPlainObject([])).toBe(false);
+  });
+
+  it("returns true for objects with null prototype", () => {
+    expect(isPlainObject(Object.create(null))).toBe(true);
+  });
+});
+
+describe("isSignal() / isWritableSignal() / unwrapSignal()", () => {
+  it("isSignal returns true for Signal.State and Signal.Computed", () => {
+    const s = signal(1);
+    const c = computed(() => s.get() * 2);
+    expect(isSignal(s)).toBe(true);
+    expect(isSignal(c)).toBe(true);
+  });
+
+  it("isSignal returns false for null / undefined / primitives / plain objects", () => {
+    // These would have thrown inside Signal.isState's `in` operator before
+    // the object-guard was added; now they are returned as false.
+    expect(isSignal(null)).toBe(false);
+    expect(isSignal(undefined)).toBe(false);
+    expect(isSignal(0)).toBe(false);
+    expect(isSignal("")).toBe(false);
+    expect(isSignal(true)).toBe(false);
+    expect(isSignal({})).toBe(false);
+    expect(isSignal([])).toBe(false);
+  });
+
+  it("isWritableSignal only matches Signal.State, not Computed", () => {
+    const s = signal(1);
+    const c = computed(() => s.get() * 2);
+    expect(isWritableSignal(s)).toBe(true);
+    expect(isWritableSignal(c)).toBe(false);
+  });
+
+  it("isWritableSignal returns false for null / undefined / primitives", () => {
+    expect(isWritableSignal(null)).toBe(false);
+    expect(isWritableSignal(undefined)).toBe(false);
+    expect(isWritableSignal(0)).toBe(false);
+    expect(isWritableSignal({})).toBe(false);
+  });
+
+  it("unwrapSignal extracts .get() from a signal, passes through non-signals", () => {
+    const s = signal(42);
+    expect(unwrapSignal(s)).toBe(42);
+    expect(unwrapSignal(7)).toBe(7);
+    expect(unwrapSignal("plain")).toBe("plain");
+  });
+});
+
+describe("h() with TagFunction", () => {
+  it("invokes the .h property when given a TagFunction", () => {
+    // Minimal TagFunction: a callable with a self-referential .h property.
+    const tagFn: any = (...args: any[]) => h("section", ...args);
+    tagFn.h = tagFn;
+    const el = h(tagFn, { id: "x" }, "child");
+    expect(el.tagName).toBe("SECTION");
+    expect(el.id).toBe("x");
+    expect(el.textContent).toBe("child");
+  });
+});
+
+describe("h() with custom element constructor", () => {
+  it("uses the constructor's static tagName to create the element", () => {
+    // h() accepts any { tagName: string } in addition to string tags.
+    const Ctor: any = function () {};
+    Ctor.tagName = "my-ctor-el";
+    const el = h(Ctor, "hello");
+    expect(el.tagName.toLowerCase()).toBe("my-ctor-el");
+    expect(el.textContent).toBe("hello");
+  });
+});
+
+describe("inlineStyle multi-marker substitution", () => {
+  it("builds a computed for a single declaration containing multiple signal markers", async () => {
+    const r = signal("255");
+    const g = signal("128");
+    const b = signal("0");
+    // Multiple signals inside ONE declaration forces the computed path
+    // (a single-signal declaration short-circuits to the raw signal).
+    const s = inlineStyle`color: rgb(${r}, ${g}, ${b})`;
+    const colorVal = s.color as Signal.Computed<string>;
+    expect(Signal.isComputed(colorVal)).toBe(true);
+    expect(colorVal.get()).toBe("rgb(255, 128, 0)");
+
+    r.set("0");
+    g.set("0");
+    b.set("255");
+    await new Promise((r) => setTimeout(r, 30));
+    expect(colorVal.get()).toBe("rgb(0, 0, 255)");
+  });
+
+  it("renders empty string for null signal in a multi-marker declaration", async () => {
+    const r = signal<string | null>("255");
+    const g = signal<string | null>("128");
+    const s = inlineStyle`color: rgb(${r}, ${g}, 0)`;
+    const colorVal = s.color as Signal.Computed<string>;
+    expect(colorVal.get()).toBe("rgb(255, 128, 0)");
+
+    r.set(null);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(colorVal.get()).toBe("rgb(, 128, 0)");
+  });
+});
+
+describe("control-flow: detached range early-returns on re-run", () => {
+  it("Show: detached range ignores subsequent signal changes", async () => {
+    const cond = signal(true);
+    const range = Show(cond, () => h("span", "A"));
+    const container = h("div", range);
+    expect(container.textContent).toBe("A");
+
+    // Schedule a re-run, then detach synchronously. The effect body
+    // (queued via queueMicrotask) will see range.alive === false and
+    // return early without touching the DOM.
+    cond.set(false);
+    range.detach();
+    await new Promise((r) => setTimeout(r, 30));
+    // No throw means the early-return branch was exercised.
+  });
+
+  it("When: detached range ignores subsequent signal changes", async () => {
+    const cond = signal(true);
+    const range = When(
+      cond,
+      () => h("span", "T"),
+      () => h("span", "F"),
+    );
+    const container = h("div", range);
+    expect(container.textContent).toBe("T");
+
+    cond.set(false);
+    range.detach();
+    await new Promise((r) => setTimeout(r, 30));
+  });
+
+  it("Switch: detached range ignores subsequent signal changes", async () => {
+    const val = signal("a");
+    const range = Switch(val, [
+      Match("a", () => h("span", "A")),
+      Match("b", () => h("span", "B")),
+    ]);
+    const container = h("div", range);
+    expect(container.textContent).toBe("A");
+
+    val.set("b");
+    range.detach();
+    await new Promise((r) => setTimeout(r, 30));
   });
 });

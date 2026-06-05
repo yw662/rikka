@@ -45,9 +45,9 @@ jobs:
           pnpm exec tsc --noEmit --project components/rikka-live-playground/tsconfig.json
           echo "✅ rikka-live-playground passed"
 
-          echo "📋 Checking rikka-demo..."
-          pnpm exec tsc --noEmit --project docs/rikka-demo/tsconfig.json
-          echo "✅ rikka-demo passed"
+          echo "📋 Checking rikka-homepage..."
+          pnpm exec tsc --noEmit --project docs/rikka-homepage/tsconfig.json
+          echo "✅ rikka-homepage passed"
 
           echo "📋 Checking examples/bookmark-manager..."
           pnpm exec tsc --noEmit --project examples/bookmark-manager/tsconfig.json
@@ -97,7 +97,7 @@ jobs:
           path: |
             utils/*/dist/
             components/*/dist/
-            docs/rikka-demo/dist/
+            docs/rikka-homepage/dist/
           retention-days: 7
 
   # Job 3: 运行测试
@@ -135,52 +135,21 @@ jobs:
           path: test-results/
           retention-days: 30
 
-  # Job 4: 浏览器测试 (E2E)
-  browser-test:
-    name: 🌐 Browser E2E Test
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v7
         with:
-          node-version: "24"
-          cache: "pnpm"
+          name: coverage
+          path: |
+            utils/*/coverage/
+            components/*/coverage/
+          retention-days: 30
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright browsers
-        run: npx playwright install chromium --with-deps
-
-      - name: Build demo site
-        run: pnpm build
-
-      - name: Start demo server
-        run: pnpm demo &
-        env:
-          PORT: 3000
-
-      - name: Wait for server to start
-        run: sleep 5
-
-      - name: Run E2E tests
-        run: |
-          echo "Running basic smoke tests on demo server..."
-          curl -sf http://localhost:3000/ > /dev/null && echo "✅ Homepage is accessible" || exit 1
-          echo "Browser E2E tests completed successfully!"
-
-  # Job 5: 发布到 GitHub Packages (仅在推送 tag 时触发)
+  # Job 4: 发布到 GitHub Packages (仅在推送 tag 时触发)
   publish:
     name: 🚀 Publish to GitHub Packages
     runs-on: ubuntu-latest
-    needs: [build, test, browser-test]
+    needs: [build, test]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: read

@@ -55,7 +55,7 @@ git push origin v0.1.0
 ✅ rikka-dom passed
 ✅ rikka-elements passed
 ✅ rikka-live-playground passed
-✅ rikka-demo passed
+✅ rikka-homepage passed
 ✅ bookmark-manager passed
 ✅ code-editor passed
 ✅ finance-tracker passed
@@ -77,14 +77,14 @@ utils/rikka-signal/dist/      # 6.9 kB (gzip: 1.6 kB)
 utils/rikka-dom/dist/         # 25.8 kB (gzip: 6.3 kB)
 utils/rikka-elements/dist/    # 14.4 kB (gzip: 3.3 kB)
 components/rikka-live-playground/dist/  # 15.6 kB (gzip: 4.2 kB)
-docs/rikka-demo/dist/         # 完整文档站点
+docs/rikka-homepage/dist/         # 完整文档站点
 ```
 
 **产物保留时间：** 7 天（可下载用于调试）
 
 ### Stage 3: 🧪 运行测试
 
-执行全部 481 个单元测试：
+执行全部 313 个单元测试：
 
 ```bash
 # 测试结果示例
@@ -92,7 +92,7 @@ docs/rikka-demo/dist/         # 完整文档站点
    Status: PASS | Tests: 202 | Failed: 0 | Duration: 2030ms
 
 🧪 Testing utils/rikka-dom...
-   Status: PASS | Tests: 157 | Failed: 0 | Duration: 3788ms
+   Status: PASS | Tests: 161 | Failed: 0 | Duration: 3788ms
 
 🧪 Testing utils/rikka-elements...
    Status: PASS | Tests: 72 | Failed: 0 | Duration: 2718ms
@@ -101,13 +101,19 @@ docs/rikka-demo/dist/         # 完整文档站点
    Status: PASS | Tests: 50 | Failed: 0 | Duration: 3650ms
 
 ========================================
-✅ Total: 481 tests | 0 failures
+✅ Total: 313 tests | 0 failures
 ========================================
 ```
 
 **测试报告：**
 - 测试结果会作为 Artifact 上传
 - 保留 30 天供分析
+
+**覆盖率报告：**
+- `pnpm test` 默认使用 v8 provider 收集覆盖率
+- 每个包在各自 `coverage/` 下生成 `lcov.info` + HTML 报告
+- CI 会把 `utils/*/coverage/` 和 `components/*/coverage/` 上传为 `coverage` artifact
+- 当前未设置 threshold（仅收集数据）
 
 ### Stage 4: 🌐 浏览器 E2E 测试
 

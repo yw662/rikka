@@ -10,8 +10,9 @@ export type AttrValue =
 export type StyleValue =
   | string
   | number
-  | Signal.State<string | number>
-  | Signal.Computed<string | number>;
+  | undefined
+  | Signal.State<string | number | undefined>
+  | Signal.Computed<string | number | undefined>;
 
 export type StyleRecord = Record<string, StyleValue>;
 
@@ -395,7 +396,7 @@ export interface TextareaHTMLAttributes extends CommonHTMLAttributes {
   form?: AttrValue;
   autocomplete?: AttrValue;
   dirname?: AttrValue;
-  defaultValue?: string;
+  defaultValue?: AttrValue;
 }
 
 export interface ThHTMLAttributes extends CommonHTMLAttributes {

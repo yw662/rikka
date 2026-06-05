@@ -63,6 +63,8 @@ const testSuites = [
       { name: '响应时间 < 2s', check: (res) => parseFloat(res.time) < 2000 },
       { name: '包含 Rikka 标题', check: (res) => res.body.includes('Rikka') || res.body.includes('rikka') },
       { name: '包含导航栏', check: (res) => res.body.includes('nav') || res.body.includes('header') },
+      { name: 'CDN 地址可见', check: (res) => res.body.includes('yw662.github.io/rikka/cdn') },
+      { name: '包含安装步骤', check: (res) => res.body.includes('npm install') || res.body.includes('Install') },
     ]
   },
   
@@ -286,7 +288,7 @@ async function main() {
 
   log('yellow', '   Starting Demo Server...');
   const serverStart = Date.now();
-  const server = spawn('pnpm', ['demo'], {
+  const server = spawn('pnpm', ['homepage'], {
     cwd: ROOT,
     shell: true,
     stdio: 'pipe',
@@ -599,7 +601,7 @@ function printFinalReport(data, startTime) {
     log('red', '   • Check server logs for errors');
   }
 
-  log('');
+  console.log('');
 }
 
 main().catch(e => {

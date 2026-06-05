@@ -6,13 +6,21 @@ const root = import.meta.dirname;
 export default defineConfig({
   testEnvironment: "happy-dom",
   include: ["test/**/*.test.ts"],
+  coverage: {
+    enabled: true,
+    provider: "v8",
+    include: ["src/**/*.{ts,tsx,js,jsx}"],
+    reporters: ["text", "lcov", "html"],
+    reportsDirectory: "./coverage",
+    clean: true,
+  },
   resolve: {
     alias: {
-      "rikka-signal$": path.resolve(root, "../../utils/rikka-signal/src/index.ts"),
-      "rikka-dom$": path.resolve(root, "../../utils/rikka-dom/src/index.ts"),
-      "rikka-elements$": path.resolve(
+      "@rikka/signal$": path.resolve(root, "../../utils/rikka-signal/dist/index.js"),
+      "@rikka/dom$": path.resolve(root, "../../utils/rikka-dom/dist/index.js"),
+      "@rikka/elements$": path.resolve(
         root,
-        "../../utils/rikka-elements/src/index.ts",
+        "../../utils/rikka-elements/dist/index.js",
       ),
     },
   },

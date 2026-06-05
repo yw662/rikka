@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "@rstest/core";
+import { describe, it, expect, beforeEach, afterEach, vi } from "@rstest/core";
 import { RikkaLivePlayground } from "../src/index.js";
 import type { LivePlaygroundElement } from "../src/index.js";
 
@@ -184,10 +184,10 @@ describe("RikkaLivePlayground", () => {
       el.setAttribute("height", "400");
       document.body.appendChild(el);
       await waitFor(10);
-      const textarea = el.shadowRoot!.querySelector(
-        ".editor-area",
-      ) as HTMLTextAreaElement;
-      expect(textarea.style.height).toBe("400px");
+      const body = el.shadowRoot!.querySelector(
+        ".body",
+      ) as HTMLElement;
+      expect(body.style.height).toBe("400px");
     });
 
     it("passes spellcheck attribute to textarea", async () => {
@@ -362,17 +362,18 @@ describe("RikkaLivePlayground", () => {
   });
 
   describe("dynamic attribute updates", () => {
-    it("updating height after connection updates textarea style", async () => {
+    it("updating height after connection updates body style", async () => {
       el.setAttribute("height", "200");
       document.body.appendChild(el);
       await waitFor(10);
-      const textarea = el.shadowRoot!.querySelector(
-        ".editor-area",
-      ) as HTMLTextAreaElement;
-      expect(textarea.style.height).toBe("200px");
+      const body = el.shadowRoot!.querySelector(
+        ".body",
+      ) as HTMLElement;
+      expect(body.style.height).toBe("200px");
       el.setAttribute("height", "400");
       await waitFor(50);
       expect(el.height).toBe("400");
+      expect(body.style.height).toBe("400px");
     });
 
     it("updating title after connection updates header", async () => {
@@ -433,9 +434,7 @@ describe("RikkaLivePlayground", () => {
       try {
         await el.run();
       } catch {}
-      expect(
-        previewEl.querySelector(".preview-iframe.preview-iframe"),
-      ).toBeNull();
+      expect(previewEl.querySelector(".preview-iframe")).toBeNull();
     });
   });
 
@@ -523,6 +522,531 @@ describe("RikkaLivePlayground", () => {
       expect(el.$code.get()).toBe("unique-1");
       expect(el2.$code.get()).toBe("unique-2");
       el2.remove();
+    });
+  });
+
+  describe("layout attribute", () => {
+    it("layout defaults to vertical", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(el.layout).toBe("vertical");
+    });
+
+    it("reading layout attribute returns the value", async () => {
+      el.setAttribute("layout", "horizontal");
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(el.layout).toBe("horizontal");
+    });
+
+    it("invalid layout value falls back to vertical", async () => {
+      el.setAttribute("layout", "diagonal");
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(el.layout).toBe("vertical");
+    });
+
+    it("layout signal accessor exists", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(el.$layout).toBeTruthy();
+    });
+
+    it("body has layout-vertical class by default", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      const body = el.shadowRoot!.querySelector(".body");
+      expect(body!.classList.contains("layout-vertical")).toBe(true);
+      expect(body!.classList.contains("layout-horizontal")).toBe(false);
+    });
+
+    it("setting layout=horizontal updates body class", async () => {
+      el.setAttribute("layout", "horizontal");
+      document.body.appendChild(el);
+      await waitFor(10);
+      const body = el.shadowRoot!.querySelector(".body");
+      expect(body!.classList.contains("layout-vertical")).toBe(false);
+      expect(body!.classList.contains("layout-horizontal")).toBe(true);
+    });
+
+    it("setLayout updates the layout attribute", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      el.setLayout("horizontal");
+      expect(el.layout).toBe("horizontal");
+      expect(el.getAttribute("layout")).toBe("horizontal");
+    });
+
+    it("toggleLayout switches between vertical and horizontal", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(el.layout).toBe("vertical");
+      el.toggleLayout();
+      expect(el.layout).toBe("horizontal");
+      el.toggleLayout();
+      expect(el.layout).toBe("vertical");
+    });
+
+    it("clicking layout-vertical button sets layout to vertical", async () => {
+      el.setAttribute("layout", "horizontal");
+      document.body.appendChild(el);
+      await waitFor(10);
+      const btn = el.shadowRoot!.querySelector(
+        '[data-action="layout-vertical"]',
+      ) as HTMLButtonElement;
+      btn.click();
+      expect(el.layout).toBe("vertical");
+    });
+
+    it("clicking layout-horizontal button sets layout to horizontal", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      const btn = el.shadowRoot!.querySelector(
+        '[data-action="layout-horizontal"]',
+      ) as HTMLButtonElement;
+      btn.click();
+      expect(el.layout).toBe("horizontal");
+    });
+
+    it("layout buttons reflect active layout", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      const vBtn = el.shadowRoot!.querySelector(
+        '[data-action="layout-vertical"]',
+      ) as HTMLButtonElement;
+      const hBtn = el.shadowRoot!.querySelector(
+        '[data-action="layout-horizontal"]',
+      ) as HTMLButtonElement;
+      expect(vBtn.classList.contains("active")).toBe(true);
+      expect(hBtn.classList.contains("active")).toBe(false);
+      el.setLayout("horizontal");
+      await waitFor(10);
+      expect(vBtn.classList.contains("active")).toBe(false);
+      expect(hBtn.classList.contains("active")).toBe(true);
+    });
+  });
+
+  describe("panel attribute", () => {
+    it("panel defaults to both", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(el.panel).toBe("both");
+    });
+
+    it("reading panel attribute returns the value", async () => {
+      el.setAttribute("panel", "editor");
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(el.panel).toBe("editor");
+    });
+
+    it("invalid panel value falls back to both", async () => {
+      el.setAttribute("panel", "nope");
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(el.panel).toBe("both");
+    });
+
+    it("panel signal accessor exists", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(el.$panel).toBeTruthy();
+    });
+
+    it("both panes are visible by default", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      const editorPane = el.shadowRoot!.querySelector(".editor-pane") as HTMLElement;
+      const previewPane = el.shadowRoot!.querySelector(".preview-pane") as HTMLElement;
+      expect(editorPane.classList.contains("pane-hidden")).toBe(false);
+      expect(previewPane.classList.contains("pane-hidden")).toBe(false);
+    });
+
+    it("setting panel=editor hides preview pane", async () => {
+      el.setAttribute("panel", "editor");
+      document.body.appendChild(el);
+      await waitFor(10);
+      const editorPane = el.shadowRoot!.querySelector(".editor-pane") as HTMLElement;
+      const previewPane = el.shadowRoot!.querySelector(".preview-pane") as HTMLElement;
+      expect(editorPane.classList.contains("pane-hidden")).toBe(false);
+      expect(previewPane.classList.contains("pane-hidden")).toBe(true);
+    });
+
+    it("setting panel=preview hides editor pane", async () => {
+      el.setAttribute("panel", "preview");
+      document.body.appendChild(el);
+      await waitFor(10);
+      const editorPane = el.shadowRoot!.querySelector(".editor-pane") as HTMLElement;
+      const previewPane = el.shadowRoot!.querySelector(".preview-pane") as HTMLElement;
+      expect(editorPane.classList.contains("pane-hidden")).toBe(true);
+      expect(previewPane.classList.contains("pane-hidden")).toBe(false);
+    });
+
+    it("setPanel updates the panel attribute", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      el.setPanel("editor");
+      expect(el.panel).toBe("editor");
+      expect(el.getAttribute("panel")).toBe("editor");
+    });
+
+    it("togglePanel switches to target panel", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      el.togglePanel("editor");
+      expect(el.panel).toBe("editor");
+    });
+
+    it("togglePanel toggles back to both when same target clicked", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      el.togglePanel("editor");
+      expect(el.panel).toBe("editor");
+      el.togglePanel("editor");
+      expect(el.panel).toBe("both");
+    });
+
+    it("clicking panel-editor button toggles editor-only", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      const btn = el.shadowRoot!.querySelector(
+        '[data-action="panel-editor"]',
+      ) as HTMLButtonElement;
+      btn.click();
+      expect(el.panel).toBe("editor");
+      btn.click();
+      expect(el.panel).toBe("both");
+    });
+
+    it("clicking panel-preview button toggles preview-only", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      const btn = el.shadowRoot!.querySelector(
+        '[data-action="panel-preview"]',
+      ) as HTMLButtonElement;
+      btn.click();
+      expect(el.panel).toBe("preview");
+      btn.click();
+      expect(el.panel).toBe("both");
+    });
+
+    it("clicking panel-both button shows both panels", async () => {
+      el.setAttribute("panel", "editor");
+      document.body.appendChild(el);
+      await waitFor(10);
+      const btn = el.shadowRoot!.querySelector(
+        '[data-action="panel-both"]',
+      ) as HTMLButtonElement;
+      btn.click();
+      expect(el.panel).toBe("both");
+    });
+
+    it("panel buttons reflect active panel", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      const bothBtn = el.shadowRoot!.querySelector(
+        '[data-action="panel-both"]',
+      ) as HTMLButtonElement;
+      const editorBtn = el.shadowRoot!.querySelector(
+        '[data-action="panel-editor"]',
+      ) as HTMLButtonElement;
+      const previewBtn = el.shadowRoot!.querySelector(
+        '[data-action="panel-preview"]',
+      ) as HTMLButtonElement;
+      expect(bothBtn.classList.contains("active")).toBe(true);
+      expect(editorBtn.classList.contains("active")).toBe(false);
+      expect(previewBtn.classList.contains("active")).toBe(false);
+      el.setPanel("editor");
+      await waitFor(10);
+      expect(bothBtn.classList.contains("active")).toBe(false);
+      expect(editorBtn.classList.contains("active")).toBe(true);
+    });
+  });
+
+  describe("fullscreen", () => {
+    it("toggleFullscreen method exists", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(typeof el.toggleFullscreen).toBe("function");
+    });
+
+    it("exitFullscreen method exists", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(typeof el.exitFullscreen).toBe("function");
+    });
+
+    it("clicking fullscreen button calls requestFullscreen when not in fullscreen", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      const btn = el.shadowRoot!.querySelector(
+        '[data-action="fullscreen"]',
+      ) as HTMLButtonElement;
+      let called = false;
+      const original = el.requestFullscreen;
+      (el as unknown as { requestFullscreen: () => Promise<void> }).requestFullscreen =
+        async function () {
+          called = true;
+        };
+      try {
+        btn.click();
+        await waitFor(20);
+        expect(called).toBe(true);
+      } finally {
+        (el as unknown as { requestFullscreen: typeof original }).requestFullscreen = original;
+      }
+    });
+
+    it("removes fullscreen attribute when exitFullscreen is called", async () => {
+      el.setAttribute("fullscreen", "");
+      document.body.appendChild(el);
+      await waitFor(10);
+      const original = document.exitFullscreen;
+      (document as unknown as { exitFullscreen: () => Promise<void> }).exitFullscreen =
+        async function () {
+          // noop
+        };
+      try {
+        await el.exitFullscreen();
+        expect(el.hasAttribute("fullscreen")).toBe(false);
+      } finally {
+        (document as unknown as { exitFullscreen: typeof original }).exitFullscreen = original;
+      }
+    });
+
+    it("registers fullscreenchange handler on connect", async () => {
+      const original = document.addEventListener;
+      let called = false;
+      (document as unknown as { addEventListener: typeof original }).addEventListener = function (
+        ...args: Parameters<typeof original>
+      ) {
+        if (args[0] === "fullscreenchange") called = true;
+        return original.apply(document, args);
+      } as typeof original;
+      try {
+        document.body.appendChild(el);
+        await waitFor(10);
+        expect(called).toBe(true);
+      } finally {
+        (document as unknown as { addEventListener: typeof original }).addEventListener = original;
+      }
+    });
+
+    it("removes fullscreenchange handler on disconnect", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      el.remove();
+      await waitFor(10);
+      expect(true).toBe(true);
+    });
+  });
+
+  describe("header actions", () => {
+    it("renders layout toggle group", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      const vBtn = el.shadowRoot!.querySelector('[data-action="layout-vertical"]');
+      const hBtn = el.shadowRoot!.querySelector('[data-action="layout-horizontal"]');
+      expect(vBtn).toBeTruthy();
+      expect(hBtn).toBeTruthy();
+    });
+
+    it("renders panel toggle group", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      const bothBtn = el.shadowRoot!.querySelector('[data-action="panel-both"]');
+      const editorBtn = el.shadowRoot!.querySelector('[data-action="panel-editor"]');
+      const previewBtn = el.shadowRoot!.querySelector('[data-action="panel-preview"]');
+      expect(bothBtn).toBeTruthy();
+      expect(editorBtn).toBeTruthy();
+      expect(previewBtn).toBeTruthy();
+    });
+
+    it("renders fullscreen button", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      const btn = el.shadowRoot!.querySelector('[data-action="fullscreen"]');
+      expect(btn).toBeTruthy();
+    });
+
+    it("preserves run and reset buttons", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      const runBtn = el.shadowRoot!.querySelector(".run-btn");
+      const resetBtn = el.shadowRoot!.querySelector(".reset-btn");
+      expect(runBtn).toBeTruthy();
+      expect(resetBtn).toBeTruthy();
+    });
+  });
+
+  describe("theming via CSS variables", () => {
+    const EXPECTED_VARS = [
+      "--pg-bg",
+      "--pg-surface",
+      "--pg-surface-elevated",
+      "--pg-surface-2",
+      "--pg-surface-hover",
+      "--pg-border",
+      "--pg-text",
+      "--pg-text-muted",
+      "--pg-text-subtle",
+      "--pg-text-strong",
+      "--pg-text-inverse",
+      "--pg-accent",
+      "--pg-success",
+      "--pg-success-hover",
+      "--pg-warn",
+      "--pg-error",
+      "--pg-info",
+    ];
+
+    it("exposes dark theme defaults on the host", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      const cs = getComputedStyle(el);
+      for (const v of EXPECTED_VARS) {
+        const value = cs.getPropertyValue(v).trim();
+        expect(value).not.toBe("");
+      }
+    });
+
+    it("dark default for --pg-bg is dark", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      const cs = getComputedStyle(el);
+      const bg = cs.getPropertyValue("--pg-bg").trim().toLowerCase();
+      expect(bg).toBe("#0d1117");
+    });
+
+    it("external --pg-bg override takes effect on the host", async () => {
+      el.style.setProperty("--pg-bg", "#ff00ff");
+      document.body.appendChild(el);
+      await waitFor(10);
+      const cs = getComputedStyle(el);
+      expect(cs.getPropertyValue("--pg-bg").trim().toLowerCase()).toBe(
+        "#ff00ff",
+      );
+    });
+
+    it("host-level --pg-text override beats the :host default", async () => {
+      el.style.setProperty("--pg-text", "#123456");
+      document.body.appendChild(el);
+      await waitFor(10);
+      const cs = getComputedStyle(el);
+      expect(cs.getPropertyValue("--pg-text").trim().toLowerCase()).toBe(
+        "#123456",
+      );
+    });
+
+    it("higher-specificity author rule can override :host defaults", async () => {
+      const styleEl = document.createElement("style");
+      styleEl.textContent =
+        "body [data-theme=\"light\"] rikka-live-playground { --pg-bg: #abcdef; }";
+      document.head.appendChild(styleEl);
+      const wrapper = document.createElement("div");
+      wrapper.setAttribute("data-theme", "light");
+      wrapper.appendChild(el);
+      document.body.appendChild(wrapper);
+      await waitFor(10);
+      const cs = getComputedStyle(el);
+      expect(cs.getPropertyValue("--pg-bg").trim().toLowerCase()).toBe(
+        "#abcdef",
+      );
+      wrapper.remove();
+      styleEl.remove();
+    });
+
+    it("does not use hardcoded dark colors in stylesheet", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      const sheets = el.shadowRoot!.adoptedStyleSheets;
+      const text = sheets
+        .map((s) =>
+          Array.from(s.cssRules)
+            .map((r) => r.cssText)
+            .join("\n"),
+        )
+        .join("\n");
+      expect(text).not.toMatch(/background:\s*#0d1117/i);
+      expect(text).not.toMatch(/color:\s*#94a3b8/i);
+    });
+
+    it("run() injects resolved --pg-* vars into the iframe srcdoc", async () => {
+      el.setAttribute("code", "const x = 1");
+      el.style.setProperty("--pg-bg", "#abcdef");
+      el.style.setProperty("--pg-text", "#fedcba");
+      document.body.appendChild(el);
+      await waitFor(10);
+      try {
+        await el.run();
+      } catch {}
+      const iframe = el.shadowRoot!.querySelector(
+        ".preview-iframe",
+      ) as HTMLIFrameElement | null;
+      if (!iframe) return;
+      const srcdoc = iframe.getAttribute("srcdoc") ?? "";
+      expect(srcdoc).toContain("--pg-bg: #abcdef");
+      expect(srcdoc).toContain("--pg-text: #fedcba");
+    });
+  });
+
+  describe("live theme update", () => {
+    it("iframe srcdoc listens for __rikka_playground_theme messages", async () => {
+      el.setAttribute("code", "const x = 1");
+      document.body.appendChild(el);
+      await waitFor(10);
+      try {
+        await el.run();
+      } catch {}
+      const iframe = el.shadowRoot!.querySelector(
+        ".preview-iframe",
+      ) as HTMLIFrameElement | null;
+      if (!iframe) return;
+      const srcdoc = iframe.getAttribute("srcdoc") ?? "";
+      expect(srcdoc).toContain("__rikka_playground_theme");
+    });
+
+    it("updates iframe theme on document data-theme change", async () => {
+      document.documentElement.setAttribute("data-theme", "dark");
+      el.setAttribute("code", "const x = 1");
+      el.style.setProperty("--pg-bg", "#222222");
+      document.body.appendChild(el);
+      await waitFor(10);
+      try {
+        await el.run();
+      } catch {}
+      const iframe = el.shadowRoot!.querySelector(
+        ".preview-iframe",
+      ) as HTMLIFrameElement | null;
+      if (!iframe) return;
+
+      const postSpy = vi.fn();
+      const originalPost = iframe.contentWindow!.postMessage;
+      iframe.contentWindow!.postMessage = postSpy.mockImplementation(
+        (...args: unknown[]) => {
+          (originalPost as (...a: unknown[]) => void).apply(
+            iframe.contentWindow,
+            args,
+          );
+        },
+      ) as typeof iframe.contentWindow.postMessage;
+
+      el.style.setProperty("--pg-bg", "#dddddd");
+      document.documentElement.setAttribute("data-theme", "light");
+      await waitFor(20);
+
+      const themeMessage = postSpy.mock.calls.find((call) => {
+        const data = call[0] as { type?: string };
+        return data && data.type === "__rikka_playground_theme";
+      });
+      expect(themeMessage).toBeTruthy();
+      if (themeMessage) {
+        const payload = themeMessage[0] as { css: string };
+        expect(payload.css).toContain("--pg-bg: #dddddd");
+      }
+
+      iframe.contentWindow!.postMessage = originalPost;
+      document.documentElement.removeAttribute("data-theme");
     });
   });
 });

@@ -115,7 +115,7 @@ const ConsolePanel = defineElement(
           span({ class: 'console-title' }, 'Console'),
           button({ class: 'clear-btn', onclick: clearConsole }, 'Clear')
         ),
-        div({ class: 'console-output' }, For(consoleEntries, renderEntry, (_, i) => i))
+        div({ class: 'console-output' }, For(consoleEntries, renderEntry, (_: unknown, i: number) => i))
       );
     }
   }

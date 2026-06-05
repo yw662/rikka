@@ -5,7 +5,7 @@
  * Built on top of {@link https://github.com/tc39/proposal-signals signal-polyfill}.
  *
  * @example
- * import { signal, computed, effect } from 'rikka-signal';
+ * import { signal, computed, effect } from '@rikka/signal';
  *
  * const count = signal(0);
  * const doubled = computed(() => count.get() * 2);
@@ -56,5 +56,3 @@ export function computed<T>(fn: () => T): Signal.Computed<T> {
 }
 
 export { effect } from './effect.js';
-export { store, raw, signalOf } from './store.js';
-export type { Store } from './store.js';
