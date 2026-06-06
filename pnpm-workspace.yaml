@@ -20,3 +20,6 @@ catalog:
   typescript: ^6.0.3
 
 catalogMode: strict
+
+gitChecks: true
+publishBranch: default

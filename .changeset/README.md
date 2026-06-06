@@ -13,10 +13,10 @@ file is created under `.changeset/` — commit it with the rest of the change.
 
 `pnpm release` (driven by `.github/workflows/release.yml`) does the full loop:
 
-1. **Open a PR or publish** — `changesets/action` watches `main`:
-   - If there are pending changesets, it opens/updates a **"Version Packages"**
+1. **Open a PR or publish** — `changesets/action` watches `default`:
+   - If there are pending changesets, it opens/updates a **"release packages"**
      PR that bumps versions in `package.json` and refreshes every `CHANGELOG.md`.
-   - When the "Version Packages" PR is merged, the same action runs `pnpm release`.
+   - When the "release packages" PR is merged, the same action runs `pnpm release`.
 2. **`pnpm release`** runs `pnpm build && pnpm changeset publish`, which uses
    `pnpm publish` under the hood — workspace deps with `workspace:*` are
    rewritten to real version ranges, and only the bumped packages go to npm.
