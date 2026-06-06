@@ -1,0 +1,34 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "rikka",
+  "description": "A Web Components toolkit with fine-grained reactivity based on TC39 Signals.",
+  "folders": [
+    "utils/rikka-signal/src",
+    "utils/rikka-dom/src",
+    "utils/rikka-elements/src",
+    "components/rikka-live-playground/src",
+    "docs/rikka-skills"
+  ],
+  "excludeFolders": [
+    "node_modules",
+    "dist",
+    "coverage",
+    ".git"
+  ],
+  "excludeFiles": [
+    "CHANGELOG.md",
+    "LICENSE",
+    "package-lock.json",
+    "pnpm-lock.yaml"
+  ],
+  "rules": [
+    "Use the scoped import form: @takanashi/rikka-signal, @takanashi/rikka-dom, @takanashi/rikka-elements",
+    "Pass the signal itself to DOM children and attributes; never call .get() in those positions (loses reactivity)",
+    "Inside computed() and effect() callbacks, you MUST call .get() to read signals — that's how dependency tracking works",
+    "A function used as a child is auto-wrapped as computed; a function used as a value (attribute, prop) is NOT — wrap with computed() explicitly",
+    "In defineElement.render(), use this.$xxx (signal) for DOM bindings; this.xxx is a raw snapshot",
+    "events values are transform functions (DOM Event -> detail), not type markers",
+    "All reactive state is TC39 Signal. Read with .get(), write with .set()",
+    "use untracked(fn) to read a signal without subscribing the surrounding effect/computed"
+  ]
+}

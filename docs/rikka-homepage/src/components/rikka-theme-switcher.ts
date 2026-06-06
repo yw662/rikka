@@ -1,5 +1,5 @@
-import { defineElement, css } from "@rikka/elements";
-import { button, span } from "@rikka/dom";
+import { defineElement, css } from "@takanashi/rikka-elements";
+import { button, span } from "@takanashi/rikka-dom";
 
 const themeSwitcherStyles = css`
   :host {

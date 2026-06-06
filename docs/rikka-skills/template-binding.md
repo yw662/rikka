@@ -5,15 +5,15 @@ The `template` option of `defineElement` lets you write the element's markup as 
 ## Imports
 
 ```typescript
-import { defineElement, StringAttr } from "@rikka/elements";
-import { h } from "@rikka/dom";
+import { defineElement, StringAttr } from "@takanashi/rikka-elements";
+import { h } from "@takanashi/rikka-dom";
 ```
 
 ## Basic usage
 
 ```typescript
-import { defineElement, StringAttr } from "@rikka/elements";
-import { h } from "@rikka/dom";
+import { defineElement, StringAttr } from "@takanashi/rikka-elements";
+import { h } from "@takanashi/rikka-dom";
 
 defineElement("my-card", {
   attributes: { title: StringAttr, description: StringAttr },

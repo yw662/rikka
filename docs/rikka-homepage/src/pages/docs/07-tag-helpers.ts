@@ -1,6 +1,8 @@
-import { defineElement } from '@rikka/elements';
-import { css, div, h1, h2, p, a, pre, code, ul, li, svg, circle, svgtext } from '@rikka/dom';
-import { sharedStyles, docPageStyles } from '../../shared/styles';
+import { defineElement } from '@takanashi/rikka-elements';
+import { css, div, h1, h2, p, a, pre, code, ul, li, svg, circle, svgtext } from '@takanashi/rikka-dom';
+import {sharedHelpers} from '../../shared/helpers';
+import {docPageStyles} from '../../shared/page-styles';
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`${docPageStyles}`;
 
@@ -13,12 +15,12 @@ const DocDom07 = defineElement('rikka-doc-dom-07', {
       div({ class: 'doc-content' },
         h2('Key Concepts'),
         ul(
-          li(sharedStyles.inlineCode('div(), span(), button(), h1()-h6(), p(), input(), a()'), ' — Common element helpers.'),
-          li('Same API as ', sharedStyles.inlineCode('h()'), ' but the tag is pre-bound.'),
+          li(sharedHelpers.inlineCode('div(), span(), button(), h1()-h6(), p(), input(), a()'), ' — Common element helpers.'),
+          li('Same API as ', sharedHelpers.inlineCode('h()'), ' but the tag is pre-bound.'),
           li('Fully typed with correct attribute inference per element type.'),
-          li('Includes semantic elements: ', sharedStyles.inlineCode('section, article, header, nav, main, footer'), ', etc.'),
-          li('Table elements: ', sharedStyles.inlineCode('table, thead, tbody(), tr, th, td'), ', etc.'),
-          li('Form elements: ', sharedStyles.inlineCode('form, label, select, option, textarea'), ', etc.'),
+          li('Includes semantic elements: ', sharedHelpers.inlineCode('section, article, header, nav, main, footer'), ', etc.'),
+          li('Table elements: ', sharedHelpers.inlineCode('table, thead, tbody(), tr, th, td'), ', etc.'),
+          li('Form elements: ', sharedHelpers.inlineCode('form, label, select, option, textarea'), ', etc.'),
         ),
         h2('Available Tag Helpers'),
         pre({ class: 'code-block' }, code(
@@ -48,31 +50,29 @@ ul(), ol(), li()`
 polyline(), polygon(), text()`
         )),
         p('Example:'),
-        sharedStyles.createPlayground(
-          `function SVGDemo() {
+        RikkaLivePlayground.h({
+    code: `function SVGDemo() {
   return svg({ viewBox: '0 0 100 100', style: { width: '200px', height: '200px' } },
     circle({ cx: 50, cy: 50, r: 40, fill: 'steelblue' }),
     svgtext({ x: 50, y: 55, 'text-anchor': 'middle', fill: 'white' }, 'SVG')
   );
 }
 
-container.appendChild(SVGDemo());`,
-          '150',
-          'SVG Elements'
-        ),
+container.appendChild(SVGDemo());`, height: '150', title: 'SVG Elements'
+}),
         h2('Namespace Behavior'),
         p('Each tag helper resolves its namespace based on the tag name itself (not parent context):'),
         ul(
-          li(sharedStyles.inlineCode('svg()'), ' and all SVG element helpers (', sharedStyles.inlineCode('circle, path, rect, text'), ', etc.) always create elements in the SVG namespace — determined by a built-in tag-name lookup.'),
-          li(sharedStyles.inlineCode('math()'), ' and MathML helpers use the MathML namespace.'),
-          li('Standard HTML helpers (', sharedStyles.inlineCode('div, span, a'), ', etc.) use the HTML namespace.'),
-          li('Only ', sharedStyles.inlineCode('4 tag names'), ' exist in both HTML and SVG namespaces and require disambiguation — use the ', sharedStyles.inlineCode('svg'), '-prefixed variant when you need the SVG version: ', sharedStyles.inlineCode('a → svga(), script → svgscript(), style → svgstyle(), title → svgtitle()'), '.'),
-          li('All other SVG-only tags (', sharedStyles.inlineCode('circle, path, text, tspan, foreignObject'), ', etc.) and MathML-only tags (', sharedStyles.inlineCode('mi, mo, mn, mrow'), ', etc.) resolve correctly without any prefix.'),
-          li(sharedStyles.inlineCode('foreignObject'), ' is an SVG element that serves as an HTML integration point — place standard HTML helpers inside it.'),
+          li(sharedHelpers.inlineCode('svg()'), ' and all SVG element helpers (', sharedHelpers.inlineCode('circle, path, rect, text'), ', etc.) always create elements in the SVG namespace — determined by a built-in tag-name lookup.'),
+          li(sharedHelpers.inlineCode('math()'), ' and MathML helpers use the MathML namespace.'),
+          li('Standard HTML helpers (', sharedHelpers.inlineCode('div, span, a'), ', etc.) use the HTML namespace.'),
+          li('Only ', sharedHelpers.inlineCode('4 tag names'), ' exist in both HTML and SVG namespaces and require disambiguation — use the ', sharedHelpers.inlineCode('svg'), '-prefixed variant when you need the SVG version: ', sharedHelpers.inlineCode('a → svga(), script → svgscript(), style → svgstyle(), title → svgtitle()'), '.'),
+          li('All other SVG-only tags (', sharedHelpers.inlineCode('circle, path, text, tspan, foreignObject'), ', etc.) and MathML-only tags (', sharedHelpers.inlineCode('mi, mo, mn, mrow'), ', etc.) resolve correctly without any prefix.'),
+          li(sharedHelpers.inlineCode('foreignObject'), ' is an SVG element that serves as an HTML integration point — place standard HTML helpers inside it.'),
         ),
         h2('Usage Example'),
-        sharedStyles.createPlayground(
-          `function CardExample() {
+        RikkaLivePlayground.h({
+    code: `function CardExample() {
   return article({ class: "card" },
     header({},
       h3({}, "Card Title"),
@@ -86,15 +86,13 @@ container.appendChild(SVGDemo());`,
   );
 }
 
-container.appendChild(CardExample());`,
-          '200',
-          'Tag Helpers Example'
-        ),
+container.appendChild(CardExample());`, height: '200', title: 'Tag Helpers Example'
+}),
       ),
       div({ class: 'playground-section' },
         h2('Try It'),
-        sharedStyles.createPlayground(
-          `function CardExample() {
+        RikkaLivePlayground.h({
+    code: `function CardExample() {
   return article({ class: "card" },
     header({},
       h3({}, "Card Title"),
@@ -108,15 +106,13 @@ container.appendChild(CardExample());`,
   );
 }
 
-container.appendChild(CardExample());`,
-          '200',
-          'Semantic HTML with Tag Helpers'
-        ),
+container.appendChild(CardExample());`, height: '200', title: 'Semantic HTML with Tag Helpers'
+}),
       ),
       div({ class: 'doc-nav' },
-        a({ href: '#/docs/@rikka/dom/h', class: 'prev-link' }, '\u2190 h()'),
+        a({ href: '#/docs/@takanashi/rikka-dom/h', class: 'prev-link' }, '\u2190 h()'),
         div({ class: 'spacer' }),
-        a({ href: '#/docs/@rikka/dom/for', class: 'next-link' }, 'For \u2192'),
+        a({ href: '#/docs/@takanashi/rikka-dom/for', class: 'next-link' }, 'For \u2192'),
       ),
     );
   }

@@ -1,6 +1,8 @@
-import { defineElement, css } from "@rikka/elements";
-import { div, h1, h2, p, a } from "@rikka/dom";
-import { sharedStyles, examplePageStyles } from "../../shared/styles";
+import { defineElement, css } from "@takanashi/rikka-elements";
+import { div, h1, h2, p, a } from "@takanashi/rikka-dom";
+import {sharedHelpers} from "../../shared/helpers";
+import {examplePageStyles} from "../../shared/page-styles";
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
   ${examplePageStyles}
@@ -32,17 +34,19 @@ const ExampleCounter = defineElement("rikka-example-counter", {
       p("A simple counter demonstrating signal and computed."),
       div(
         { class: "playground-container" },
-        sharedStyles.createPlayground(counterCode, "280", "Counter Example"),
+        RikkaLivePlayground.h({
+    code: counterCode, height: "280", title: "Counter Example"
+}),
       ),
       div(
         { class: "explanation" },
         h2("Key Concepts"),
         p(
-          sharedStyles.inlineCode("signal(0)"),
+          sharedHelpers.inlineCode("signal(0)"),
           " creates a reactive state container with initial value 0.",
         ),
         p(
-          sharedStyles.inlineCode("computed(() => ...)"),
+          sharedHelpers.inlineCode("computed(() => ...)"),
           " creates a derived value that automatically updates when dependencies change.",
         ),
         p(

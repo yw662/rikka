@@ -1,6 +1,8 @@
-import { defineElement } from '@rikka/elements';
-import { css, div, h1, h2, p, a, For } from '@rikka/dom';
-import { sharedStyles, examplePageStyles } from '../../shared/styles';
+import { defineElement } from '@takanashi/rikka-elements';
+import { css, div, h1, h2, p, a, For } from '@takanashi/rikka-dom';
+import {sharedHelpers} from '../../shared/helpers';
+import {examplePageStyles} from '../../shared/page-styles';
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`${examplePageStyles}`;
 
@@ -57,13 +59,15 @@ const ExampleTodo = defineElement('rikka-example-todo', {
       h1('Todo List'),
       p('A reactive todo list with add, toggle, and delete.'),
       div({ class: 'playground-container' },
-        sharedStyles.createPlayground(todoCode, '380', 'Todo List Example'),
+        RikkaLivePlayground.h({
+    code: todoCode, height: '380', title: 'Todo List Example'
+}),
       ),
       div({ class: 'explanation' },
         h2('Key Concepts'),
-        p(sharedStyles.inlineCode('signal([...])'), ' stores an array of todo items.'),
-        p('Use ', sharedStyles.inlineCode('.set([...])'), ' with spread operator to create new arrays for immutable updates.'),
-        p(sharedStyles.inlineCode('computed(() => ...)'), ' derives values like remaining count from the todo array.'),
+        p(sharedHelpers.inlineCode('signal([...])'), ' stores an array of todo items.'),
+        p('Use ', sharedHelpers.inlineCode('.set([...])'), ' with spread operator to create new arrays for immutable updates.'),
+        p(sharedHelpers.inlineCode('computed(() => ...)'), ' derives values like remaining count from the todo array.'),
         p('Click checkboxes to toggle, \u00d7 to delete, or add new items.'),
       ),
       div({ class: 'example-nav' },

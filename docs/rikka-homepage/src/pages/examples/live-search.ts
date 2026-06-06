@@ -1,6 +1,8 @@
-import { defineElement } from '@rikka/elements';
-import { css, div, h1, h2, p, a, For } from '@rikka/dom';
-import { sharedStyles, examplePageStyles } from '../../shared/styles';
+import { defineElement } from '@takanashi/rikka-elements';
+import { css, div, h1, h2, p, a, For } from '@takanashi/rikka-dom';
+import {sharedHelpers} from '../../shared/helpers';
+import {examplePageStyles} from '../../shared/page-styles';
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`${examplePageStyles}`;
 
@@ -59,13 +61,15 @@ const ExampleLiveSearch = defineElement('rikka-example-live-search', {
       h1('Live Search'),
       p('A search input that filters a list in real-time.'),
       div({ class: 'playground-container' },
-        sharedStyles.createPlayground(liveSearchCode, '380', 'Live Search Example'),
+        RikkaLivePlayground.h({
+    code: liveSearchCode, height: '380', title: 'Live Search Example'
+}),
       ),
       div({ class: 'explanation' },
         h2('Key Concepts'),
-        p(sharedStyles.inlineCode('signal([])'), ' stores the items array as reactive state.'),
-        p(sharedStyles.inlineCode('computed()'), ' derives filtered results from query + items.'),
-        p(sharedStyles.inlineCode('For(filtered, render)'), ' creates a reactive list with fine-grained DOM updates.'),
+        p(sharedHelpers.inlineCode('signal([])'), ' stores the items array as reactive state.'),
+        p(sharedHelpers.inlineCode('computed()'), ' derives filtered results from query + items.'),
+        p(sharedHelpers.inlineCode('For(filtered, render)'), ' creates a reactive list with fine-grained DOM updates.'),
         p('Signal as child auto-shows/hides.'),
       ),
       div({ class: 'example-nav' },

@@ -1,5 +1,5 @@
 {
-  "name": "@rikka/signal",
+  "name": "@takanashi/rikka-signal",
   "version": "0.1.0",
   "description": "Reactive primitives based on TC39 Signals polyfill",
   "type": "module",
@@ -10,9 +10,6 @@
     "type": "git",
     "url": "git+https://github.com/yw662/rikka.git",
     "directory": "utils/rikka-signal"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
   },
   "exports": {
     ".": {

@@ -1,7 +1,7 @@
-import { defineElement, css } from "@rikka/elements";
-import { div } from "@rikka/dom";
-import "@rikka/live-playground";
-import { sharedStyles } from "../shared/styles";
+import { defineElement, css } from "@takanashi/rikka-elements";
+import { div } from "@takanashi/rikka-dom";
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
+import {sharedHelpers} from "../shared/helpers";
 
 const starterCode = `const count = signal(0);
 const doubled = computed(() => count.get() * 2);
@@ -28,7 +28,7 @@ const g = signal(102);
 const b = signal(241);
 const hexColor = computed(() => {
   const toHex = (v) => v.toString(16).padStart(2, '0');
-  return '#' + toHex(r) + toHex(g) + toHex(b);
+  return '#' + toHex(r.get()) + toHex(g.get()) + toHex(b.get());
 });
 const rgbColor = computed(() => 'rgb(' + r.get() + ', ' + g.get() + ', ' + b.get() + ')');
 
@@ -83,11 +83,9 @@ const styles = css`
 const PlaygroundPage = defineElement("rikka-playground", {
   styles,
   render() {
-    const playground = sharedStyles.createPlayground(
-      starterCode,
-      "500",
-      "Rikka Playground",
-    );
+    const playground = RikkaLivePlayground.h({
+    code: starterCode, height: "500", title: "Rikka Playground"
+});
 
     return div(
       { class: "playground-page" },

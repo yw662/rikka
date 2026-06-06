@@ -5,7 +5,7 @@ rikka-dom ships four reactive range helpers: `For` for lists, `Show` for visibil
 ## Imports
 
 ```typescript
-import { For, Show, When, Switch, Match } from "@rikka/dom";
+import { For, Show, When, Switch, Match } from "@takanashi/rikka-dom";
 ```
 
 ## `For(source, render, keyFn?): ReactiveRange`
@@ -13,8 +13,8 @@ import { For, Show, When, Switch, Match } from "@rikka/dom";
 Render a list from a `Signal.State<T[]>` or `Signal.Computed<T[]>`. Returns a range you can mount anywhere `Child` is accepted.
 
 ```typescript
-import { signal } from "@rikka/signal";
-import { For, li } from "@rikka/dom";
+import { signal } from "@takanashi/rikka-signal";
+import { For, li } from "@takanashi/rikka-dom";
 
 const items = signal(["a", "b", "c"]);
 const list = For(items, (item) => li({}, item));
@@ -41,8 +41,8 @@ Without a `keyFn`, caching is by reference (`Object.is`). Unused cached entries 
 Toggle visibility based on a signal. The element is created once and shown/hidden on subsequent toggles.
 
 ```typescript
-import { signal } from "@rikka/signal";
-import { Show, span } from "@rikka/dom";
+import { signal } from "@takanashi/rikka-signal";
+import { Show, span } from "@takanashi/rikka-dom";
 
 const visible = signal(true);
 
@@ -56,8 +56,8 @@ Show(visible, () => span({}, "visible"));
 Two-branch conditional. Both branches are cached.
 
 ```typescript
-import { signal } from "@rikka/signal";
-import { When, span } from "@rikka/dom";
+import { signal } from "@takanashi/rikka-signal";
+import { When, span } from "@takanashi/rikka-dom";
 
 const loggedIn = signal(false);
 
@@ -73,8 +73,8 @@ When(
 Multi-way matching. Each case DOM is cached. The first matching case is shown.
 
 ```typescript
-import { signal } from "@rikka/signal";
-import { Switch, Match, textarea, div } from "@rikka/dom";
+import { signal } from "@takanashi/rikka-signal";
+import { Switch, Match, textarea, div } from "@takanashi/rikka-dom";
 
 const mode = signal("edit");
 

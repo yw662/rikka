@@ -1,7 +1,7 @@
 import { describe, it, expect, rs } from "@rstest/core";
-import { css, span, input, h } from "@rikka/dom";
+import { css, span, input, h } from "@takanashi/rikka-dom";
 import { toCamelCase, toPascalCase } from "../src/utils.js";
-import { signal as createSignal } from "@rikka/signal";
+import { signal as createSignal } from "@takanashi/rikka-signal";
 
 describe("css", () => {
   it("creates a CSSStyleSheet from a template string", () => {
@@ -1873,5 +1873,147 @@ describe("defineElement property setter: null serialization removes attribute", 
     el.count = null;
     expect(el.hasAttribute("count")).toBe(false);
     el.remove();
+  });
+});
+
+describe("defineElement dataset", () => {
+  it("registers data-* attributes as observed", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-ds-obs-${Date.now()}`;
+    const TestEl = defineElement(tag, {
+      dataset: {
+        role: { default: "guest" },
+        userId: { default: "" },
+      },
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(TestEl.observedAttributes).toContain("data-role");
+    expect(TestEl.observedAttributes).toContain("data-user-id");
+  });
+
+  it("default is used when the attribute is absent", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-ds-default-${Date.now()}`;
+    const TestEl = defineElement(tag, {
+      dataset: { role: { default: "guest" } },
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    expect(el.role).toBe("guest");
+    expect(el.$role.get()).toBe("guest");
+    expect(el.getAttribute("data-role")).toBe(null);
+    el.remove();
+  });
+
+  it("attribute presence overrides the default", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-ds-override-${Date.now()}`;
+    const TestEl = defineElement(tag, {
+      dataset: { role: { default: "guest" } },
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.setAttribute("data-role", "admin");
+    expect(el.role).toBe("admin");
+    expect(el.$role.get()).toBe("admin");
+    el.remove();
+  });
+
+  it("property setter writes to data-* attribute", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-ds-set-${Date.now()}`;
+    const TestEl = defineElement(tag, {
+      dataset: { role: { default: "guest" } },
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.role = "admin";
+    expect(el.getAttribute("data-role")).toBe("admin");
+    expect(el.$role.get()).toBe("admin");
+    el.remove();
+  });
+
+  it("signal .get() reflects the latest set value; signal .set() does NOT write the attribute (matches attributes behavior)", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-ds-sigset-${Date.now()}`;
+    const TestEl = defineElement(tag, {
+      dataset: { role: { default: "guest" } },
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.$role.set("admin");
+    expect(el.$role.get()).toBe("admin");
+    expect(el.role).toBe("admin");
+    // $role.set does not call setAttribute — the attribute is the property-setter's
+    // responsibility. To push the new value to the DOM, set via `el.role = ...` or
+    // call setAttribute directly.
+    expect(el.getAttribute("data-role")).toBe(null);
+    el.remove();
+  });
+
+  it("coerces non-string values to strings", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-ds-coerce-${Date.now()}`;
+    const TestEl = defineElement(tag, {
+      dataset: { count: { default: "" } },
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.count = 42;
+    expect(el.getAttribute("data-count")).toBe("42");
+    expect(el.count).toBe("42");
+    el.remove();
+  });
+
+  it("null or undefined value removes the attribute", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-ds-remove-${Date.now()}`;
+    const TestEl = defineElement(tag, {
+      dataset: { role: { default: "" } },
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.setAttribute("data-role", "admin");
+    el.role = null;
+    expect(el.hasAttribute("data-role")).toBe(false);
+    el.remove();
+  });
+
+  it("camelCase key maps to kebab-case attribute", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-ds-camel-${Date.now()}`;
+    const TestEl = defineElement(tag, {
+      dataset: { userId: { default: "" } },
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.userId = "abc";
+    expect(el.getAttribute("data-user-id")).toBe("abc");
+    expect(el.userId).toBe("abc");
+    el.remove();
+  });
+
+  it("native el.dataset still returns the string (DOM behavior preserved)", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const tag = `test-ds-native-${Date.now()}`;
+    const TestEl = defineElement(tag, {
+      dataset: { role: { default: "" } },
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as any;
+    el.role = "admin";
+    expect(el.dataset.role).toBe("admin");
+    el.remove();
+  });
+
+  it("throws when a dataset key collides with an attributes key", async () => {
+    const { defineElement, StringAttr } = await import("../src/defineElement.js");
+    const tag = `test-ds-collision-${Date.now()}`;
+    expect(() =>
+      defineElement(tag, {
+        attributes: { 'data-foo': StringAttr },
+        dataset: { foo: { default: "" } },
+      }),
+    ).toThrow(/dataset key "foo" produces attribute "data-foo"/);
   });
 });

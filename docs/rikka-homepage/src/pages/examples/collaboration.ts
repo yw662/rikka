@@ -1,6 +1,8 @@
-import { defineElement } from "@rikka/elements";
-import { css, div, h1, h2, p, a, span, button, input, For } from "@rikka/dom";
-import { sharedStyles, examplePageStyles } from "../../shared/styles";
+import { defineElement } from "@takanashi/rikka-elements";
+import { css, div, h1, h2, p, a, span, button, input, For } from "@takanashi/rikka-dom";
+import {sharedHelpers} from "../../shared/helpers";
+import {examplePageStyles} from "../../shared/page-styles";
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
   ${examplePageStyles}
@@ -134,29 +136,27 @@ const ExampleCollaboration = defineElement("rikka-example-collaboration", {
       ),
       div(
         { class: "playground-container" },
-        sharedStyles.createPlayground(
-          collaborationCode,
-          "600",
-          "Team Collaboration Example",
-        ),
+        RikkaLivePlayground.h({
+    code: collaborationCode, height: "600", title: "Team Collaboration Example"
+}),
       ),
       div(
         { class: "explanation" },
         h2("Key Concepts"),
         p(
-          sharedStyles.inlineCode("signal([...])"),
+          sharedHelpers.inlineCode("signal([...])"),
           " creates a reactive signal for the team members array — updates use immutable patterns to trigger reactivity.",
         ),
         p(
-          sharedStyles.inlineCode("computed(() => ...)"),
+          sharedHelpers.inlineCode("computed(() => ...)"),
           " derives filtered team members based on selected role, and calculates online count.",
         ),
         p(
-          sharedStyles.inlineCode("effect(() => { setInterval(...) })"),
+          sharedHelpers.inlineCode("effect(() => { setInterval(...) })"),
           " runs a background interval that randomly changes team member status every 3-5 seconds.",
         ),
         p(
-          sharedStyles.inlineCode("For(filteredTeam, (member) => ...)"),
+          sharedHelpers.inlineCode("For(filteredTeam, (member) => ...)"),
           " efficiently renders the member list with fine-grained reactivity.",
         ),
         p(

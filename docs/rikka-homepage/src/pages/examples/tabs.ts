@@ -1,6 +1,8 @@
-import { defineElement } from "@rikka/elements";
-import { css, div, h1, h2, p, a } from "@rikka/dom";
-import { sharedStyles, examplePageStyles } from "../../shared/styles";
+import { defineElement } from "@takanashi/rikka-elements";
+import { css, div, h1, h2, p, a } from "@takanashi/rikka-dom";
+import {sharedHelpers} from "../../shared/helpers";
+import {examplePageStyles} from "../../shared/page-styles";
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
   ${examplePageStyles}
@@ -56,17 +58,19 @@ const ExampleTabs = defineElement("rikka-example-tabs", {
       p("A tab component with reactive content switching."),
       div(
         { class: "playground-container" },
-        sharedStyles.createPlayground(tabsCode, "320", "Tabs Example"),
+        RikkaLivePlayground.h({
+    code: tabsCode, height: "320", title: "Tabs Example"
+}),
       ),
       div(
         { class: "explanation" },
         h2("Key Concepts"),
         p(
-          sharedStyles.inlineCode("signal(0)"),
+          sharedHelpers.inlineCode("signal(0)"),
           " stores the active tab index.",
         ),
         p(
-          sharedStyles.inlineCode("computed()"),
+          sharedHelpers.inlineCode("computed()"),
           " derives the current content from the active tab.",
         ),
         p("Click different tabs to switch content — all handled by signals."),

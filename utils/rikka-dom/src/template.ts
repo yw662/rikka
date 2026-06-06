@@ -1,4 +1,4 @@
-import { effect, computed, Signal } from "@rikka/signal";
+import { effect, computed, Signal } from "@takanashi/rikka-signal";
 import { isSignal } from "./signal-utils.js";
 import { ReactiveRange } from "./h.js";
 import { registerDisposable } from "./h.js";

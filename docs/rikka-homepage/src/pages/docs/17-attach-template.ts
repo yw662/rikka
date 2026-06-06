@@ -1,6 +1,8 @@
-import { defineElement, NumberAttr, StringAttr } from "@rikka/elements";
-import { css, div, h1, h2, p, a, pre, code } from "@rikka/dom";
-import { sharedStyles, docPageStyles } from "../../shared/styles";
+import { defineElement, NumberAttr, StringAttr } from "@takanashi/rikka-elements";
+import { css, div, h1, h2, p, a, pre, code } from "@takanashi/rikka-dom";
+import {sharedHelpers} from "../../shared/helpers";
+import {docPageStyles} from "../../shared/page-styles";
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
   ${docPageStyles}
@@ -12,9 +14,9 @@ const DocElements17 = defineElement("rikka-doc-elements-17", {
     return div(
       { class: "doc-page" },
       h1("attachTemplate"),
-      sharedStyles.advancedBadge(
+      sharedHelpers.advancedBadge(
         "attachTemplate",
-        "is part of @rikka/elements, an advanced feature. For most use cases, h() and tag helpers are simpler and more flexible.",
+        "is part of @takanashi/rikka-elements, an advanced feature. For most use cases, h() and tag helpers are simpler and more flexible.",
       ),
       p("Declarative templates with {{slot}} bindings."),
       div({ class: "api-signature" }, `config.template?: HTMLTemplateElement`),
@@ -23,13 +25,13 @@ const DocElements17 = defineElement("rikka-doc-elements-17", {
         h2("Template Option"),
         p(
           "Use the ",
-          sharedStyles.inlineCode("config.template"),
+          sharedHelpers.inlineCode("config.template"),
           " option to provide an HTML template. ",
-          sharedStyles.inlineCode("{{name}}"),
+          sharedHelpers.inlineCode("{{name}}"),
           " slots auto-bind to instance properties.",
         ),
-        sharedStyles.createPlayground(
-          `import { h } from '@rikka/dom';
+        RikkaLivePlayground.h({
+    code: `import { h } from '@takanashi/rikka-dom';
 
 // h\`<template>\` returns Element[], [0] is the real HTMLTemplateElement
 const tmpl = h\`<template>
@@ -48,10 +50,8 @@ const el = h('my-card', { title: 'Template Demo', description: 'Using {{slot}} b
 container.appendChild(div({},
   h2({}, 'Template Binding'),
   el
-));`,
-          "200",
-          "Template Option",
-        ),
+));`, height: "200", title: "Template Option"
+}),
         h2("Binding Types"),
         p("Three types of bindings are supported:"),
         pre(
@@ -75,8 +75,8 @@ container.appendChild(el);`),
       div(
         { class: "playground-section" },
         h2("Try It"),
-        sharedStyles.createPlayground(
-          `import { h } from '@rikka/dom';
+        RikkaLivePlayground.h({
+    code: `import { h } from '@takanashi/rikka-dom';
 
 // h\`<template>\` returns Element[], [0] is the real HTMLTemplateElement
 const cardTmpl = h\`<template>
@@ -134,20 +134,18 @@ el.addEventListener('action', (ev) => {
   el.buttonText = 'Clicked ' + el.clickCount + 'x';
   el.description = 'Click at (' + detail.x + ', ' + detail.y + ')';
 });
-container.appendChild(el);`,
-          "300",
-          "Template Binding",
-        ),
+container.appendChild(el);`, height: "300", title: "Template Binding"
+}),
       ),
       div(
         { class: "doc-nav" },
         a(
-          { href: "#/docs/@rikka/elements/event", class: "prev-link" },
+          { href: "#/docs/@takanashi/rikka-elements/event", class: "prev-link" },
           "\u2190 event",
         ),
         div({ class: "spacer" }),
         a(
-          { href: "#/docs/advanced/composition", class: "next-link" },
+          { href: "#/docs/api-reference", class: "next-link" },
           "API Reference \u2192",
         ),
       ),

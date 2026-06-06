@@ -1,6 +1,6 @@
-import { defineElement } from '@rikka/elements';
-import { div, input, button, svg, circle, line, css } from '@rikka/dom';
-import { signal } from '@rikka/signal';
+import { defineElement } from '@takanashi/rikka-elements';
+import { div, input, button, svg, circle, line, css } from '@takanashi/rikka-dom';
+import { signal } from '@takanashi/rikka-signal';
 import { searchQuery as searchQuerySignal, clearFilters } from "../store.js";
 
 export const searchBar = defineElement("search-bar", {

@@ -1,6 +1,8 @@
-import { defineElement } from '@rikka/elements';
-import { css, div, h1, h2, p, pre, a } from '@rikka/dom';
-import { sharedStyles, docPageStyles } from '../../shared/styles';
+import { defineElement } from '@takanashi/rikka-elements';
+import { css, div, h1, h2, p, pre, a } from '@takanashi/rikka-dom';
+import {sharedHelpers} from '../../shared/helpers';
+import {docPageStyles} from '../../shared/page-styles';
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
   ${docPageStyles}
@@ -18,33 +20,31 @@ export const RikkaDocSignal02 = defineElement('rikka-doc-signal-02', {
         h2({ class: 'section-title' }, 'Creating a Signal'),
         p({},
           'Use ',
-          sharedStyles.inlineCode('signal(initialValue)'),
+          sharedHelpers.inlineCode('signal(initialValue)'),
           ' to create a reactive value. The returned object has ',
-          sharedStyles.inlineCode('.get()'),
+          sharedHelpers.inlineCode('.get()'),
           ' and ',
-          sharedStyles.inlineCode('.set()'),
+          sharedHelpers.inlineCode('.set()'),
           ' methods.',
         ),
-        sharedStyles.createPlayground(
-          `const count = signal(0);
+        RikkaLivePlayground.h({
+    code: `const count = signal(0);
 count.get();  // 0
 count.set(1); // triggers updates
 
 container.appendChild(div({},
   p({}, 'Count: ', count),
   button({ onclick: () => count.set(count.get() + 1) }, 'Increment')
-));`,
-          '200',
-          'Signal Basics'
-        ),
+));`, height: '200', title: 'Signal Basics'
+}),
       ),
       div({ class: 'doc-section' },
         h2({ class: 'section-title' }, 'Passing Signals to DOM Helpers'),
         p({},
           'Signals can be passed directly to DOM helpers. The DOM updates automatically when the signal changes.',
         ),
-        sharedStyles.createPlayground(
-          `const name = signal('Rikka');
+        RikkaLivePlayground.h({
+    code: `const name = signal('Rikka');
 const el = h('p', name); // auto-updates
 name.set('World'); // DOM updates
 
@@ -52,15 +52,13 @@ container.appendChild(div({},
   h2({}, 'Signal in DOM'),
   el,
   button({ onclick: () => name.set(name.get() === 'Rikka' ? 'World' : 'Rikka') }, 'Toggle Name')
-));`,
-          '200',
-          'Signal to DOM'
-        ),
+));`, height: '200', title: 'Signal to DOM'
+}),
       ),
       div({ class: 'doc-section' },
         h2({ class: 'section-title' }, 'Try It'),
-        sharedStyles.createPlayground(
-          `import { signal } from '@rikka/signal';
+        RikkaLivePlayground.h({
+    code: `import { signal } from '@takanashi/rikka-signal';
 
 const count = signal(0);
 
@@ -74,10 +72,8 @@ const app = h('div', [
   h('button', { onclick: decrement }, ['-']),
 ]);
 
-container.appendChild(app);`,
-          320,
-          'Counter Demo'
-        ),
+container.appendChild(app);`, height: "320", title: 'Counter Demo'
+}),
       ),
       div({ class: 'doc-section' },
         h2({ class: 'section-title' }, 'API'),
@@ -89,8 +85,8 @@ interface Signal.State<T> {
 }`),
       ),
       div({ class: 'doc-nav' },
-        a({ class: 'nav-link prev', href: '#/docs/@rikka/signal/getting-started' }, '← Getting Started'),
-        a({ class: 'nav-link next', href: '#/docs/@rikka/signal/computed' }, 'computed() →'),
+        a({ class: 'nav-link prev', href: '#/docs/@takanashi/rikka-signal/getting-started' }, '← Getting Started'),
+        a({ class: 'nav-link next', href: '#/docs/@takanashi/rikka-signal/computed' }, 'computed() →'),
       ),
     );
   }

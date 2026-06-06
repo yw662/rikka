@@ -5,13 +5,13 @@ rikka-dom creates SVG elements in the SVG namespace automatically. Most SVG tags
 ## Imports
 
 ```typescript
-import { svg, circle, path, rect, line, polygon, polyline, g, defs, use, linearGradient, stop, foreignObject } from "@rikka/dom";
+import { svg, circle, path, rect, line, polygon, polyline, g, defs, use, linearGradient, stop, foreignObject } from "@takanashi/rikka-dom";
 ```
 
 ## Basic SVG
 
 ```typescript
-import { svg, circle, path, linearGradient, stop, defs } from "@rikka/dom";
+import { svg, circle, path, linearGradient, stop, defs } from "@takanashi/rikka-dom";
 
 svg(
   { width: 200, height: 200, viewBox: "0 0 200 200" },
@@ -49,7 +49,7 @@ For tags that exist in both HTML and SVG, the unprefixed name is HTML. To create
 | `textPath` | `svgtextPath` | SVG textPath |
 
 ```typescript
-import { svg, svga, svgtext, svgspan, a } from "@rikka/dom";
+import { svg, svga, svgtext, svgspan, a } from "@takanashi/rikka-dom";
 
 // HTML <a>
 a({ href: "https://example.com" }, "Link");
@@ -71,8 +71,8 @@ svg({ viewBox: "0 0 200 60" },
 SVG works with all the same signal patterns as HTML:
 
 ```typescript
-import { signal, computed } from "@rikka/signal";
-import { svg, circle, path } from "@rikka/dom";
+import { signal, computed } from "@takanashi/rikka-signal";
+import { svg, circle, path } from "@takanashi/rikka-dom";
 
 const radius = signal(40);
 
@@ -90,7 +90,7 @@ svg({ width: 200, height: 200 },
 ## Embedding HTML inside SVG (`foreignObject`)
 
 ```typescript
-import { svg, foreignObject, div } from "@rikka/dom";
+import { svg, foreignObject, div } from "@takanashi/rikka-dom";
 
 svg({ width: 200, height: 200 },
   foreignObject({ x: 0, y: 0, width: 200, height: 200 },

@@ -1,6 +1,6 @@
-import { defineElement } from '@rikka/elements';
-import { css, div, h1, p, a, span, h3 } from '@rikka/dom';
-import { docPageStyles } from '../shared/styles';
+import { defineElement } from '@takanashi/rikka-elements';
+import { css, div, h1, p, a, span, h3 } from '@takanashi/rikka-dom';
+import {docPageStyles} from '../shared/page-styles';
 
 const styles = css`${docPageStyles}
 
@@ -100,19 +100,18 @@ const styles = css`${docPageStyles}
 
 const sections = [
   {
-    title: '@rikka/signal',
-    link: '#/docs/@rikka/signal/getting-started',
+    title: '@takanashi/rikka-signal',
+    link: '#/docs/@takanashi/rikka-signal/getting-started',
     topics: [
       { name: 'Getting Started' },
       { name: 'signal()' },
       { name: 'computed()' },
       { name: 'effect()' },
-      { name: 'Batch Updates', advanced: true },
     ],
   },
   {
-    title: '@rikka/dom',
-    link: '#/docs/@rikka/dom/h',
+    title: '@takanashi/rikka-dom',
+    link: '#/docs/@takanashi/rikka-dom/h',
     topics: [
       { name: 'h()' },
       { name: 'Tag Helpers' },
@@ -125,8 +124,8 @@ const sections = [
     ],
   },
   {
-    title: '@rikka/elements',
-    link: '#/docs/@rikka/elements/define-element',
+    title: '@takanashi/rikka-elements',
+    link: '#/docs/@takanashi/rikka-elements/define-element',
     topics: [
       { name: 'defineElement', advanced: true },
       { name: 'Shadow DOM', advanced: true },
@@ -137,11 +136,9 @@ const sections = [
     ],
   },
   {
-    title: 'Advanced',
-    link: '#/docs/advanced/composition',
+    title: 'API Reference',
+    link: '#/docs/api-reference',
     topics: [
-      { name: 'Composition' },
-      { name: 'Fine-grained Updates' },
       { name: 'API Reference' },
     ],
   },

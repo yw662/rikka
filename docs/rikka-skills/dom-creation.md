@@ -5,13 +5,13 @@
 ## Imports
 
 ```typescript
-import { h, div, p, button, span, For, Show, When, Switch, Match, css, inlineStyle } from "@rikka/dom";
+import { h, div, p, button, span, For, Show, When, Switch, Match, css, inlineStyle } from "@takanashi/rikka-dom";
 ```
 
 ## `h(tag, attrs?, ...children): Element`
 
 ```typescript
-import { h } from "@rikka/dom";
+import { h } from "@takanashi/rikka-dom";
 
 const el = h("div", { class: "container" }, h("p", "Hello"));
 // el instanceof HTMLDivElement === true
@@ -31,7 +31,7 @@ The optional second argument is an attrs object. Remaining arguments are childre
 69 pre-defined tag functions share the same signature as `h()` minus the tag parameter. They return real `Element`:
 
 ```typescript
-import { div, p, button, span, input } from "@rikka/dom";
+import { div, p, button, span, input } from "@takanashi/rikka-dom";
 
 const card = div(
   { class: "card" },
@@ -58,8 +58,8 @@ See [svg.md](./svg.md) for namespace handling.
 HTML template literal with signal interpolation. **Returns an `Element[]`, not a single element.** Use `[0]` to get a single element.
 
 ```typescript
-import { h } from "@rikka/dom";
-import { signal } from "@rikka/signal";
+import { h } from "@takanashi/rikka-dom";
+import { signal } from "@takanashi/rikka-signal";
 
 const name = signal("World");
 const elements = h`<span>Hello ${name}!</span>`;
@@ -112,8 +112,8 @@ tmpl.content;                         // DocumentFragment containing <div>
 `h()` returns a real `Element`, so use standard DOM APIs:
 
 ```typescript
-import { div, p, button } from "@rikka/dom";
-import { signal } from "@rikka/signal";
+import { div, p, button } from "@takanashi/rikka-dom";
+import { signal } from "@takanashi/rikka-signal";
 
 const count = signal(0);
 
@@ -129,7 +129,7 @@ document.body.appendChild(app);
 `rikka-dom` also exports `applyChild` for cases where you need to apply a child without `appendChild` (e.g. tests):
 
 ```typescript
-import { applyChild } from "@rikka/dom";
+import { applyChild } from "@takanashi/rikka-dom";
 
 const container = document.getElementById("app");
 if (container) applyChild(container, app);

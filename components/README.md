@@ -46,7 +46,7 @@ docs/rikka-homepage     文档站
 
 ## 现有包
 
-### @rikka/live-playground
+### @takanashi/rikka-live-playground
 
 实时代码编辑器组件。基于 esbuild-wasm 在浏览器中编译 TypeScript，在沙箱 iframe 中运行。
 
@@ -54,7 +54,7 @@ docs/rikka-homepage     文档站
 
 ## 计划中的包
 
-### @rikka/ui
+### @takanashi/rikka-ui
 
 复杂交互组件集合。提供 LLM 难以正确自行实现的 UI 行为。
 
@@ -346,8 +346,8 @@ const dragState: {
 
 ```
 components/
-  rikka-live-playground/        @rikka/live-playground    已有
-  rikka-ui/                     @rikka/ui                 计划中
+  rikka-live-playground/        @takanashi/rikka-live-playground    已有
+  rikka-ui/                     @takanashi/rikka-ui                 计划中
     src/
       index.ts
       combobox.ts
@@ -366,10 +366,10 @@ components/
 ## 依赖关系
 
 ```
-@rikka/ui
-  ├── @rikka/elements   (defineElement)
-  ├── @rikka/dom        (h, tag helpers, For, Show, css)
-  └── @rikka/signal     (signal, computed, effect)
+@takanashi/rikka-ui
+  ├── @takanashi/rikka-elements   (defineElement)
+  ├── @takanashi/rikka-dom        (h, tag helpers, For, Show, css)
+  └── @takanashi/rikka-signal     (signal, computed, effect)
 ```
 
 不引入任何外部依赖。定位计算、键盘导航、触摸处理全部自行实现。

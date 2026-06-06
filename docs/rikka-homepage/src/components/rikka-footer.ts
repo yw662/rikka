@@ -1,5 +1,5 @@
-import { defineElement, css } from "@rikka/elements";
-import { div, a, span, p, footer } from "@rikka/dom";
+import { defineElement, css } from "@takanashi/rikka-elements";
+import { div, a, span, p, footer } from "@takanashi/rikka-dom";
 
 const footerStyles = css`
   :host {
@@ -167,7 +167,7 @@ const RikkaFooter = defineElement("rikka-footer", {
             div(
               { class: "footer-links" },
               a({ href: "#/docs" }, "Documentation"),
-              a({ href: "#/docs/@rikka/signal/getting-started" }, "Getting Started"),
+              a({ href: "#/docs/@takanashi/rikka-signal/getting-started" }, "Getting Started"),
               a({ href: "#/examples" }, "Examples"),
               a({ href: "#/showcases" }, "Showcases"),
             ),
@@ -177,9 +177,9 @@ const RikkaFooter = defineElement("rikka-footer", {
             div({ class: "footer-column-title" }, "Packages"),
             div(
               { class: "footer-links" },
-              a({ href: "#/docs/@rikka/signal/signal" }, "@rikka/signal"),
-              a({ href: "#/docs/@rikka/dom/h" }, "@rikka/dom"),
-              a({ href: "#/docs/@rikka/elements/define-element" }, "@rikka/elements"),
+              a({ href: "#/docs/@takanashi/rikka-signal/signal" }, "@takanashi/rikka-signal"),
+              a({ href: "#/docs/@takanashi/rikka-dom/h" }, "@takanashi/rikka-dom"),
+              a({ href: "#/docs/@takanashi/rikka-elements/define-element" }, "@takanashi/rikka-elements"),
             ),
           ),
           div(

@@ -10,9 +10,9 @@
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
     "paths": {
-      "@rikka/signal": ["../../utils/rikka-signal/src/index.ts"],
-      "@rikka/dom": ["../../utils/rikka-dom/src/index.ts"],
-      "@rikka/elements": ["../../utils/rikka-elements/src/index.ts"]
+      "@takanashi/rikka-signal": ["../../utils/rikka-signal/src/index.ts"],
+      "@takanashi/rikka-dom": ["../../utils/rikka-dom/src/index.ts"],
+      "@takanashi/rikka-elements": ["../../utils/rikka-elements/src/index.ts"]
     }
   },
   "include": ["bundle-entry.ts"]

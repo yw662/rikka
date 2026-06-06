@@ -171,7 +171,7 @@ git push --follow-tags         # Trigger automatic publish to npm
 Edit [`scripts/typecheck.mjs`](file:///home/yw662/文档/projects/rikka/scripts/typecheck.mjs#L40-L48):
 ```javascript
 const projects = [
-  ['@rikka/signal', 'utils/rikka-signal/tsconfig.json'],
+  ['@takanashi/rikka-signal', 'utils/rikka-signal/tsconfig.json'],
   // ... add or remove projects
 ];
 ```

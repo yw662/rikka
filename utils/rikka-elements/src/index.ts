@@ -5,8 +5,8 @@
  * shadow DOM, styles, and template binding.
  *
  * @example
- * import { defineElement, event, StringAttr, NumberAttr, BooleanAttr } from '@rikka/elements';
- * import { css } from '@rikka/dom';
+ * import { defineElement, event, StringAttr, NumberAttr, BooleanAttr } from '@takanashi/rikka-elements';
+ * import { css } from '@takanashi/rikka-dom';
  *
  * const MyCounter = defineElement('my-counter', {
  *   attributes: {
@@ -38,4 +38,4 @@ export {
   event,
 } from "./defineElement.js";
 export { type PascalCase, toPascalCase } from "./utils.js";
-export { css } from "@rikka/dom";
+export { css } from "@takanashi/rikka-dom";

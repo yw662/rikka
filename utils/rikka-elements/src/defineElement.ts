@@ -1,8 +1,8 @@
-import { Signal, effect } from "@rikka/signal";
-import { h } from "@rikka/dom";
-import type { Child, CommonHTMLAttributes } from "@rikka/dom";
+import { Signal, effect } from "@takanashi/rikka-signal";
+import { h } from "@takanashi/rikka-dom";
+import type { Child, CommonHTMLAttributes } from "@takanashi/rikka-dom";
 import type { CamelCase, PascalCase } from "./utils.js";
-import { toCamelCase, toPascalCase } from "./utils.js";
+import { toCamelCase, toKebabCase, toPascalCase } from "./utils.js";
 
 // Extended isPlainObject that also excludes Element and DocumentFragment,
 // since defineElement deals with DOM APIs where these are common.
@@ -61,6 +61,27 @@ export const BooleanAttr: AttributeSpec<boolean> = {
   toAttribute: (prop) => (prop ? "" : undefined),
 };
 
+/**
+ * Declarative `data-*` attribute binding. Always string — the DOM does not
+ * coerce `data-*` values, and `el.dataset[key]` returns a string per spec.
+ * `default` is the value used when the attribute is absent.
+ *
+ * ```ts
+ * defineElement("user-card", {
+ *   dataset: {
+ *     role: { default: "guest" },
+ *     userId: { default: "" },
+ *   },
+ * });
+ * // → el.role, el.userId (read as string)
+ * // → el.$role, el.$userId (Signal.State<string>)
+ * // → HTML: <user-card data-role="guest" data-user-id="">
+ * ```
+ */
+export type DatasetSpec = {
+  default?: string;
+};
+
 // ---------------------------------------------------------------------------
 // Event Types
 // ---------------------------------------------------------------------------
@@ -85,6 +106,7 @@ type BaseConfig = {
   shadow?: ShadowRootInit | false;
   styles?: CSSStyleSheet | CSSStyleSheet[];
   attributes?: Record<string, AttributeSpec<any>>;
+  dataset?: Record<string, DatasetSpec>;
   events?: Record<string, EventSpec>;
   methods?: Record<string, (...args: any[]) => any>;
 };
@@ -99,12 +121,14 @@ export type ElementConfig<C extends BaseConfig = BaseConfig> =
 
 export type RikkaElement<C extends BaseConfig> = HTMLElement &
   AttributeProps<C> &
+  DatasetProps<C> &
   SignalProps<C> &
+  DatasetSignalProps<C> &
   EventProps<C> &
   ShadowProp<C> &
   MethodProps<C>;
 
-export type TagFunctionProps<C extends BaseConfig> = AttributeProps<C> &
+export type TagFunctionProps<C extends BaseConfig> = PartialAttributeProps<C> &
   EventListenerProps<C>;
 
 type EventListenerProps<C extends BaseConfig> =
@@ -137,12 +161,41 @@ type AttributeProps<C extends BaseConfig> =
       }
     : {};
 
+/**
+ * Same shape as {@link AttributeProps} but with every key optional. Used for
+ * the `.h()` call site so callers can omit any attribute and fall back to the
+ * element's own defaults. Instance reads (`this.xxx`) still use the required
+ * {@link AttributeProps} because the live element always has a value.
+ */
+type PartialAttributeProps<C extends BaseConfig> =
+  C["attributes"] extends Record<string, AttributeSpec<any>>
+    ? {
+        -readonly [K in keyof C["attributes"]]?: AttrValueType<
+          C["attributes"][K]
+        >;
+      }
+    : {};
+
 type SignalProps<C extends BaseConfig> =
   C["attributes"] extends Record<string, AttributeSpec<any>>
     ? {
         -readonly [K in keyof C["attributes"] as `$${K & string}`]: Signal.State<
           AttrValueType<C["attributes"][K]>
         >;
+      }
+    : {};
+
+type DatasetProps<C extends BaseConfig> =
+  C["dataset"] extends Record<string, DatasetSpec>
+    ? {
+        -readonly [K in keyof C["dataset"]]: string;
+      }
+    : {};
+
+type DatasetSignalProps<C extends BaseConfig> =
+  C["dataset"] extends Record<string, DatasetSpec>
+    ? {
+        -readonly [K in keyof C["dataset"] as `$${K & string}`]: Signal.State<string>;
       }
     : {};
 
@@ -253,8 +306,68 @@ function normalizeAttribute<T>(
 }
 
 // ---------------------------------------------------------------------------
-// Runtime: Apply attributes to prototype
+// Runtime: Apply attributes / dataset to prototype
 // ---------------------------------------------------------------------------
+
+/**
+ * Installs a single attribute-backed binding: a typed property, a `$`-prefixed
+ * signal accessor, and an `attributeChangedCallback` chain entry. Used by both
+ * `applyAttributes` and `applyDataset`.
+ */
+function applyBinding(
+  proto: Record<string, unknown>,
+  attrName: string,
+  propName: string,
+  parse: (v: string | undefined) => unknown,
+  serialize: (v: unknown) => string | undefined,
+  defaultValue: unknown,
+): void {
+  Object.defineProperty(proto, propName, {
+    get(this: HTMLElement) {
+      const sig = getOrCreateSignal(this, attrName, parse, defaultValue);
+      return sig.get();
+    },
+    set(this: HTMLElement, value: unknown) {
+      const sig = getOrCreateSignal(this, attrName, parse, defaultValue);
+      sig.set(value);
+      const strValue = serialize(value);
+      if (strValue == null) {
+        this.removeAttribute(attrName);
+      } else if (this.getAttribute(attrName) !== strValue) {
+        this.setAttribute(attrName, strValue);
+      }
+    },
+    enumerable: true,
+    configurable: true,
+  });
+
+  Object.defineProperty(proto, `$${propName}`, {
+    get(this: HTMLElement) {
+      return getOrCreateSignal(this, attrName, parse, defaultValue);
+    },
+    enumerable: true,
+    configurable: true,
+  });
+
+  const originalCallback = proto.attributeChangedCallback as
+    | ((this: HTMLElement, attrName: string, oldValue: string | null, newValue: string | null) => void)
+    | undefined;
+  proto.attributeChangedCallback = function (
+    this: HTMLElement,
+    changedName: string,
+    oldValue: string | null,
+    newValue: string | null,
+  ) {
+    if (changedName === attrName) {
+      const sig = getOrCreateSignal(this, attrName, parse, defaultValue);
+      const next = newValue === null
+        ? (defaultValue !== undefined ? defaultValue : parse(undefined))
+        : parse(newValue);
+      sig.set(next);
+    }
+    originalCallback?.call(this, changedName, oldValue, newValue);
+  };
+}
 
 function applyAttributes(
   proto: Record<string, unknown>,
@@ -266,53 +379,33 @@ function applyAttributes(
   for (const [name, spec] of Object.entries(attributes)) {
     const { parse, serialize, defaultValue } = normalizeAttribute(spec);
     observed.push(name);
+    applyBinding(proto, name, name, parse, serialize, defaultValue);
+  }
 
-    Object.defineProperty(proto, name, {
-      get(this: HTMLElement) {
-        const sig = getOrCreateSignal(this, name, parse, defaultValue);
-        return sig.get();
-      },
-      set(this: HTMLElement, value: unknown) {
-        const sig = getOrCreateSignal(this, name, parse, defaultValue);
-        sig.set(value);
-        const strValue = serialize(value);
-        if (strValue == null) {
-          this.removeAttribute(name);
-        } else if (this.getAttribute(name) !== strValue) {
-          this.setAttribute(name, strValue);
-        }
-      },
-      enumerable: true,
-      configurable: true,
-    });
+  return [...new Set(observed)];
+}
 
-    const signalName = `$${name}`;
-    Object.defineProperty(proto, signalName, {
-      get(this: HTMLElement) {
-        return getOrCreateSignal(this, name, parse, defaultValue);
-      },
-      enumerable: true,
-      configurable: true,
-    });
+function applyDataset(
+  proto: Record<string, unknown>,
+  Class: { observedAttributes?: string[] },
+  dataset: Record<string, DatasetSpec>,
+  existingAttrNames: ReadonlySet<string>,
+): string[] {
+  const observed: string[] = Class.observedAttributes ? [...Class.observedAttributes] : [];
 
-    const originalCallback = proto.attributeChangedCallback as
-      | ((this: HTMLElement, attrName: string, oldValue: string | null, newValue: string | null) => void)
-      | undefined;
-    proto.attributeChangedCallback = function (
-      this: HTMLElement,
-      attrName: string,
-      oldValue: string | null,
-      newValue: string | null,
-    ) {
-      if (attrName === name) {
-        const sig = getOrCreateSignal(this, name, parse, defaultValue);
-        const next = newValue === null
-          ? (defaultValue !== undefined ? defaultValue : parse(undefined))
-          : parse(newValue);
-        sig.set(next);
-      }
-      originalCallback?.call(this, attrName, oldValue, newValue);
-    };
+  for (const [key, spec] of Object.entries(dataset)) {
+    const attrName = `data-${toKebabCase(key)}`;
+    if (existingAttrNames.has(attrName)) {
+      throw new Error(
+        `dataset key "${key}" produces attribute "${attrName}" which is also ` +
+          `defined in \`attributes\`. Remove the attribute from \`attributes\` ` +
+          `or pick a different key in \`dataset\`.`,
+      );
+    }
+    observed.push(attrName);
+    const parse = (a: string | undefined) => a ?? spec.default ?? "";
+    const serialize = (v: unknown) => (v == null ? undefined : String(v));
+    applyBinding(proto, attrName, key, parse, serialize, spec.default);
   }
 
   return [...new Set(observed)];
@@ -654,6 +747,7 @@ export function defineElement<C extends BaseConfig = BaseConfig>(
   config?: ElementConfig<C>,
 ): ElementConstructor<C> {
   const attributes = config?.attributes ?? {};
+  const dataset = config?.dataset ?? {};
   const events = config?.events ?? {};
   const shadowOptions =
     config?.shadow === false
@@ -727,11 +821,18 @@ export function defineElement<C extends BaseConfig = BaseConfig>(
     }
   }
 
-  const observed = applyAttributes(
+  const attrObserved = applyAttributes(
     proto,
     RikkaElementInner as unknown as { observedAttributes?: string[] },
     attributes,
   );
+  const datasetObserved = applyDataset(
+    proto,
+    RikkaElementInner as unknown as { observedAttributes?: string[] },
+    dataset,
+    new Set(attrObserved),
+  );
+  const observed = [...new Set([...attrObserved, ...datasetObserved])];
   Object.defineProperty(RikkaElementInner, "observedAttributes", {
     get() {
       return observed;

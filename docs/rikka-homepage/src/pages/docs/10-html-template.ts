@@ -1,6 +1,8 @@
-import { defineElement } from "@rikka/elements";
-import { css, div, h1, h2, p, a, pre, code, ul, li } from "@rikka/dom";
-import { sharedStyles, docPageStyles } from "../../shared/styles";
+import { defineElement } from "@takanashi/rikka-elements";
+import { css, div, h1, h2, p, a, pre, code, ul, li } from "@takanashi/rikka-dom";
+import {sharedHelpers} from "../../shared/helpers";
+import {docPageStyles} from "../../shared/page-styles";
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
   ${docPageStyles}
@@ -12,7 +14,7 @@ const DocDom10 = defineElement("rikka-doc-dom-10", {
     return div(
       { class: "doc-page" },
       h1("h``"),
-      sharedStyles.advancedBadge("h``", "is an advanced alternative to h(). For most use cases, h() with tag helpers is simpler and more type-safe."),
+      sharedHelpers.advancedBadge("h``", "is an advanced alternative to h(). For most use cases, h() with tag helpers is simpler and more type-safe."),
       p(
         "Tagged template literal on the h function from rikka-dom. Creates DOM elements from HTML template strings with signal interpolation support.",
       ),
@@ -21,11 +23,11 @@ const DocDom10 = defineElement("rikka-doc-dom-10", {
         h2("Key Concepts"),
         ul(
           li(
-            sharedStyles.inlineCode("h`<div>${signal}</div>`"),
+            sharedHelpers.inlineCode("h`<div>${signal}</div>`"),
             " — Embed signals directly in template strings for fine-grained updates.",
           ),
           li("Comment-based slot system for efficient DOM patching."),
-          li("Returns ", sharedStyles.inlineCode("Element[]"), "."),
+          li("Returns ", sharedHelpers.inlineCode("Element[]"), "."),
           li("Supports nested templates and mixed content."),
           li(
             "Signals in text content update in-place without rebuilding the entire template.",
@@ -34,12 +36,12 @@ const DocDom10 = defineElement("rikka-doc-dom-10", {
           li("Element values can be interpolated as children."),
           li(
             "Fine-grained: ",
-            sharedStyles.inlineCode("${signal}"),
+            sharedHelpers.inlineCode("${signal}"),
             " creates effect, updates only text node.",
           ),
           li(
             "Coarse-grained: ",
-            sharedStyles.inlineCode("${signal.get()}"),
+            sharedHelpers.inlineCode("${signal.get()}"),
             " resolves immediately.",
           ),
         ),
@@ -57,8 +59,8 @@ const DocDom10 = defineElement("rikka-doc-dom-10", {
       div(
         { class: "playground-section" },
         h2("Try It"),
-        sharedStyles.createPlayground(
-          `import { h } from '@rikka/dom';
+        RikkaLivePlayground.h({
+    code: `import { h } from '@takanashi/rikka-dom';
 
 const name = signal("Rikka");
 const count = signal(42);
@@ -75,21 +77,19 @@ function TemplateDemo() {
     \`
   );
 }
-container.appendChild(TemplateDemo());`,
-          "260",
-          "h`` Template",
-        ),
+container.appendChild(TemplateDemo());`, height: "260", title: "h`` Template"
+}),
       ),
       div(
         { class: "doc-nav" },
         a(
-          { href: "#/docs/@rikka/dom/conditionals", class: "prev-link" },
+          { href: "#/docs/@takanashi/rikka-dom/conditionals", class: "prev-link" },
           "\u2190 Conditionals",
         ),
         div({ class: "spacer" }),
         a(
           {
-            href: "#/docs/@rikka/dom/signal-interpolation",
+            href: "#/docs/@takanashi/rikka-dom/signal-interpolation",
             class: "next-link",
           },
           "Signal Interpolation \u2192",

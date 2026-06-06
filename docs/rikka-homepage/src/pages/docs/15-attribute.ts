@@ -1,6 +1,8 @@
-import { defineElement, NumberAttr, StringAttr, BooleanAttr } from "@rikka/elements";
-import { css, div, h1, h2, p, a, pre, code } from "@rikka/dom";
-import { sharedStyles, docPageStyles } from "../../shared/styles";
+import { defineElement, NumberAttr, StringAttr, BooleanAttr } from "@takanashi/rikka-elements";
+import { css, div, h1, h2, p, a, pre, code } from "@takanashi/rikka-dom";
+import {sharedHelpers} from "../../shared/helpers";
+import {docPageStyles} from "../../shared/page-styles";
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
   ${docPageStyles}
@@ -12,7 +14,7 @@ const DocElements15 = defineElement("rikka-doc-elements-15", {
     return div(
       { class: "doc-page" },
       h1("attribute"),
-      sharedStyles.advancedBadge("attribute", "is part of @rikka/elements, an advanced feature. For simple components, use signal() to manage state directly."),
+      sharedHelpers.advancedBadge("attribute", "is part of @takanashi/rikka-elements, an advanced feature. For simple components, use signal() to manage state directly."),
       p("Reactive properties synced with HTML attributes."),
       div(
         { class: "api-signature" },
@@ -23,11 +25,11 @@ const DocElements15 = defineElement("rikka-doc-elements-15", {
         h2("Attribute Declaration"),
         p(
           "Declare attributes in the ",
-          sharedStyles.inlineCode("config.attributes"),
+          sharedHelpers.inlineCode("config.attributes"),
           " record. Each key becomes a property on the element instance.",
         ),
-        sharedStyles.createPlayground(
-          `const MyElement = defineElement('my-element', {
+        RikkaLivePlayground.h({
+    code: `const MyElement = defineElement('my-element', {
   attributes: {
     count: NumberAttr,
     name: StringAttr,
@@ -54,16 +56,14 @@ container.appendChild(div({},
     button({ onclick: () => el.count++ }, 'count++'),
     button({ onclick: () => el.name = 'Changed', style: { marginLeft: '4px' } }, 'Change name')
   )
-));`,
-          "240",
-          "Attribute Declaration",
-        ),
+));`, height: "240", title: "Attribute Declaration"
+}),
         h2("Value and Signal Access"),
         p(
           "Access the raw value via ",
-          sharedStyles.inlineCode("this.name"),
+          sharedHelpers.inlineCode("this.name"),
           " and the backing Signal via ",
-          sharedStyles.inlineCode("this.$name"),
+          sharedHelpers.inlineCode("this.$name"),
           ":",
         ),
         pre(
@@ -98,8 +98,8 @@ BooleanAttr // Parse as boolean (true if attribute present)`),
       div(
         { class: "playground-section" },
         h2("Try It"),
-        sharedStyles.createPlayground(
-          `const AttrCounter = defineElement('attr-counter', {
+        RikkaLivePlayground.h({
+    code: `const AttrCounter = defineElement('attr-counter', {
   attributes: { count: NumberAttr },
   styles: css\`
     .counter {
@@ -142,20 +142,18 @@ BooleanAttr // Parse as boolean (true if attribute present)`),
 });
 
 const el = h('attr-counter', { count: 0 });
-container.appendChild(el);`,
-          "250",
-          "Reactive Attribute",
-        ),
+container.appendChild(el);`, height: "250", title: "Reactive Attribute"
+}),
       ),
       div(
         { class: "doc-nav" },
         a(
-          { href: "#/docs/@rikka/elements/adopt-style", class: "prev-link" },
+          { href: "#/docs/@takanashi/rikka-elements/adopt-style", class: "prev-link" },
           "\u2190 adoptStyle",
         ),
         div({ class: "spacer" }),
         a(
-          { href: "#/docs/@rikka/elements/event", class: "next-link" },
+          { href: "#/docs/@takanashi/rikka-elements/event", class: "next-link" },
           "event \u2192",
         ),
       ),

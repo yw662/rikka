@@ -1,6 +1,6 @@
-import { defineElement, css } from '@rikka/elements';
-import { div, button } from '@rikka/dom';
-import { computed } from '@rikka/signal';
+import { defineElement, css } from '@takanashi/rikka-elements';
+import { div, button } from '@takanashi/rikka-dom';
+import { computed } from '@takanashi/rikka-signal';
 import { activeTab } from '../editor-store';
 import type { FileType } from '../editor-store';
 

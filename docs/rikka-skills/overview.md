@@ -10,14 +10,14 @@ Rikka is a Web UI toolkit built around three principles:
 
 | Package | Job | Core exports |
 |---------|-----|--------------|
-| `@rikka/signal` | Reactive primitives | `signal`, `computed`, `effect` |
-| `@rikka/dom` | Create real DOM elements | `h`, tag helpers (`div`, `p`, `button`, …), `For`, `Show`, `When`, `Switch`, `Match`, `css`, `inlineStyle` |
-| `@rikka/elements` | Custom Elements | `defineElement`, `event`, `StringAttr`, `NumberAttr`, `BooleanAttr` |
+| `@takanashi/rikka-signal` | Reactive primitives | `signal`, `computed`, `effect` |
+| `@takanashi/rikka-dom` | Create real DOM elements | `h`, tag helpers (`div`, `p`, `button`, …), `For`, `Show`, `When`, `Switch`, `Match`, `css`, `inlineStyle` |
+| `@takanashi/rikka-elements` | Custom Elements | `defineElement`, `event`, `StringAttr`, `NumberAttr`, `BooleanAttr` |
 
 Install:
 
 ```bash
-npm install @rikka/signal @rikka/dom @rikka/elements
+npm install @takanashi/rikka-signal @takanashi/rikka-dom @takanashi/rikka-elements
 ```
 
 ## Mental model

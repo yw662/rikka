@@ -1,6 +1,8 @@
-import { defineElement } from '@rikka/elements';
-import { css, div, h1, h2, p, pre, a } from '@rikka/dom';
-import { sharedStyles, docPageStyles } from '../../shared/styles';
+import { defineElement } from '@takanashi/rikka-elements';
+import { css, div, h1, h2, p, pre, a } from '@takanashi/rikka-dom';
+import {sharedHelpers} from '../../shared/helpers';
+import {docPageStyles} from '../../shared/page-styles';
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
   ${docPageStyles}
@@ -18,11 +20,11 @@ export const RikkaDocSignal03 = defineElement('rikka-doc-signal-03', {
         h2({ class: 'section-title' }, 'Creating a Computed Signal'),
         p({},
           'Use ',
-          sharedStyles.inlineCode('computed(fn)'),
+          sharedHelpers.inlineCode('computed(fn)'),
           ' to create a signal that derives its value from other signals. The function re-runs whenever a dependency changes.',
         ),
-        sharedStyles.createPlayground(
-          `const firstName = signal('Rikka');
+        RikkaLivePlayground.h({
+    code: `const firstName = signal('Rikka');
 const lastName = signal('Reactive');
 const fullName = computed(() => \`\${firstName.get()} \${lastName.get()}\`);
 
@@ -35,16 +37,14 @@ container.appendChild(div({},
     input({ value: firstName, placeholder: 'First name' }),
     input({ value: lastName, placeholder: 'Last name' })
   )
-));`,
-          '220',
-          'Computed Basics'
-        ),
+));`, height: '220', title: 'Computed Basics'
+}),
       ),
       div({ class: 'doc-section' },
         h2({ class: 'section-title' }, 'Auto-Tracking'),
         p({},
           'Dependencies are tracked automatically. Any ',
-          sharedStyles.inlineCode('.get()'),
+          sharedHelpers.inlineCode('.get()'),
           ' call inside the computed function registers a dependency.',
         ),
         p({},
@@ -55,7 +55,7 @@ container.appendChild(div({},
         h2({ class: 'section-title' }, 'Lazy Evaluation'),
         p({},
           'Computed signals are lazy. The derivation function only runs when ',
-          sharedStyles.inlineCode('.get()'),
+          sharedHelpers.inlineCode('.get()'),
           ' is called, and only re-evaluates if a dependency has changed since the last read.',
         ),
       ),
@@ -63,19 +63,19 @@ container.appendChild(div({},
         h2({ class: 'section-title' }, 'Slicing a Complex Signal'),
         p({},
           'When the source of truth is one large object — e.g. a record loaded from the server — wrap each reader in a ',
-          sharedStyles.inlineCode('computed'),
+          sharedHelpers.inlineCode('computed'),
           ' that pulls out only the slice it needs. The ',
-          sharedStyles.inlineCode('computed'),
+          sharedHelpers.inlineCode('computed'),
           ' then depends precisely on that slice, not on the whole object.',
         ),
         p({},
-          sharedStyles.inlineCode('Computed'),
+          sharedHelpers.inlineCode('Computed'),
           ' uses reference equality by default. If the slice value is unchanged, downstream readers do not re-run — even though the parent ',
-          sharedStyles.inlineCode('signal'),
+          sharedHelpers.inlineCode('signal'),
           ' was reassigned to a brand-new object.',
         ),
-        sharedStyles.createPlayground(
-          `const user = signal({
+        RikkaLivePlayground.h({
+    code: `const user = signal({
   info: { name: 'Alice', email: 'a@b.c', age: 30 },
   settings: { theme: 'dark', lang: 'en' },
 });
@@ -107,15 +107,13 @@ container.appendChild(div({},
       },
     }, 'Toggle theme'),
   ),
-));`,
-          420,
-          'Slicing a Signal'
-        ),
+));`, height: "420", title: 'Slicing a Signal'
+}),
       ),
       div({ class: 'doc-section' },
         h2({ class: 'section-title' }, 'Try It'),
-        sharedStyles.createPlayground(
-          `import { signal, computed } from '@rikka/signal';
+        RikkaLivePlayground.h({
+    code: `import { signal, computed } from '@takanashi/rikka-signal';
 
 const firstName = signal('Rikka');
 const lastName = signal('Reactive');
@@ -126,14 +124,12 @@ effect(() => {
 });
 
 firstName.set('Hello');
-// Logs: 'Hello Reactive'`,
-          300,
-          'Full Name Demo'
-        ),
+// Logs: 'Hello Reactive'`, height: "300", title: 'Full Name Demo'
+}),
       ),
       div({ class: 'doc-nav' },
-        a({ class: 'nav-link prev', href: '#/docs/@rikka/signal/signal' }, '← signal()'),
-        a({ class: 'nav-link next', href: '#/docs/@rikka/signal/effect' }, 'effect() →'),
+        a({ class: 'nav-link prev', href: '#/docs/@takanashi/rikka-signal/signal' }, '← signal()'),
+        a({ class: 'nav-link next', href: '#/docs/@takanashi/rikka-signal/effect' }, 'effect() →'),
       ),
     );
   }

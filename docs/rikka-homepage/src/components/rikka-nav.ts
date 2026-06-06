@@ -1,7 +1,7 @@
-import { defineElement, css } from "@rikka/elements";
-import { div, nav, a, span, button } from "@rikka/dom";
-import { signal, effect } from "@rikka/signal";
-import { getPathFromHash } from "../shared/styles";
+import { defineElement, css } from "@takanashi/rikka-elements";
+import { div, nav, a, span, button } from "@takanashi/rikka-dom";
+import { signal, effect } from "@takanashi/rikka-signal";
+import {getPathFromHash} from "../shared/helpers";
 
 const navStyles = css`
   :host {

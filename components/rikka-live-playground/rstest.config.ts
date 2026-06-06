@@ -16,9 +16,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@rikka/signal$": path.resolve(root, "../../utils/rikka-signal/dist/index.js"),
-      "@rikka/dom$": path.resolve(root, "../../utils/rikka-dom/dist/index.js"),
-      "@rikka/elements$": path.resolve(
+      "@takanashi/rikka-signal$": path.resolve(root, "../../utils/rikka-signal/dist/index.js"),
+      "@takanashi/rikka-dom$": path.resolve(root, "../../utils/rikka-dom/dist/index.js"),
+      "@takanashi/rikka-elements$": path.resolve(
         root,
         "../../utils/rikka-elements/dist/index.js",
       ),

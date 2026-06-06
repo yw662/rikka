@@ -1,12 +1,12 @@
-# @rikka/dom
+# @takanashi/rikka-dom
 
 Create real DOM elements with hyperscript `h()`. No virtual DOM.
 
 ## Quick Start
 
 ```typescript
-import { div, p, button } from "@rikka/dom";
-import { signal } from "@rikka/signal";
+import { div, p, button } from "@takanashi/rikka-dom";
+import { signal } from "@takanashi/rikka-signal";
 
 const count = signal(0);
 
@@ -27,8 +27,8 @@ Creates a DOM element. Returns the element directly — no virtual DOM.
 A child may be a function `() => Child`. It is auto-wrapped with `computed`, so signal reads inside it are tracked and the rendered value updates reactively:
 
 ```typescript
-import { signal } from "@rikka/signal";
-import { div, span } from "@rikka/dom";
+import { signal } from "@takanashi/rikka-signal";
+import { div, span } from "@takanashi/rikka-dom";
 
 const count = signal(0);
 
@@ -84,8 +84,8 @@ Tagged template creating inline style object. CSS property names auto-converted 
 For `<input>`, `<textarea>`, `<select>` with `value`, `checked`, or `selectedIndex` attributes, passing a writable signal automatically creates two-way binding:
 
 ```typescript
-import { signal } from "@rikka/signal";
-import { input } from "@rikka/dom";
+import { signal } from "@takanashi/rikka-signal";
+import { input } from "@takanashi/rikka-dom";
 
 const text = signal("");
 input({ value: text }); // input event syncs back to signal
@@ -96,7 +96,7 @@ input({ value: text }); // input event syncs back to signal
 SVG-specific tags are created in the SVG namespace automatically. For HTML/SVG name collisions (`a`, `script`, `style`, `title`, `text`, `span`, `textPath`), use the `svg`-prefixed versions:
 
 ```typescript
-import { a, svga, svgtext } from "@rikka/dom";
+import { a, svga, svgtext } from "@takanashi/rikka-dom";
 
 a({ href: "#" }, "HTML Link");      // HTMLAnchorElement
 svga({ href: "#" }, "SVG Link");    // SVGAElement

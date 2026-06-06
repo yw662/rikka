@@ -132,18 +132,18 @@ docs/rikka-homepage/dist/         # 完整文档站点
 - Node.js 24 LTS
 - Ubuntu Latest
 
-### Stage 5: 🚀 发布到 npm (可选)
+### Stage 5: 🚀 发布到 npm (Changesets 驱动)
 
 **触发条件：**
-- GitHub: push tag `v*` 到 main 分支
-- GitLab: 创建 `v*` 格式的 tag
+- GitHub: 推 PR 到 main 分支,带 `.changeset/*.md` 文件 → 自动开/更新 "release packages" PR,merge 后自动发布
+- GitLab: 由 GitLab CI 手动触发(无 changesets action 等价)
 
 **发布的包：**
 ```
-@rikka/signal          # 响应式原语
-@rikka/dom             # DOM 工具函数
-@rikka-elements        # Web Components 定义
-@rikka/live-playground # 实时代码编辑器
+@takanashi/rikka-signal          # 响应式原语
+@takanashi/rikka-dom             # DOM 工具函数
+@takanashi/rikka-elements        # Web Components 定义
+@takanashi/rikka-live-playground # 实时代码编辑器
 ```
 
 **发布后操作：**

@@ -1,6 +1,6 @@
-import { defineElement } from '@rikka/elements';
-import { css, div, span, a } from '@rikka/dom';
-import { effect, type Signal } from '@rikka/signal';
+import { defineElement } from '@takanashi/rikka-elements';
+import { css, div, span, a } from '@takanashi/rikka-dom';
+import { effect, type Signal } from '@takanashi/rikka-signal';
 
 interface TOCItem {
   title: string;
@@ -15,44 +15,36 @@ interface TOCGroup {
 
 const tableOfContents: TOCGroup[] = [
   {
-    group: '@rikka/signal',
+    group: '@takanashi/rikka-signal',
     items: [
-      { title: 'Getting Started', path: '/docs/@rikka/signal/getting-started' },
-      { title: 'signal()', path: '/docs/@rikka/signal/signal' },
-      { title: 'computed()', path: '/docs/@rikka/signal/computed' },
-      { title: 'effect()', path: '/docs/@rikka/signal/effect' },
-      { title: 'Batch Updates', path: '/docs/@rikka/signal/batch', advanced: true },
+      { title: 'Getting Started', path: '/docs/@takanashi/rikka-signal/getting-started' },
+      { title: 'signal()', path: '/docs/@takanashi/rikka-signal/signal' },
+      { title: 'computed()', path: '/docs/@takanashi/rikka-signal/computed' },
+      { title: 'effect()', path: '/docs/@takanashi/rikka-signal/effect' },
     ],
   },
   {
-    group: '@rikka/dom',
+    group: '@takanashi/rikka-dom',
     items: [
-      { title: 'h()', path: '/docs/@rikka/dom/h' },
-      { title: 'Tag Helpers', path: '/docs/@rikka/dom/tag-helpers' },
-      { title: 'For', path: '/docs/@rikka/dom/for' },
-      { title: 'Conditionals', path: '/docs/@rikka/dom/conditionals' },
-      { title: 'h``', path: '/docs/@rikka/dom/html-template', advanced: true },
-      { title: 'Signal Interpolation', path: '/docs/@rikka/dom/signal-interpolation', advanced: true },
-      { title: 'css``', path: '/docs/@rikka/dom/css-template', advanced: true },
-      { title: 'inlineStyle``', path: '/docs/@rikka/dom/inlineStyle', advanced: true },
+      { title: 'h()', path: '/docs/@takanashi/rikka-dom/h' },
+      { title: 'Tag Helpers', path: '/docs/@takanashi/rikka-dom/tag-helpers' },
+      { title: 'For', path: '/docs/@takanashi/rikka-dom/for' },
+      { title: 'Conditionals', path: '/docs/@takanashi/rikka-dom/conditionals' },
+      { title: 'h``', path: '/docs/@takanashi/rikka-dom/html-template', advanced: true },
+      { title: 'Signal Interpolation', path: '/docs/@takanashi/rikka-dom/signal-interpolation', advanced: true },
+      { title: 'css``', path: '/docs/@takanashi/rikka-dom/css-template', advanced: true },
+      { title: 'inlineStyle``', path: '/docs/@takanashi/rikka-dom/inlineStyle', advanced: true },
     ],
   },
   {
-    group: '@rikka/elements',
+    group: '@takanashi/rikka-elements',
     items: [
-      { title: 'defineElement', path: '/docs/@rikka/elements/define-element', advanced: true },
-      { title: 'Shadow DOM', path: '/docs/@rikka/elements/shadow', advanced: true },
-      { title: 'adoptStyle', path: '/docs/@rikka/elements/adopt-style', advanced: true },
-      { title: 'attribute', path: '/docs/@rikka/elements/attribute', advanced: true },
-      { title: 'event', path: '/docs/@rikka/elements/event', advanced: true },
-      { title: 'attachTemplate', path: '/docs/@rikka/elements/attach-template', advanced: true },
-    ],
-  },
-  {
-    group: 'Advanced',
-    items: [
-      { title: 'Composition', path: '/docs/advanced/composition' },
-      { title: 'Fine-grained Updates', path: '/docs/advanced/fine-grained' },
+      { title: 'defineElement', path: '/docs/@takanashi/rikka-elements/define-element', advanced: true },
+      { title: 'Shadow DOM', path: '/docs/@takanashi/rikka-elements/shadow', advanced: true },
+      { title: 'adoptStyle', path: '/docs/@takanashi/rikka-elements/adopt-style', advanced: true },
+      { title: 'attribute', path: '/docs/@takanashi/rikka-elements/attribute', advanced: true },
+      { title: 'event', path: '/docs/@takanashi/rikka-elements/event', advanced: true },
+      { title: 'attachTemplate', path: '/docs/@takanashi/rikka-elements/attach-template', advanced: true },
     ],
   },
   {

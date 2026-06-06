@@ -1,6 +1,8 @@
-import { defineElement } from '@rikka/elements';
-import { css, div, h1, h2, p, a, ul, li } from '@rikka/dom';
-import { sharedStyles, docPageStyles } from '../../shared/styles';
+import { defineElement } from '@takanashi/rikka-elements';
+import { css, div, h1, h2, p, a, ul, li } from '@takanashi/rikka-dom';
+import {sharedHelpers} from '../../shared/helpers';
+import {docPageStyles} from '../../shared/page-styles';
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`${docPageStyles}`;
 
@@ -9,18 +11,18 @@ const DocDom11 = defineElement('rikka-doc-dom-11', {
   render() {
     return div({ class: 'doc-page' },
       h1('Signal Interpolation'),
-      sharedStyles.advancedBadge("Signal Interpolation", "is an advanced topic. Understanding fine-grained vs coarse-grained updates is only needed when optimizing performance."),
+      sharedHelpers.advancedBadge("Signal Interpolation", "is an advanced topic. Understanding fine-grained vs coarse-grained updates is only needed when optimizing performance."),
       p('How signals behave differently depending on how you use them in templates.'),
       div({ class: 'doc-content' },
         h2('Three Modes'),
         ul(
-          li(sharedStyles.inlineCode('${signal}'), ' — Fine-grained: signal passed as a child. Only the text node updates. Focus is preserved.'),
-          li(sharedStyles.inlineCode('signal.get() outside computed'), ' — Loses reactivity entirely. The value is read once and never updates.'),
-          li(sharedStyles.inlineCode('computed(() => { ... signal.get() ... })'), ' — Coarse-grained: signal.get() inside computed creates a dependency. When the signal changes, computed re-executes and rebuilds the entire DOM subtree.'),
+          li(sharedHelpers.inlineCode('${signal}'), ' — Fine-grained: signal passed as a child. Only the text node updates. Focus is preserved.'),
+          li(sharedHelpers.inlineCode('signal.get() outside computed'), ' — Loses reactivity entirely. The value is read once and never updates.'),
+          li(sharedHelpers.inlineCode('computed(() => { ... signal.get() ... })'), ' — Coarse-grained: signal.get() inside computed creates a dependency. When the signal changes, computed re-executes and rebuilds the entire DOM subtree.'),
         ),
         h2('Live Comparison'),
-        sharedStyles.createPlayground(
-          `// Three signals, three different behaviors
+        RikkaLivePlayground.h({
+    code: `// Three signals, three different behaviors
 const fine = signal("Alice");
 const lost = signal("Bob");
 const coarse = signal("Carol");
@@ -56,15 +58,13 @@ container.appendChild(div({ style: { display: "flex", flexDirection: "column", g
 
   // 3. Coarse-grained
   coarseSection
-));`,
-          '420',
-          'Signal Interpolation Modes'
-        ),
+));`, height: '420', title: 'Signal Interpolation Modes'
+}),
       ),
       div({ class: 'doc-nav' },
-        a({ href: '#/docs/@rikka/dom/html-template', class: 'prev-link' }, '\u2190 h\`\`'),
+        a({ href: '#/docs/@takanashi/rikka-dom/html-template', class: 'prev-link' }, '\u2190 h\`\`'),
         div({ class: 'spacer' }),
-        a({ href: '#/docs/@rikka/dom/css-template', class: 'next-link' }, 'css\`\` \u2192'),
+        a({ href: '#/docs/@takanashi/rikka-dom/css-template', class: 'next-link' }, 'css\`\` \u2192'),
       ),
     );
   }

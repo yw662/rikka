@@ -1,5 +1,5 @@
-import { effect } from '@rikka/signal';
-import type { Signal } from '@rikka/signal';
+import { effect } from '@takanashi/rikka-signal';
+import type { Signal } from '@takanashi/rikka-signal';
 import { unwrapSignal } from './signal-utils.js';
 import { ReactiveRange } from './h.js';
 

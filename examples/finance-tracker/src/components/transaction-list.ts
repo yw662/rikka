@@ -1,5 +1,5 @@
-import { computed } from '@rikka/signal';
-import { When, For, div, span, button } from '@rikka/dom';
+import { computed } from '@takanashi/rikka-signal';
+import { When, For, div, span, button } from '@takanashi/rikka-dom';
 import {
   sortedTransactions,
   deleteTransaction,

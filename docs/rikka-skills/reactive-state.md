@@ -1,11 +1,11 @@
 # Reactive State
 
-All reactive state in rikka is a TC39 `Signal`. There are three core types: `signal`, `computed`, and `effect`.
+All reactive state in rikka is a TC39 `Signal`. There are three core reactive primitives: `signal`, `computed`, and `effect`. One escape hatch: `untracked`.
 
 ## Imports
 
 ```typescript
-import { signal, computed, effect } from "@rikka/signal";
+import { signal, computed, effect, untracked } from "@takanashi/rikka-signal";
 ```
 
 ## `signal(initialValue): Signal.State<T>`
@@ -29,7 +29,7 @@ For nested or structured state, use a `signal` holding an object or array and up
 A read-only derived signal. Dependencies are auto-tracked. Evaluation is lazy and cached until a dependency changes.
 
 ```typescript
-import { signal, computed } from "@rikka/signal";
+import { signal, computed } from "@takanashi/rikka-signal";
 
 const count = signal(0);
 const doubled = computed(() => count.get() * 2);
@@ -46,7 +46,7 @@ doubled.get(); // 10
 Runs `fn` immediately and re-runs it when any signal read inside changes. Returns a dispose function.
 
 ```typescript
-import { signal, effect } from "@rikka/signal";
+import { signal, effect } from "@takanashi/rikka-signal";
 
 const count = signal(0);
 
@@ -80,18 +80,55 @@ stop(); // interval is cleared
 
 ### Batching
 
-Multiple synchronous `set` calls in the same microtask trigger only one re-run. The effect is queued via `queueMicrotask`.
+Multiple synchronous `set` calls in the same microtask trigger only one re-run. The effect is queued via `queueMicrotask`. **There is no `batch()` function** — batching is automatic per microtask. If you need a custom boundary, schedule work with `queueMicrotask` or `Promise.resolve().then(...)`.
+
+```typescript
+const a = signal(0);
+const b = signal(0);
+
+effect(() => console.log(a.get(), b.get()));
+// logs: "0 0"
+
+a.set(1);
+b.set(2);
+// (next microtask) logs once: "1 2"
+```
+
+If you need a re-run *across* microtasks, you must split the work — e.g. set in one tick, set in the next — and accept the intermediate re-run.
 
 ### Error handling
 
 Errors thrown inside `fn` are caught and logged to `console.error`. The effect will try again on the next dependency change.
+
+## `untracked(fn): T`
+
+Runs `fn` and returns its result, but signals read inside are **not** added as dependencies of the surrounding `computed` or `effect`.
+
+```typescript
+import { signal, effect, untracked } from "@takanashi/rikka-signal";
+
+const count = signal(0);
+const log = signal("");
+
+effect(() => {
+  // Subscribe to `log` only. Reading `count` here will NOT re-run this effect
+  // when `count` changes.
+  const snapshot = untracked(() => count.get());
+  console.log(log.get(), "count was", snapshot);
+});
+
+count.set(99); // no re-run
+log.set("done"); // re-runs
+```
+
+Use `untracked` when you want to read a signal's *current* value without subscribing to it — e.g. logging, deciding between two paths, or reading a "settings" signal that should not retrigger a heavy effect.
 
 ## The full `Signal` namespace is re-exported
 
 `signal-polyfill`'s `Signal` is available directly:
 
 ```typescript
-import { Signal } from "@rikka/signal";
+import { Signal } from "@takanashi/rikka-signal";
 
 const s = new Signal.State(0);
 const c = new Signal.Computed(() => /* ... */);
@@ -141,6 +178,10 @@ effect(() => {
   return () => window.removeEventListener("resize", handler);
 });
 ```
+
+### 5. Reaching for `untracked` to "fix" a feedback loop
+
+If a signal change inside an `effect` triggers the same effect, you do **not** need `untracked` — you have a logical loop. Restructure the data flow: split state into "inputs you read" and "outputs you write", or move the writer into an event handler / user action. `untracked` is for *peeking*, not for breaking cycles.
 
 ## See also
 

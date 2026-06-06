@@ -35,9 +35,9 @@ This is the rikka monorepo. Three published packages live under `utils/`:
 
 | Package | Path | Description |
 |---------|------|-------------|
-| `@rikka/signal` | `utils/rikka-signal/` | Reactive primitives: `signal`, `computed`, `effect` |
-| `@rikka/dom` | `utils/rikka-dom/` | DOM creation: `h`, tag helpers, `For`/`Show`/`Switch`, `css` |
-| `@rikka/elements` | `utils/rikka-elements/` | Custom Elements: `defineElement`, `event`, attribute specs |
+| `@takanashi/rikka-signal` | `utils/rikka-signal/` | Reactive primitives: `signal`, `computed`, `effect` |
+| `@takanashi/rikka-dom` | `utils/rikka-dom/` | DOM creation: `h`, tag helpers, `For`/`Show`/`Switch`, `css` |
+| `@takanashi/rikka-elements` | `utils/rikka-elements/` | Custom Elements: `defineElement`, `event`, attribute specs |
 
 Plus `components/rikka-live-playground/` (a web-component code playground) and `docs/rikka-homepage/` (the marketing site).
 
@@ -85,9 +85,9 @@ After editing skills, the homepage `pnpm build` step copies the 14 files into `d
 Use the **scoped** package form (the published names):
 
 ```typescript
-import { signal, computed, effect } from "@rikka/signal";
-import { h, div, button, For, Show } from "@rikka/dom";
-import { defineElement, event, StringAttr } from "@rikka/elements";
+import { signal, computed, effect } from "@takanashi/rikka-signal";
+import { h, div, button, For, Show } from "@takanashi/rikka-dom";
+import { defineElement, event, StringAttr } from "@takanashi/rikka-elements";
 ```
 
 Unscoped forms like `rikka-signal` are not the published names.

@@ -1,6 +1,8 @@
-import { defineElement } from '@rikka/elements';
-import { css, div, h1, h2, p, span, button, input, a, For } from '@rikka/dom';
-import { sharedStyles, examplePageStyles } from '../../shared/styles';
+import { defineElement } from '@takanashi/rikka-elements';
+import { css, div, h1, h2, p, span, button, input, a, For } from '@takanashi/rikka-dom';
+import {sharedHelpers} from '../../shared/helpers';
+import {examplePageStyles} from '../../shared/page-styles';
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`${examplePageStyles}`;
 
@@ -223,16 +225,18 @@ const ExampleKnowledgeBase = defineElement('rikka-example-knowledge-base', {
       h1('Knowledge Base Assistant'),
       p('A search interface with facets, filtering, and history persistence.'),
       div({ class: 'playground-container' },
-        sharedStyles.createPlayground(knowledgeBaseCode, '550', 'Knowledge Base Example'),
+        RikkaLivePlayground.h({
+    code: knowledgeBaseCode, height: '550', title: 'Knowledge Base Example'
+}),
       ),
       div({ class: 'explanation' },
         h2('Key Concepts'),
-        p(sharedStyles.inlineCode('signal("")'), ' stores the search query as reactive state.'),
-        p(sharedStyles.inlineCode('signal({ article: true, video: true, faq: true, code: true })'), ' stores facet filters for different content types.'),
-        p(sharedStyles.inlineCode('signal([])'), ' stores search history.'),
-        p(sharedStyles.inlineCode('signal([...])'), ' stores the full list of searchable items.'),
-        p(sharedStyles.inlineCode('computed()'), ' derives filtered results based on query and facets.'),
-        p(sharedStyles.inlineCode('effect()'), ' persists search history to localStorage.'),
+        p(sharedHelpers.inlineCode('signal("")'), ' stores the search query as reactive state.'),
+        p(sharedHelpers.inlineCode('signal({ article: true, video: true, faq: true, code: true })'), ' stores facet filters for different content types.'),
+        p(sharedHelpers.inlineCode('signal([])'), ' stores search history.'),
+        p(sharedHelpers.inlineCode('signal([...])'), ' stores the full list of searchable items.'),
+        p(sharedHelpers.inlineCode('computed()'), ' derives filtered results based on query and facets.'),
+        p(sharedHelpers.inlineCode('effect()'), ' persists search history to localStorage.'),
         p('Facet checkboxes toggle filtering by content type.'),
         p('Popular tags serve as quick filters to set the query.'),
         p('Search history can be removed and persists across sessions.'),

@@ -1,12 +1,12 @@
-# @rikka/elements
+# @takanashi/rikka-elements
 
 Declarative Custom Elements with reactive attributes, event conversion, Shadow DOM, styles, and template binding. No decorators, no base class.
 
 ## Quick Start
 
 ```typescript
-import { defineElement, NumberAttr } from "@rikka/elements";
-import { css, div, p, button } from "@rikka/dom";
+import { defineElement, NumberAttr } from "@takanashi/rikka-elements";
+import { css, div, p, button } from "@takanashi/rikka-dom";
 
 const MyCounter = defineElement("my-counter", {
   attributes: { count: { ...NumberAttr, default: 0 } },

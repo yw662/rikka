@@ -1,5 +1,5 @@
-import { defineElement, css } from '@rikka/elements';
-import { div, button, span, For } from '@rikka/dom';
+import { defineElement, css } from '@takanashi/rikka-elements';
+import { div, button, span, For } from '@takanashi/rikka-dom';
 import { consoleEntries, clearConsole } from '../editor-store';
 
 const consoleStyles = css`

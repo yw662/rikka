@@ -26,40 +26,32 @@ These contain task-oriented guides (`reactive-state.md`, `dom-creation.md`, `sig
 
 ## 📦 Packages
 
-| Package                                                                                   | Version                                                                                      | Description                                        | Size (gzip) |
-| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------- | ----------- |
-| [`@rikka/signal`](https://github.com/yw662/rikka/pkgs/npm/rikka-signal)                   | ![GitHub Package Version](https://img.shields.io/github/v/tag/yw662/rikka.svg?label=version) | Reactive primitives based on TC39 Signals          | ~1.6 KB     |
-| [`@rikka/dom`](https://github.com/yw662/rikka/pkgs/npm/rikka-dom)                         | ![GitHub Package Version](https://img.shields.io/github/v/tag/yw662/rikka.svg?label=version) | DOM utilities — `h()`, tag shortcuts, control flow | ~6.3 KB     |
-| [`@rikka/elements`](https://github.com/yw662/rikka/pkgs/npm/rikka-elements)               | ![GitHub Package Version](https://img.shields.io/github/v/tag/yw662/rikka.svg?label=version) | Function-based custom element definition           | ~3.3 KB     |
-| [`@rikka/live-playground`](https://github.com/yw662/rikka/pkgs/npm/rikka-live-playground) | ![GitHub Package Version](https://img.shields.io/github/v/tag/yw662/rikka.svg?label=version) | Live code editor Web Component                     | ~4.2 KB     |
+| Package                                                                                   | Version                                                                              | Description                                        | Size (gzip) |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------- | ----------- |
+| [`@takanashi/rikka-signal`](https://www.npmjs.com/package/@takanashi/rikka-signal)                           | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-signal.svg)                      | Reactive primitives based on TC39 Signals          | ~1.6 KB     |
+| [`@takanashi/rikka-dom`](https://www.npmjs.com/package/@takanashi/rikka-dom)                                 | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-dom.svg)                        | DOM utilities — `h()`, tag shortcuts, control flow | ~6.3 KB     |
+| [`@takanashi/rikka-elements`](https://www.npmjs.com/package/@takanashi/rikka-elements)                       | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-elements.svg)                   | Function-based custom element definition           | ~3.3 KB     |
+| [`@takanashi/rikka-live-playground`](https://www.npmjs.com/package/@takanashi/rikka-live-playground)         | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-live-playground.svg)             | Live code editor Web Component                     | ~4.2 KB     |
 
 ## 🚀 Quick Start
 
 ### Installation
 
-Packages are published to [GitHub Packages](https://github.com/yw662/rikka/pkgs). First, create an `.npmrc` in your project:
-
-```ini
-@rikka:registry=https://npm.pkg.github.com
-```
-
-> **Note**: If the repository is private, you'll need a [Personal Access Token](https://github.com/settings/tokens) with `read:packages` scope. For public repositories, no authentication is needed.
-
-Then install:
+Packages are published to [npm](https://www.npmjs.com/org/rikka). No extra registry configuration is needed.
 
 ```bash
 # Install all packages
-pnpm add @rikka/signal @rikka/dom @rikka/elements
+pnpm add @takanashi/rikka-signal @takanashi/rikka-dom @takanashi/rikka-elements
 
 # Or install individually
-npm install @rikka/signal
+npm install @takanashi/rikka-signal
 ```
 
 ### Counter Example
 
 ```typescript
-import { defineElement, NumberAttr } from "@rikka/elements";
-import { div, p, button } from "@rikka/dom";
+import { defineElement, NumberAttr } from "@takanashi/rikka-elements";
+import { div, p, button } from "@takanashi/rikka-dom";
 
 const MyCounter = defineElement("my-counter", {
   shadow: { mode: "open" },
@@ -85,12 +77,12 @@ counter.setAttribute("count", "10");
 
 ## 📖 API Reference
 
-### @rikka/signal — Reactive Primitives
+### @takanashi/rikka-signal — Reactive Primitives
 
 Based on [TC39 Signals proposal](https://github.com/proposal-signals/signal-polyfill) (Stage 1).
 
 ```typescript
-import { signal, computed, effect } from "@rikka/signal";
+import { signal, computed, effect } from "@takanashi/rikka-signal";
 
 // Basic signals
 const count = signal(0);
@@ -111,13 +103,13 @@ count.set(5); // logs: 10
 
 ---
 
-### @rikka/dom — DOM Utilities
+### @takanashi/rikka-dom — DOM Utilities
 
 Hyperscript `h()` function for creating DOM elements. Returns real DOM elements — no virtual DOM, no factory functions.
 
 ```typescript
-import { div, p, button, applyChild } from "@rikka/dom";
-import { signal } from "@rikka/signal";
+import { div, p, button, applyChild } from "@takanashi/rikka-dom";
+import { signal } from "@takanashi/rikka-signal";
 
 const count = signal(0);
 
@@ -140,7 +132,7 @@ if (container) applyChild(container, app);
 
 ---
 
-### @rikka/elements — Custom Elements
+### @takanashi/rikka-elements — Custom Elements
 
 Function-based custom element definition. No base class required — just extend `HTMLElement`.
 
@@ -188,8 +180,8 @@ defineElement("my-counter", {
 #### Event Helper
 
 ```typescript
-import { event, defineElement, NumberAttr } from "@rikka/elements";
-import { div, button, span } from "@rikka/dom";
+import { event, defineElement, NumberAttr } from "@takanashi/rikka-elements";
+import { div, button, span } from "@takanashi/rikka-dom";
 
 const MyCounter = defineElement("my-counter", {
   shadow: { mode: "open" },
@@ -219,7 +211,7 @@ document.querySelector("my-counter")!.onCountChange = (e) => {
 #### CSS in Shadow DOM
 
 ```typescript
-import { css, adoptStyle } from "@rikka-dom";
+import { css, adoptStyle } from "@takanashi/rikka-dom";
 
 const styles = css`
   .counter {
@@ -260,7 +252,7 @@ Code can also be provided as element content:
 #### Tag Function (`h`)
 
 ```typescript
-import { RikkaLivePlayground } from "@rikka/live-playground";
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const playground = RikkaLivePlayground.h({
   code: `console.log("Hello from h()!")`,
@@ -274,7 +266,7 @@ document.body.appendChild(playground);
 #### `createElement`
 
 ```typescript
-import "@rikka/live-playground";
+import "@takanashi/rikka-live-playground";
 
 const playground = document.createElement("rikka-live-playground");
 playground.setAttribute("code", "console.log('Hello!')");
@@ -286,9 +278,9 @@ document.body.appendChild(playground);
 #### Inside Another Element
 
 ```typescript
-import { defineElement } from "@rikka/elements";
-import { RikkaLivePlayground } from "@rikka/live-playground";
-import { div } from "@rikka/dom";
+import { defineElement } from "@takanashi/rikka-elements";
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
+import { div } from "@takanashi/rikka-dom";
 
 defineElement("my-demo-page", {
   shadow: { mode: "open" },
@@ -312,18 +304,13 @@ console.log(count.get());`,
 | `code`    | `""`        | Initial code content    |
 | `height`  | `"200"`     | Editor area height (px) |
 | `title`   | `"Example"` | Header title            |
+| `layout`  | `"vertical"` | Editor/preview split direction (`"vertical"` \| `"horizontal"`) |
+| `panel`   | `"both"`    | Visible panels (`"both"` \| `"editor"` \| `"preview"`) |
+| `theme`   | `"auto"`    | Color theme (`"auto"` \| `"dark"` \| `"light"`). `auto` follows `prefers-color-scheme`; explicit values pin the theme. The resolved value is also exposed as `data-theme` on `:host` for further CSS overrides. |
 
 **Events:** `error` — dispatched when compilation or runtime error occurs
 
-**Methods:** `run()` — compile & execute code, `reset()` — restore initial code & re-run
-
-Features:
-
-- ✅ esbuild-wasm compilation (runs in browser)
-- ✅ Real-time preview in iframe sandbox
-- ✅ Resizable editor & preview areas
-- ✅ Error display
-- ✅ Rikka APIs auto-available in sandbox (`signal`, `h`, `div`, `defineElement`, etc.)
+**Methods:** `run()` — compile & execute code, `reset()` — restore initial code & re-run, `setTheme(t)` / `toggleTheme()` — switch between light and dark. All `--pg-*` CSS variables are also pushed into the preview iframe, so user code can reference them directly.
 
 ## 🏗️ Underlying Standards
 
@@ -331,7 +318,7 @@ Features:
 
 Built on the [TC39 Signals proposal](https://github.com/tc39/proposal-signals) (**Stage 1**).
 
-Once the proposal reaches Stage 4 and ships natively, `@rikka/signal` can drop the polyfill with **zero API changes**.
+Once the proposal reaches Stage 4 and ships natively, `@takanashi/rikka-signal` can drop the polyfill with **zero API changes**.
 
 ### Web Components
 

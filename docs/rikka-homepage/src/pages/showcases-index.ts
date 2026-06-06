@@ -1,6 +1,7 @@
-import { defineElement } from "@rikka/elements";
-import { css, div, h1, h2, p, a, span } from "@rikka/dom";
-import { sharedStyles, examplePageStyles } from "../shared/styles";
+import { defineElement } from "@takanashi/rikka-elements";
+import { css, div, h1, h2, p, a, span } from "@takanashi/rikka-dom";
+import {sharedHelpers} from "../shared/helpers";
+import {examplePageStyles} from "../shared/page-styles";
 
 const styles = css`
   ${examplePageStyles}

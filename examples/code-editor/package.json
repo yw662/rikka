@@ -8,8 +8,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@rikka/signal": "workspace:*",
-    "@rikka/dom": "workspace:*",
-    "@rikka/elements": "workspace:*"
+    "@takanashi/rikka-signal": "workspace:*",
+    "@takanashi/rikka-dom": "workspace:*",
+    "@takanashi/rikka-elements": "workspace:*"
   }
 }

@@ -1,6 +1,6 @@
 # Browser Compatibility
 
-`@rikka/elements` depends on three browser APIs: Custom Elements, Shadow DOM, and Constructable Stylesheets. Modern browsers support all of them; older browsers need polyfills or fallbacks.
+`@takanashi/rikka-elements` depends on three browser APIs: Custom Elements, Shadow DOM, and Constructable Stylesheets. Modern browsers support all of them; older browsers need polyfills or fallbacks.
 
 ## Recommended baseline
 
@@ -40,7 +40,7 @@ Import **before** any `defineElement` call:
 ```typescript
 // Top of entry file
 import "@webcomponents/custom-elements";
-import { defineElement } from "@rikka/elements";
+import { defineElement } from "@takanashi/rikka-elements";
 ```
 
 Or via `<script>`:
@@ -116,7 +116,7 @@ No action needed from you — the fallback is built in. The trade-offs:
 
 ## SSR
 
-`@rikka/elements` does not work in `jsdom` out of the box. Two options:
+`@takanashi/rikka-elements` does not work in `jsdom` out of the box. Two options:
 
 ### Use `happy-dom`
 
@@ -131,12 +131,12 @@ await GlobalRegistrator.register();
 
 ```typescript
 import "@webcomponents/custom-elements";
-import { defineElement } from "@rikka/elements";
+import { defineElement } from "@takanashi/rikka-elements";
 ```
 
 ## IE11 / old Edge (EdgeHTML)
 
-`@rikka/elements` builds target ES2022 and is **not directly compatible** with IE11. To support IE11, you would need:
+`@takanashi/rikka-elements` builds target ES2022 and is **not directly compatible** with IE11. To support IE11, you would need:
 
 1. A complete polyfill suite: `@webcomponents/webcomponentsjs` (~88 KB gzip)
 2. ES2015+ polyfills: `Promise`, `Map`, `Set`, `WeakMap`, `WeakSet`, `Symbol`

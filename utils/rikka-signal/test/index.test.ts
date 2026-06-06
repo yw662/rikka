@@ -3,6 +3,7 @@ import {
   signal,
   computed,
   effect,
+  untracked,
   Signal,
 } from "../src/index.js";
 
@@ -371,6 +372,106 @@ describe("computed edge cases", () => {
     a.set(2);
     derived.get();
     expect(runs).toBe(2);
+  });
+});
+
+describe("untracked", () => {
+  it("returns the function's result", () => {
+    const s = signal(42);
+    expect(untracked(() => s.get())).toBe(42);
+    expect(untracked(() => "plain")).toBe("plain");
+    expect(untracked(() => 1 + 2)).toBe(3);
+  });
+
+  it("reads inside untracked do not establish a dependency in the surrounding effect", async () => {
+    const tracked = signal(0);
+    const peeked = signal(0);
+    const runs: number[] = [];
+
+    effect(() => {
+      runs.push(tracked.get());
+      untracked(() => peeked.get());
+    });
+
+    expect(runs).toEqual([0]);
+
+    // Changing `peeked` must NOT re-run the effect.
+    peeked.set(99);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(runs).toEqual([0]);
+
+    // Changing `tracked` must re-run the effect.
+    tracked.set(1);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(runs[1]).toBe(1);
+  });
+
+  it("reads inside untracked do not establish a dependency in a computed", () => {
+    const tracked = signal(0);
+    const peeked = signal(0);
+    let runs = 0;
+
+    const derived = computed(() => {
+      runs++;
+      return tracked.get() + untracked(() => peeked.get());
+    });
+
+    expect(derived.get()).toBe(0);
+    expect(runs).toBe(1);
+
+    // Changing `peeked` does NOT invalidate the computed.
+    peeked.set(10);
+    expect(derived.get()).toBe(0);
+    expect(runs).toBe(1);
+
+    // Changing `tracked` invalidates the computed.
+    tracked.set(5);
+    expect(derived.get()).toBe(15);
+    expect(runs).toBe(2);
+  });
+
+  it("nested untracked boundaries compose correctly", () => {
+    const a = signal(1);
+    const b = signal(10);
+    const c = signal(100);
+    let runs = 0;
+
+    const derived = computed(() => {
+      runs++;
+      const x = a.get();
+      const y = untracked(() => b.get() + untracked(() => c.get()));
+      return x + y;
+    });
+
+    expect(derived.get()).toBe(111);
+    expect(runs).toBe(1);
+
+    b.set(20);
+    c.set(200);
+    expect(derived.get()).toBe(111);
+    expect(runs).toBe(1);
+
+    a.set(2);
+    expect(derived.get()).toBe(222);
+    expect(runs).toBe(2);
+  });
+
+  it("reads inside an effect created during untracked still subscribe normally", async () => {
+    const s = signal(0);
+    let observed = -1;
+    const dispose = untracked(() => {
+      // The outer effect that owns the surrounding reactive context is the
+      // untracked boundary, but creating a new effect inside should still
+      // subscribe to `s` like any other effect.
+      return effect(() => {
+        observed = s.get();
+      });
+    });
+    expect(observed).toBe(0);
+    s.set(7);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(observed).toBe(7);
+    dispose();
   });
 });
 

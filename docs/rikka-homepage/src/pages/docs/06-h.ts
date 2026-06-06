@@ -1,7 +1,9 @@
-import { defineElement } from '@rikka/elements';
-import { css, div, h1, h2, p, a, pre, code, ul, li } from '@rikka/dom';
-import { signal } from '@rikka/signal';
-import { sharedStyles, docPageStyles } from '../../shared/styles';
+import { defineElement } from '@takanashi/rikka-elements';
+import { css, div, h1, h2, p, a, pre, code, ul, li } from '@takanashi/rikka-dom';
+import { signal } from '@takanashi/rikka-signal';
+import {sharedHelpers} from '../../shared/helpers';
+import {docPageStyles} from '../../shared/page-styles';
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`${docPageStyles}`;
 
@@ -16,10 +18,10 @@ const DocDom06 = defineElement('rikka-doc-dom-06', {
       div({ class: 'doc-content' },
         h2('Key Concepts'),
         ul(
-          li(sharedStyles.inlineCode('h(tag, attrs?, ...children)'), ' — Create an element by tag name.'),
-          li('Children can be ', sharedStyles.inlineCode('string'), ', ', sharedStyles.inlineCode('number'), ', ', sharedStyles.inlineCode('Element'), ', ', sharedStyles.inlineCode('Signal'), ', or ', sharedStyles.inlineCode('array'), '.'),
+          li(sharedHelpers.inlineCode('h(tag, attrs?, ...children)'), ' — Create an element by tag name.'),
+          li('Children can be ', sharedHelpers.inlineCode('string'), ', ', sharedHelpers.inlineCode('number'), ', ', sharedHelpers.inlineCode('Element'), ', ', sharedHelpers.inlineCode('Signal'), ', or ', sharedHelpers.inlineCode('array'), '.'),
           li('Signals in children automatically subscribe and update when changed.'),
-          li('Attributes accept plain objects; event handlers use ', sharedStyles.inlineCode('on{Event}'), ' naming.'),
+          li('Attributes accept plain objects; event handlers use ', sharedHelpers.inlineCode('on{Event}'), ' naming.'),
         ),
         h2('API Signature'),
         pre({ class: 'code-block' }, code(
@@ -32,8 +34,8 @@ const DocDom06 = defineElement('rikka-doc-dom-06', {
       ),
       div({ class: 'playground-section' },
         h2('Try It'),
-        sharedStyles.createPlayground(
-          `function CounterExample() {
+        RikkaLivePlayground.h({
+    code: `function CounterExample() {
   const count = signal(0);
   return div({ style: { textAlign: 'center' } },
     p({ style: { fontSize: '2em', fontWeight: 'bold' } }, count),
@@ -43,15 +45,13 @@ const DocDom06 = defineElement('rikka-doc-dom-06', {
   );
 }
 
-container.appendChild(CounterExample());`,
-          '220',
-          'Basic h() Usage'
-        ),
+container.appendChild(CounterExample());`, height: '220', title: 'Basic h() Usage'
+}),
       ),
       div({ class: 'doc-nav' },
-        a({ href: '#/docs/@rikka/signal/batch', class: 'prev-link' }, '\u2190 batch'),
+        a({ href: '#/docs/@takanashi/rikka-signal/effect', class: 'prev-link' }, '\u2190 effect()'),
         div({ class: 'spacer' }),
-        a({ href: '#/docs/@rikka/dom/tag-helpers', class: 'next-link' }, 'Tag Helpers \u2192'),
+        a({ href: '#/docs/@takanashi/rikka-dom/tag-helpers', class: 'next-link' }, 'Tag Helpers \u2192'),
       ),
     );
   }

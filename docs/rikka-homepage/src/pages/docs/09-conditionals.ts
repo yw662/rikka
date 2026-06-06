@@ -1,6 +1,8 @@
-import { defineElement } from '@rikka/elements';
-import { css, div, h1, h2, p, a, pre, code, ul, li, span } from '@rikka/dom';
-import { sharedStyles, docPageStyles } from '../../shared/styles';
+import { defineElement } from '@takanashi/rikka-elements';
+import { css, div, h1, h2, p, a, pre, code, ul, li, span } from '@takanashi/rikka-dom';
+import {sharedHelpers} from '../../shared/helpers';
+import {docPageStyles} from '../../shared/page-styles';
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`${docPageStyles}`;
 
@@ -13,10 +15,10 @@ const DocDom09 = defineElement('rikka-doc-dom-09', {
       div({ class: 'doc-content' },
         h2('Key Concepts'),
         ul(
-          li(sharedStyles.inlineCode('Show(condition, render)'), ' — Show/hide an element based on condition (toggles display).'),
-          li(sharedStyles.inlineCode('When(condition, trueRender, falseRender?)'), ' — Render one of two branches conditionally.'),
-          li(sharedStyles.inlineCode('Switch(value, cases, fallback?)'), ' — Multi-way conditional rendering.', span({ class: 'advanced-inline-tag' }, 'adv')),
-          li(sharedStyles.inlineCode('Match(match, render)'), ' — Pattern matching within Switch cases.', span({ class: 'advanced-inline-tag' }, 'adv')),
+          li(sharedHelpers.inlineCode('Show(condition, render)'), ' — Show/hide an element based on condition (toggles display).'),
+          li(sharedHelpers.inlineCode('When(condition, trueRender, falseRender?)'), ' — Render one of two branches conditionally.'),
+          li(sharedHelpers.inlineCode('Switch(value, cases, fallback?)'), ' — Multi-way conditional rendering.', span({ class: 'advanced-inline-tag' }, 'adv')),
+          li(sharedHelpers.inlineCode('Match(match, render)'), ' — Pattern matching within Switch cases.', span({ class: 'advanced-inline-tag' }, 'adv')),
         ),
         h2('API Signatures'),
         pre({ class: 'code-block' }, code(
@@ -31,8 +33,8 @@ Match<T>(match: T | ((value: T) => boolean), render: () => Element | null): Case
       ),
       div({ class: 'playground-section' },
         h2('Try It'),
-        sharedStyles.createPlayground(
-          `import { Show, When, Switch, Match } from '@rikka/dom';
+        RikkaLivePlayground.h({
+    code: `import { Show, When, Switch, Match } from '@takanashi/rikka-dom';
 
 const visible = signal(true);
 const isLoggedIn = signal(false);
@@ -54,15 +56,13 @@ function ConditionalDemo() {
   );
 }
 
-container.appendChild(ConditionalDemo());`,
-          '320',
-          'Show / When / Switch Demo'
-        ),
+container.appendChild(ConditionalDemo());`, height: '320', title: 'Show / When / Switch Demo'
+}),
       ),
       div({ class: 'doc-nav' },
-        a({ href: '#/docs/@rikka/dom/for', class: 'prev-link' }, '\u2190 For'),
+        a({ href: '#/docs/@takanashi/rikka-dom/for', class: 'prev-link' }, '\u2190 For'),
         div({ class: 'spacer' }),
-        a({ href: '#/docs/@rikka/dom/html-template', class: 'next-link' }, 'h`` \u2192'),
+        a({ href: '#/docs/@takanashi/rikka-dom/html-template', class: 'next-link' }, 'h`` \u2192'),
       ),
     );
   }

@@ -1,6 +1,8 @@
-import { defineElement } from '@rikka/elements';
-import { css, div, h1, h2, p, pre, a } from '@rikka/dom';
-import { sharedStyles, docPageStyles } from '../../shared/styles';
+import { defineElement } from '@takanashi/rikka-elements';
+import { css, div, h1, h2, p, pre, a } from '@takanashi/rikka-dom';
+import {sharedHelpers} from '../../shared/helpers';
+import {docPageStyles} from '../../shared/page-styles';
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
   ${docPageStyles}
@@ -18,11 +20,11 @@ export const RikkaDocSignal04 = defineElement('rikka-doc-signal-04', {
         h2({ class: 'section-title' }, 'Creating an Effect'),
         p({},
           'Use ',
-          sharedStyles.inlineCode('effect(fn)'),
+          sharedHelpers.inlineCode('effect(fn)'),
           ' to run a function whenever its signal dependencies change. Effects are the primary way to perform side effects in Rikka.',
         ),
-        sharedStyles.createPlayground(
-          `const count = signal(0);
+        RikkaLivePlayground.h({
+    code: `const count = signal(0);
 const logs = signal<string[]>([]);
 const logText = computed(() => logs.get().join('\\n'));
 
@@ -36,16 +38,14 @@ container.appendChild(div({},
   p({}, 'Count: ', count),
   button({ onclick: () => count.set(count.get() + 1) }, 'Increment'),
   pre({ style: { marginTop: '8px', padding: '8px', background: '#0d1117', borderRadius: '4px', color: '#94a3b8', fontSize: '0.75rem', maxHeight: '120px', overflow: 'auto' } }, logText)
-));`,
-          '260',
-          'Effect Basics'
-        ),
+));`, height: '260', title: 'Effect Basics'
+}),
       ),
       div({ class: 'doc-section' },
         h2({ class: 'section-title' }, 'Cleanup Function'),
         p({},
           'An effect callback can return a function — the ',
-          sharedStyles.inlineCode('cleanup function'),
+          sharedHelpers.inlineCode('cleanup function'),
           '. It runs in two cases:',
         ),
         p({ style: { paddingLeft: '16px', margin: '8px 0' } },
@@ -57,8 +57,8 @@ container.appendChild(div({},
         p({},
           'The cleanup always runs before the new effect body. This is useful for removing event listeners, clearing timers, or aborting fetch requests.',
         ),
-        sharedStyles.createPlayground(
-          `const count = signal(0);
+        RikkaLivePlayground.h({
+    code: `const count = signal(0);
 const logs = signal<string[]>([]);
 const logText = computed(() => logs.get().join('\\n'));
 
@@ -75,19 +75,17 @@ container.appendChild(div({},
   button({ onclick: () => count.set(count.get() + 1) }, 'Increment'),
   p({ style: { marginTop: '8px', color: '#71717a', fontSize: '0.8rem' } }, 'Each click triggers: cleanup → effect'),
   pre({ style: { marginTop: '8px', padding: '8px', background: '#0d1117', borderRadius: '4px', color: '#94a3b8', fontSize: '0.75rem', maxHeight: '120px', overflow: 'auto' } }, logText)
-));`,
-          '280',
-          'Effect Cleanup'
-        ),
+));`, height: '280', title: 'Effect Cleanup'
+}),
       ),
       div({ class: 'doc-section' },
         h2({ class: 'section-title' }, 'Disposing Effects'),
         p({},
-          sharedStyles.inlineCode('effect()'),
+          sharedHelpers.inlineCode('effect()'),
           ' returns a dispose function. Call it to permanently stop the effect and run its cleanup.',
         ),
-        sharedStyles.createPlayground(
-          `const count = signal(0);
+        RikkaLivePlayground.h({
+    code: `const count = signal(0);
 const logs = signal<string[]>([]);
 const logText = computed(() => logs.get().join('\\n'));
 
@@ -103,15 +101,13 @@ container.appendChild(div({},
   button({ onclick: () => count.set(count.get() + 1) }, 'Increment'),
   button({ onclick: () => { dispose(); logs.set([...logs.get(), '— disposed —']); }, style: { marginLeft: '8px' } }, 'Dispose'),
   pre({ style: { marginTop: '8px', padding: '8px', background: '#0d1117', borderRadius: '4px', color: '#94a3b8', fontSize: '0.75rem', maxHeight: '120px', overflow: 'auto' } }, logText)
-));`,
-          '280',
-          'Effect Dispose'
-        ),
+));`, height: '280', title: 'Effect Dispose'
+}),
       ),
       div({ class: 'doc-section' },
         h2({ class: 'section-title' }, 'Try It'),
-        sharedStyles.createPlayground(
-          `import { signal, effect } from '@rikka/signal';
+        RikkaLivePlayground.h({
+    code: `import { signal, effect } from '@takanashi/rikka-signal';
 
 const count = signal(0);
 const log: string[] = [];
@@ -131,14 +127,12 @@ count.set(2);
 console.log('Log:', log);
 // ['Count: 0', 'Count: 1', 'Count: 2']
 
-dispose();`,
-          340,
-          'Effect Logging Demo'
-        ),
+dispose();`, height: "340", title: 'Effect Logging Demo'
+}),
       ),
       div({ class: 'doc-nav' },
-        a({ class: 'nav-link prev', href: '#/docs/@rikka/signal/computed' }, '← computed()'),
-        a({ class: 'nav-link next', href: '#/docs/@rikka/signal/batch' }, 'Batch Updates →'),
+        a({ class: 'nav-link prev', href: '#/docs/@takanashi/rikka-signal/computed' }, '← computed()'),
+        a({ class: 'nav-link next', href: '#/docs/@takanashi/rikka-dom/h' }, 'h() →'),
       ),
     );
   }

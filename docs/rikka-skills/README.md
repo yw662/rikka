@@ -52,7 +52,7 @@ Need to support old browsers?                     → browser-compatibility.md
 
 ## Conventions in these files
 
-- **Import names**: use the scoped package form — `@rikka/signal`, `@rikka/dom`, `@rikka/elements`.
+- **Import names**: use the scoped package form — `@takanashi/rikka-signal`, `@takanashi/rikka-dom`, `@takanashi/rikka-elements`.
 - **Code blocks**: all TypeScript. Runnable as written (no pseudo-code).
 - **"✅" / "❌" markers**: indicate correct vs incorrect usage. Read both — the ❌ blocks show common LLM mistakes.
 - **Pitfalls are first-class**: every topic file ends with a `Pitfalls` section. `common-pitfalls.md` aggregates the cross-cutting ones.

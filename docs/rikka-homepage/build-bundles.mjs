@@ -14,9 +14,9 @@ const signalPolyfillPkgDir = dirname(
 );
 
 const alias = {
-  "@rikka/signal": resolve(root, "utils/rikka-signal/src/index.ts"),
-  "@rikka/dom": resolve(root, "utils/rikka-dom/src/index.ts"),
-  "@rikka/elements": resolve(root, "utils/rikka-elements/src/index.ts"),
+  "@takanashi/rikka-signal": resolve(root, "utils/rikka-signal/src/index.ts"),
+  "@takanashi/rikka-dom": resolve(root, "utils/rikka-dom/src/index.ts"),
+  "@takanashi/rikka-elements": resolve(root, "utils/rikka-elements/src/index.ts"),
   "signal-polyfill": resolve(signalPolyfillPkgDir, "dist/index.js"),
 };
 

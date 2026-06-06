@@ -5,8 +5,8 @@
 ## Imports
 
 ```typescript
-import { defineElement, event, StringAttr, NumberAttr, BooleanAttr } from "@rikka/elements";
-import { css, div, p, button } from "@rikka/dom";
+import { defineElement, event, StringAttr, NumberAttr, BooleanAttr } from "@takanashi/rikka-elements";
+import { css, div, p, button } from "@takanashi/rikka-dom";
 ```
 
 ## `defineElement(tagName, config?): ElementConstructor<C>`
@@ -75,6 +75,53 @@ defineElement("my-el", {
 
     p({}, this.$count); // ✅ fine-grained: text node updates
     // p({}, this.count); // ❌ static
+  },
+});
+```
+
+### `dataset` — `data-*` attribute bindings
+
+For `data-*` attributes that should be reactive on the host element, declare them in `dataset`. Each entry is `{ default?: string }` (always string — `el.dataset` returns strings per HTML spec; this is not configurable).
+
+```typescript
+defineElement("user-card", {
+  dataset: {
+    role: { default: "guest" },    // → data-role
+    userId: { default: "" },       // → data-user-id (camelCase → kebab-case)
+  },
+});
+```
+
+The key in `dataset` is the **property / signal name** (camelCase, no `data-` prefix). The DOM attribute is auto-derived: `data-` + kebab-case(key).
+
+Each entry generates two accessors:
+
+| Accessor | Type | Notes |
+|----------|------|-------|
+| `el.role` | `string` | Read returns the current value; write updates both signal and `data-role` |
+| `el.$role` | `Signal.State<string>` | Read returns the signal; `.set()` updates the signal only (not the attribute — same as `attributes`) |
+
+The native `el.dataset.role` **also works** and returns the raw string (DOM behavior, unchanged).
+
+```typescript
+const el = document.createElement("user-card") as InstanceType<typeof UserCard>;
+
+el.role = "admin";
+// data-role="admin", el.$role.get() === "admin", el.dataset.role === "admin"
+
+el.$role.get();             // "admin"
+el.setAttribute("data-role", "guest");  // triggers attributeChangedCallback → signal updates
+el.role;                    // "guest"
+```
+
+**Conflict with `attributes`:** a `dataset` key that produces a `data-*` name already defined in `attributes` throws at definition time. Pick one or the other.
+
+**For typed values (JSON, numbers, etc.) on `data-*`:** don't use `dataset`. Fall back to `attributes` with the kebab name as the explicit key:
+
+```typescript
+defineElement("my-el", {
+  attributes: {
+    'data-user': { toProp: JSON.parse, toAttribute: (v) => JSON.stringify(v) },
   },
 });
 ```

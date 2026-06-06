@@ -12,8 +12,8 @@ For specific properties of `<input>`, `<textarea>`, and `<select>`, passing a wr
 ## Imports
 
 ```typescript
-import { signal } from "@rikka/signal";
-import { input, textarea, select, option } from "@rikka/dom";
+import { signal } from "@takanashi/rikka-signal";
+import { input, textarea, select, option } from "@takanashi/rikka-dom";
 ```
 
 ## Text input
@@ -95,8 +95,8 @@ p({}, "You typed: ", text); // updates live as user types
 Combine with `computed` for derived validation:
 
 ```typescript
-import { signal, computed } from "@rikka/signal";
-import { input, p, div, button } from "@rikka/dom";
+import { signal, computed } from "@takanashi/rikka-signal";
+import { input, p, div, button } from "@takanashi/rikka-dom";
 
 const email = signal("");
 const isValid = computed(() => /.+@.+\..+/.test(email.get()));

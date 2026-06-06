@@ -1,11 +1,11 @@
-# @rikka/signal
+# @takanashi/rikka-signal
 
 Fine-grained reactive primitives built on the [TC39 Signals proposal](https://github.com/tc39/proposal-signals).
 
 ## Quick Start
 
 ```typescript
-import { signal, computed, effect } from "@rikka/signal";
+import { signal, computed, effect } from "@takanashi/rikka-signal";
 
 const count = signal(0);
 const doubled = computed(() => count.get() * 2);
@@ -33,7 +33,7 @@ Runs `fn` immediately, re-runs when dependencies change. Returns a dispose funct
 **This is the #1 source of bugs in rikka.** Pass signals to DOM bindings, not plain values:
 
 ```typescript
-import { p } from "@rikka/dom";
+import { p } from "@takanashi/rikka-dom";
 
 const count = signal(0);
 

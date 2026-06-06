@@ -1,6 +1,8 @@
-import { defineElement } from "@rikka/elements";
-import { css, div, h1, h2, p, a, pre, code } from "@rikka/dom";
-import { sharedStyles, docPageStyles } from "../../shared/styles";
+import { defineElement } from "@takanashi/rikka-elements";
+import { css, div, h1, h2, p, a, pre, code } from "@takanashi/rikka-dom";
+import {sharedHelpers} from "../../shared/helpers";
+import {docPageStyles} from "../../shared/page-styles";
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
   ${docPageStyles}
@@ -12,13 +14,13 @@ const DocDom18 = defineElement("rikka-doc-dom-18", {
     return div(
       { class: "doc-page" },
       h1("css``"),
-      sharedStyles.advancedBadge(
+      sharedHelpers.advancedBadge(
         "css`...`",
         "is mainly for Shadow DOM styling via adoptedStyleSheets. For non-Shadow-DOM code, plain <style> blocks or external CSS are simpler.",
       ),
       p(
         "Tag template for creating CSSStyleSheet objects. Exported from ",
-        sharedStyles.inlineCode("@rikka/dom"),
+        sharedHelpers.inlineCode("@takanashi/rikka-dom"),
         ".",
       ),
       div(
@@ -30,13 +32,13 @@ const DocDom18 = defineElement("rikka-doc-dom-18", {
         h2("Basic Usage"),
         p(
           "The ",
-          sharedStyles.inlineCode("css"),
+          sharedHelpers.inlineCode("css"),
           " tagged template creates a ",
-          sharedStyles.inlineCode("CSSStyleSheet"),
+          sharedHelpers.inlineCode("CSSStyleSheet"),
           " object from a template literal:",
         ),
-        sharedStyles.createPlayground(
-          `const buttonStyles = css\`
+        RikkaLivePlayground.h({
+    code: `const buttonStyles = css\`
   button {
     padding: 8px 16px;
     border-radius: 4px;
@@ -58,14 +60,12 @@ const StyledButton = defineElement('styled-button', {
   }
 });
 
-container.appendChild(document.createElement('styled-button'));`,
-          "200",
-          "css Template Basics",
-        ),
+container.appendChild(document.createElement('styled-button'));`, height: "200", title: "css Template Basics"
+}),
         h2("Composition"),
         p(
           "Interpolate existing stylesheets with ",
-          sharedStyles.inlineCode("${sheet}"),
+          sharedHelpers.inlineCode("${sheet}"),
           " to compose styles:",
         ),
         pre(
@@ -82,11 +82,11 @@ const componentStyles = css\`
         h2("Returns CSSStyleSheet"),
         p(
           "The return value is a native ",
-          sharedStyles.inlineCode("CSSStyleSheet"),
+          sharedHelpers.inlineCode("CSSStyleSheet"),
           " that can be used with ",
-          sharedStyles.inlineCode("adoptedStyleSheets"),
+          sharedHelpers.inlineCode("adoptedStyleSheets"),
           " or the ",
-          sharedStyles.inlineCode("config.styles"),
+          sharedHelpers.inlineCode("config.styles"),
           " option directly.",
         ),
         pre(
@@ -98,8 +98,8 @@ const componentStyles = css\`
       div(
         { class: "playground-section" },
         h2("Try It"),
-        sharedStyles.createPlayground(
-          `const profileCardStyle = css\`
+        RikkaLivePlayground.h({
+    code: `const profileCardStyle = css\`
   :host {
     display: block;
     font-family: system-ui, sans-serif;
@@ -165,23 +165,21 @@ const ProfileCard = defineElement('profile-card', {
   }
 });
 
-container.appendChild(document.createElement('profile-card'));`,
-          "250",
-          "css Template",
-        ),
+container.appendChild(document.createElement('profile-card'));`, height: "250", title: "css Template"
+}),
       ),
       div(
         { class: "doc-nav" },
         a(
           {
-            href: "#/docs/@rikka/dom/signal-interpolation",
+            href: "#/docs/@takanashi/rikka-dom/signal-interpolation",
             class: "prev-link",
           },
           "\u2190 Signal Interpolation",
         ),
         div({ class: "spacer" }),
         a(
-          { href: "#/docs/@rikka/dom/inlineStyle", class: "next-link" },
+          { href: "#/docs/@takanashi/rikka-dom/inlineStyle", class: "next-link" },
           "inlineStyle`` \u2192",
         ),
       ),

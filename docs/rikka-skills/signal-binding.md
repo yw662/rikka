@@ -19,8 +19,8 @@ p({}, count.get());
 A child of `h()` / tag helpers may be a signal:
 
 ```typescript
-import { signal } from "@rikka/signal";
-import { div, span } from "@rikka/dom";
+import { signal } from "@takanashi/rikka-signal";
+import { div, span } from "@takanashi/rikka-dom";
 
 const name = signal("Alice");
 
@@ -35,8 +35,8 @@ The signal is wrapped in an auto-created `effect` that updates just the correspo
 A function child is auto-wrapped in `computed`, so any `.get()` inside the function is tracked:
 
 ```typescript
-import { signal } from "@rikka/signal";
-import { div, span } from "@rikka/dom";
+import { signal } from "@takanashi/rikka-signal";
+import { div, span } from "@takanashi/rikka-dom";
 
 const count = signal(0);
 
@@ -55,8 +55,8 @@ Use function children for **coarse-grained** updates where the child's *type or 
 A signal may be used as any attribute value. The attribute updates when the signal changes.
 
 ```typescript
-import { signal } from "@rikka/signal";
-import { div } from "@rikka/dom";
+import { signal } from "@takanashi/rikka-signal";
+import { div } from "@takanashi/rikka-dom";
 
 const color = signal("red");
 
@@ -153,7 +153,7 @@ For attribute and event bindings in templates, see [template-binding.md](./templ
 **Function children** are auto-wrapped as `computed`. But **function values** (e.g. an `inlineStyle` argument, or a prop expecting a signal) are not. Use `computed()` explicitly:
 
 ```typescript
-import { computed } from "@rikka/signal";
+import { computed } from "@takanashi/rikka-signal";
 
 // ❌ Plain function in inlineStyle arg — not reactive
 div({ style: { color: () => count.get() % 2 ? "red" : "blue" } });

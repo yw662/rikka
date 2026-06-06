@@ -1,5 +1,5 @@
 {
-  "name": "@rikka/live-playground",
+  "name": "@takanashi/rikka-live-playground",
   "version": "0.1.0",
   "description": "Live code editor component powered by esbuild-wasm",
   "type": "module",
@@ -10,9 +10,6 @@
     "type": "git",
     "url": "git+https://github.com/yw662/rikka.git",
     "directory": "components/rikka-live-playground"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
   },
   "exports": {
     ".": {
@@ -31,9 +28,9 @@
   },
   "dependencies": {
     "esbuild-wasm": "catalog:",
-    "@rikka/dom": "workspace:*",
-    "@rikka/elements": "workspace:*",
-    "@rikka/signal": "workspace:*"
+    "@takanashi/rikka-dom": "workspace:*",
+    "@takanashi/rikka-elements": "workspace:*",
+    "@takanashi/rikka-signal": "workspace:*"
   },
   "devDependencies": {
     "@rslib/core": "catalog:",

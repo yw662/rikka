@@ -1,6 +1,8 @@
-import { defineElement } from "@rikka/elements";
-import { css, div, h1, h2, p, a } from "@rikka/dom";
-import { sharedStyles, examplePageStyles } from "../../shared/styles";
+import { defineElement } from "@takanashi/rikka-elements";
+import { css, div, h1, h2, p, a } from "@takanashi/rikka-dom";
+import {sharedHelpers} from "../../shared/helpers";
+import {examplePageStyles} from "../../shared/page-styles";
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
   ${examplePageStyles}
@@ -53,22 +55,20 @@ const ExampleColorPicker = defineElement("rikka-example-color-picker", {
       p("RGB sliders controlling a color preview in real-time."),
       div(
         { class: "playground-container" },
-        sharedStyles.createPlayground(
-          colorPickerCode,
-          "350",
-          "Color Picker Example",
-        ),
+        RikkaLivePlayground.h({
+    code: colorPickerCode, height: "350", title: "Color Picker Example"
+}),
       ),
       div(
         { class: "explanation" },
         h2("Key Concepts"),
         p(
           "Three separate ",
-          sharedStyles.inlineCode("signal()"),
+          sharedHelpers.inlineCode("signal()"),
           " instances for R, G, B values.",
         ),
         p(
-          sharedStyles.inlineCode("computed()"),
+          sharedHelpers.inlineCode("computed()"),
           " derives hex and rgb strings from the three signals.",
         ),
         p(

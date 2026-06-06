@@ -10,9 +10,9 @@ When LLMs generate code, the fewer API candidates they face, the higher the prob
 
 | Package | Concepts | Enumeration |
 |---|---|---|
-| `@rikka/signal` | 3 | `signal`, `computed`, `effect` |
-| `@rikka/dom` | 7 | `h`, `For`, `Show`, `When`, `Switch`/`Match`, `css`, `inlineStyle` |
-| `@rikka/elements` | 2 | `defineElement`, `event` |
+| `@takanashi/rikka-signal` | 3 | `signal`, `computed`, `effect` |
+| `@takanashi/rikka-dom` | 7 | `h`, `For`, `Show`, `When`, `Switch`/`Match`, `css`, `inlineStyle` |
+| `@takanashi/rikka-elements` | 2 | `defineElement`, `event` |
 | Tag helpers | 1 | `div`/`p`/`button` etc. (~70 HTML/SVG tags) |
 
 **Comparison with other frameworks' core concept counts**:

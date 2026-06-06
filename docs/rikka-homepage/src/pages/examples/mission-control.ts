@@ -1,7 +1,9 @@
-import { defineElement } from '@rikka/elements';
-import { css, div, h1, h2, p, a } from '@rikka/dom';
-import { signal } from '@rikka/signal';
-import { sharedStyles, examplePageStyles } from '../../shared/styles';
+import { defineElement } from '@takanashi/rikka-elements';
+import { css, div, h1, h2, p, a } from '@takanashi/rikka-dom';
+import { signal } from '@takanashi/rikka-signal';
+import {sharedHelpers} from '../../shared/helpers';
+import {examplePageStyles} from '../../shared/page-styles';
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`${examplePageStyles}`;
 
@@ -86,14 +88,16 @@ const ExampleMissionControl = defineElement('rikka-example-mission-control', {
       h1('Realtime Mission Control'),
       p('A dashboard demonstrating realtime updates with signals, effect, and computed.'),
       div({ class: 'playground-container' },
-        sharedStyles.createPlayground(missionControlCode, '520', 'Mission Control Example'),
+        RikkaLivePlayground.h({
+    code: missionControlCode, height: '520', title: 'Mission Control Example'
+}),
       ),
       div({ class: 'explanation' },
         h2('Key Concepts'),
-        p(sharedStyles.inlineCode('signal({ ... })'), ' creates reactive signals for metrics — both values and peaks update with immutable patterns.'),
-        p(sharedStyles.inlineCode('effect(() => setInterval(...))'), ' sets up periodic updates every second.'),
-        p(sharedStyles.inlineCode('computed(() => ...)'), ' derives colors based on threshold: green < 60%, yellow < 80%, red >= 80%.'),
-        p(sharedStyles.inlineCode('For(metrics, (metric) => ...)'), ' renders the metric cards reactively.'),
+        p(sharedHelpers.inlineCode('signal({ ... })'), ' creates reactive signals for metrics — both values and peaks update with immutable patterns.'),
+        p(sharedHelpers.inlineCode('effect(() => setInterval(...))'), ' sets up periodic updates every second.'),
+        p(sharedHelpers.inlineCode('computed(() => ...)'), ' derives colors based on threshold: green < 60%, yellow < 80%, red >= 80%.'),
+        p(sharedHelpers.inlineCode('For(metrics, (metric) => ...)'), ' renders the metric cards reactively.'),
         p('Values update every second, peaks are tracked, and the "Clear Peaks" button resets them.'),
       ),
       div({ class: 'example-nav' },

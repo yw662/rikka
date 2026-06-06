@@ -1,11 +1,11 @@
 # Shadow DOM & Styling
 
-Two CSS tagged templates from `@rikka/dom`: `css\`\`` returns a `CSSStyleSheet` (for Shadow DOM), `inlineStyle\`\`` returns a plain style object (for inline `style` attributes).
+Two CSS tagged templates from `@takanashi/rikka-dom`: `css\`\`` returns a `CSSStyleSheet` (for Shadow DOM), `inlineStyle\`\`` returns a plain style object (for inline `style` attributes).
 
 ## Imports
 
 ```typescript
-import { css, inlineStyle, adoptStyle } from "@rikka/dom";
+import { css, inlineStyle, adoptStyle } from "@takanashi/rikka-dom";
 ```
 
 ## `css\`...\`: CSSStyleSheet`
@@ -13,7 +13,7 @@ import { css, inlineStyle, adoptStyle } from "@rikka/dom";
 For Shadow DOM stylesheets. The result is a real `CSSStyleSheet` instance.
 
 ```typescript
-import { css } from "@rikka/dom";
+import { css } from "@takanashi/rikka-dom";
 
 const styles = css`
   :host {
@@ -49,8 +49,8 @@ const themed = css`
 Both `css\`\`` and `inlineStyle\`\`` support signal interpolation; styles update automatically when signals change:
 
 ```typescript
-import { signal } from "@rikka/signal";
-import { css, inlineStyle } from "@rikka/dom";
+import { signal } from "@takanashi/rikka-signal";
+import { css, inlineStyle } from "@takanashi/rikka-dom";
 
 const theme = signal("dark");
 
@@ -68,7 +68,7 @@ const inline = inlineStyle`color: ${theme};`;
 For inline `style` attributes. CSS property names auto-convert to camelCase.
 
 ```typescript
-import { inlineStyle } from "@rikka/dom";
+import { inlineStyle } from "@takanashi/rikka-dom";
 
 const s = inlineStyle`
   padding: 16px;
@@ -105,7 +105,7 @@ rikka uses `adoptedStyleSheets` to inject the sheet into the Shadow Root. The sh
 Useful for elements you don't own, or for adding stylesheets dynamically:
 
 ```typescript
-import { adoptStyle } from "@rikka/dom";
+import { adoptStyle } from "@takanashi/rikka-dom";
 
 const sheet = css`/* ... */`;
 if (someEl.shadowRoot) {

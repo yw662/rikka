@@ -1,4 +1,4 @@
-import { defineElement, NumberAttr, StringAttr, BooleanAttr } from '@rikka/elements';
+import { defineElement, NumberAttr, StringAttr, BooleanAttr } from '@takanashi/rikka-elements';
 import {
   svg,
   path,
@@ -15,8 +15,8 @@ import {
   Show,
   When,
   css,
-} from '@rikka/dom';
-import { signal, computed } from '@rikka/signal';
+} from '@takanashi/rikka-dom';
+import { signal, computed } from '@takanashi/rikka-signal';
 import {
   removeBookmark,
   toggleRead,

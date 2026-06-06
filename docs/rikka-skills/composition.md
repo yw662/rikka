@@ -5,8 +5,8 @@ rikka has two complementary component styles, with a clean bridge between them.
 ## Imports
 
 ```typescript
-import { defineElement } from "@rikka/elements";
-import { h, div, p, span, button } from "@rikka/dom";
+import { defineElement } from "@takanashi/rikka-elements";
+import { h, div, p, span, button } from "@takanashi/rikka-dom";
 ```
 
 ## Style 1: Composable functions
@@ -14,7 +14,7 @@ import { h, div, p, span, button } from "@rikka/dom";
 Any function that returns an `Element` is a component. No registration needed.
 
 ```typescript
-import { div, p, span } from "@rikka/dom";
+import { div, p, span } from "@takanashi/rikka-dom";
 
 const Card = (title: string, content: string) =>
   div({ class: "card" }, h({}, title), p({}, content));
@@ -39,8 +39,8 @@ Cons: no DOM-level identity (no `<my-card>` tag in HTML), no attribute API, no S
 Use `defineElement` to register a real Web Component.
 
 ```typescript
-import { defineElement } from "@rikka/elements";
-import { div, p, button } from "@rikka/dom";
+import { defineElement } from "@takanashi/rikka-elements";
+import { div, p, button } from "@takanashi/rikka-dom";
 
 const MyCounter = defineElement("my-counter", {
   attributes: { count: { ...NumberAttr, default: 0 } },

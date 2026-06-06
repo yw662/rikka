@@ -57,10 +57,10 @@ describe("RikkaLivePlayground", () => {
       expect(el.code).toBe("");
     });
 
-    it("height defaults to 200", async () => {
+    it("height defaults to 320", async () => {
       document.body.appendChild(el);
       await waitFor(10);
-      expect(el.height).toBe("200");
+      expect(el.height).toBe("320");
     });
 
     it("title defaults to Example", async () => {
@@ -363,13 +363,13 @@ describe("RikkaLivePlayground", () => {
 
   describe("dynamic attribute updates", () => {
     it("updating height after connection updates body style", async () => {
-      el.setAttribute("height", "200");
+      el.setAttribute("height", "320");
       document.body.appendChild(el);
       await waitFor(10);
       const body = el.shadowRoot!.querySelector(
         ".body",
       ) as HTMLElement;
-      expect(body.style.height).toBe("200px");
+      expect(body.style.height).toBe("320px");
       el.setAttribute("height", "400");
       await waitFor(50);
       expect(el.height).toBe("400");
@@ -763,6 +763,319 @@ describe("RikkaLivePlayground", () => {
     });
   });
 
+  describe("theme attribute", () => {
+    const LIGHT_VARS = [
+      "--pg-bg",
+      "--pg-surface",
+      "--pg-surface-elevated",
+      "--pg-surface-2",
+      "--pg-surface-hover",
+      "--pg-border",
+      "--pg-text",
+      "--pg-text-muted",
+      "--pg-text-subtle",
+      "--pg-text-strong",
+      "--pg-text-inverse",
+      "--pg-accent",
+      "--pg-accent-soft",
+      "--pg-accent-soft-strong",
+      "--pg-accent-active",
+      "--pg-error-bg",
+      "--pg-handle-grip",
+      "--pg-spinner-track",
+      "--pg-spinner-active",
+    ];
+
+    function makeMatchMediaMock(initialDark: boolean) {
+      type Listener = (ev: { matches: boolean; media: string }) => void;
+      const listeners = new Set<Listener>();
+      let prefDark = initialDark;
+      const original = window.matchMedia;
+      window.matchMedia = (query: string) => {
+        const mql: MediaQueryList = {
+          media: query,
+          matches:
+            query === "(prefers-color-scheme: dark)" ? prefDark : false,
+          onchange: null,
+          addEventListener: ((_: string, l: Listener) => {
+            if (query === "(prefers-color-scheme: dark)") listeners.add(l);
+          }) as MediaQueryList["addEventListener"],
+          removeEventListener: ((_: string, l: Listener) => {
+            if (query === "(prefers-color-scheme: dark)") listeners.delete(l);
+          }) as MediaQueryList["removeEventListener"],
+          addListener: ((l: Listener) => {
+            if (query === "(prefers-color-scheme: dark)") listeners.add(l);
+          }) as unknown as MediaQueryList["addListener"],
+          removeListener: ((l: Listener) => {
+            if (query === "(prefers-color-scheme: dark)") listeners.delete(l);
+          }) as unknown as MediaQueryList["removeListener"],
+          dispatchEvent: () => true,
+        } as MediaQueryList;
+        return mql;
+      };
+      const fire = (next: boolean) => {
+        prefDark = next;
+        for (const l of [...listeners]) {
+          l({ matches: next, media: "(prefers-color-scheme: dark)" });
+        }
+      };
+      const restore = () => {
+        window.matchMedia = original;
+      };
+      return { restore, fire };
+    }
+
+    it("theme defaults to auto", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(el.theme).toBe("auto");
+    });
+
+    it("$theme signal accessor exists", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(el.$theme).toBeTruthy();
+    });
+
+    it("invalid theme attribute falls back to auto", async () => {
+      el.setAttribute("theme", "bogus");
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(el.theme).toBe("auto");
+    });
+
+    it("reading theme attribute returns the value", async () => {
+      el.setAttribute("theme", "light");
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(el.theme).toBe("light");
+    });
+
+    it("theme signal reflects attribute changes", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      el.setAttribute("theme", "light");
+      await waitFor(10);
+      expect(el.$theme.get()).toBe("light");
+    });
+
+    it("setting theme property updates the attribute", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      el.theme = "dark";
+      expect(el.getAttribute("theme")).toBe("dark");
+    });
+
+    it("auto + matchMedia light -> host data-theme=light", async () => {
+      const { restore: spy } = makeMatchMediaMock(false);
+      try {
+        document.body.appendChild(el);
+        await waitFor(10);
+        expect(el.getAttribute("data-theme")).toBe("light");
+      } finally {
+        spy();
+      }
+    });
+
+    it("auto + matchMedia dark -> host data-theme=dark", async () => {
+      const { restore: spy } = makeMatchMediaMock(true);
+      try {
+        document.body.appendChild(el);
+        await waitFor(10);
+        expect(el.getAttribute("data-theme")).toBe("dark");
+      } finally {
+        spy();
+      }
+    });
+
+    it("theme=light explicit overrides matchMedia dark", async () => {
+      const { restore: spy } = makeMatchMediaMock(true);
+      try {
+        el.setAttribute("theme", "light");
+        document.body.appendChild(el);
+        await waitFor(10);
+        expect(el.getAttribute("data-theme")).toBe("light");
+      } finally {
+        spy();
+      }
+    });
+
+    it("theme=dark explicit overrides matchMedia light", async () => {
+      const { restore: spy } = makeMatchMediaMock(false);
+      try {
+        el.setAttribute("theme", "dark");
+        document.body.appendChild(el);
+        await waitFor(10);
+        expect(el.getAttribute("data-theme")).toBe("dark");
+      } finally {
+        spy();
+      }
+    });
+
+    it("matchMedia change in auto mode updates host data-theme", async () => {
+      const { restore: spy, fire } = makeMatchMediaMock(false);
+      try {
+        document.body.appendChild(el);
+        await waitFor(10);
+        expect(el.getAttribute("data-theme")).toBe("light");
+        fire(true);
+        await waitFor(20);
+        expect(el.getAttribute("data-theme")).toBe("dark");
+      } finally {
+        spy();
+      }
+    });
+
+    it("matchMedia change in explicit mode does NOT flip host data-theme", async () => {
+      const { restore: spy, fire } = makeMatchMediaMock(false);
+      try {
+        el.setAttribute("theme", "light");
+        document.body.appendChild(el);
+        await waitFor(10);
+        expect(el.getAttribute("data-theme")).toBe("light");
+        fire(true);
+        await waitFor(20);
+        expect(el.getAttribute("data-theme")).toBe("light");
+      } finally {
+        spy();
+      }
+    });
+
+    it("changing theme attribute after connection re-syncs host data-theme", async () => {
+      const { restore: spy, fire } = makeMatchMediaMock(false);
+      try {
+        document.body.appendChild(el);
+        await waitFor(10);
+        expect(el.getAttribute("data-theme")).toBe("light");
+        el.setAttribute("theme", "dark");
+        await waitFor(20);
+        expect(el.getAttribute("data-theme")).toBe("dark");
+        fire(true);
+        await waitFor(20);
+        expect(el.getAttribute("data-theme")).toBe("dark");
+      } finally {
+        spy();
+      }
+    });
+
+    it("setTheme method exists", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(typeof el.setTheme).toBe("function");
+    });
+
+    it("setTheme('light') sets the attribute", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      el.setTheme("light");
+      expect(el.theme).toBe("light");
+      expect(el.getAttribute("theme")).toBe("light");
+    });
+
+    it("setTheme('dark') sets the attribute", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      el.setTheme("dark");
+      expect(el.theme).toBe("dark");
+      expect(el.getAttribute("theme")).toBe("dark");
+    });
+
+    it("setTheme rejects invalid values", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      const before = el.theme;
+      el.setTheme("bogus" as "light");
+      expect(el.theme).toBe(before);
+    });
+
+    it("toggleTheme method exists", async () => {
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(typeof el.toggleTheme).toBe("function");
+    });
+
+    it("toggleTheme flips dark -> light (pinned)", async () => {
+      const { restore: spy } = makeMatchMediaMock(true);
+      try {
+        document.body.appendChild(el);
+        await waitFor(10);
+        expect(el.getAttribute("data-theme")).toBe("dark");
+        el.toggleTheme();
+        await waitFor(20);
+        expect(el.getAttribute("data-theme")).toBe("light");
+        expect(el.theme).toBe("light");
+      } finally {
+        spy();
+      }
+    });
+
+    it("toggleTheme flips light -> dark (pinned)", async () => {
+      const { restore: spy } = makeMatchMediaMock(false);
+      try {
+        document.body.appendChild(el);
+        await waitFor(10);
+        expect(el.getAttribute("data-theme")).toBe("light");
+        el.toggleTheme();
+        await waitFor(20);
+        expect(el.getAttribute("data-theme")).toBe("dark");
+        expect(el.theme).toBe("dark");
+      } finally {
+        spy();
+      }
+    });
+
+    it(":host([data-theme=light]) exposes a light palette", async () => {
+      el.setAttribute("theme", "light");
+      document.body.appendChild(el);
+      await waitFor(10);
+      expect(el.getAttribute("data-theme")).toBe("light");
+      const cs = getComputedStyle(el);
+      for (const v of LIGHT_VARS) {
+        const value = cs.getPropertyValue(v).trim();
+        expect(value, `var ${v}`).not.toBe("");
+      }
+    });
+
+    it("light --pg-bg is not the dark default", async () => {
+      el.setAttribute("theme", "light");
+      document.body.appendChild(el);
+      await waitFor(10);
+      const cs = getComputedStyle(el);
+      const bg = cs.getPropertyValue("--pg-bg").trim().toLowerCase();
+      expect(bg).not.toBe("#0d1117");
+    });
+
+    it("external [data-theme=light] rule can override built-in light palette", async () => {
+      const styleEl = document.createElement("style");
+      styleEl.textContent =
+        "rikka-live-playground[data-theme=\"light\"] { --pg-bg: #abcdef; }";
+      document.head.appendChild(styleEl);
+      el.setAttribute("theme", "light");
+      document.body.appendChild(el);
+      await waitFor(10);
+      const cs = getComputedStyle(el);
+      expect(cs.getPropertyValue("--pg-bg").trim().toLowerCase()).toBe(
+        "#abcdef",
+      );
+      styleEl.remove();
+    });
+
+    it("disconnect tears down the matchMedia listener", async () => {
+      const { restore: spy, fire } = makeMatchMediaMock(false);
+      try {
+        document.body.appendChild(el);
+        await waitFor(10);
+        el.remove();
+        await waitFor(10);
+        fire(true);
+        await waitFor(20);
+        expect(el.getAttribute("data-theme")).not.toBe("dark");
+      } finally {
+        spy();
+      }
+    });
+  });
+
   describe("fullscreen", () => {
     it("toggleFullscreen method exists", async () => {
       document.body.appendChild(el);
@@ -911,6 +1224,7 @@ describe("RikkaLivePlayground", () => {
     });
 
     it("dark default for --pg-bg is dark", async () => {
+      el.setAttribute("theme", "dark");
       document.body.appendChild(el);
       await waitFor(10);
       const cs = getComputedStyle(el);
@@ -1006,47 +1320,50 @@ describe("RikkaLivePlayground", () => {
       expect(srcdoc).toContain("__rikka_playground_theme");
     });
 
-    it("updates iframe theme on document data-theme change", async () => {
-      document.documentElement.setAttribute("data-theme", "dark");
-      el.setAttribute("code", "const x = 1");
-      el.style.setProperty("--pg-bg", "#222222");
-      document.body.appendChild(el);
-      await waitFor(10);
+    it("updates host data-theme when prefers-color-scheme changes (auto mode)", async () => {
+      type Listener = (ev: { matches: boolean; media: string }) => void;
+      const listeners = new Set<Listener>();
+      let prefDark = false;
+      const original = window.matchMedia;
+      window.matchMedia = (query: string) => {
+        const mql: MediaQueryList = {
+          media: query,
+          matches:
+            query === "(prefers-color-scheme: dark)" ? prefDark : false,
+          onchange: null,
+          addEventListener: ((_: string, l: Listener) => {
+            if (query === "(prefers-color-scheme: dark)") listeners.add(l);
+          }) as MediaQueryList["addEventListener"],
+          removeEventListener: ((_: string, l: Listener) => {
+            if (query === "(prefers-color-scheme: dark)") listeners.delete(l);
+          }) as MediaQueryList["removeEventListener"],
+          addListener: ((l: Listener) => {
+            if (query === "(prefers-color-scheme: dark)") listeners.add(l);
+          }) as unknown as MediaQueryList["addListener"],
+          removeListener: ((l: Listener) => {
+            if (query === "(prefers-color-scheme: dark)") listeners.delete(l);
+          }) as unknown as MediaQueryList["removeListener"],
+          dispatchEvent: () => true,
+        } as MediaQueryList;
+        return mql;
+      };
+
       try {
-        await el.run();
-      } catch {}
-      const iframe = el.shadowRoot!.querySelector(
-        ".preview-iframe",
-      ) as HTMLIFrameElement | null;
-      if (!iframe) return;
+        el.setAttribute("code", "const x = 1");
+        document.body.appendChild(el);
+        await waitFor(10);
 
-      const postSpy = vi.fn();
-      const originalPost = iframe.contentWindow!.postMessage;
-      iframe.contentWindow!.postMessage = postSpy.mockImplementation(
-        (...args: unknown[]) => {
-          (originalPost as (...a: unknown[]) => void).apply(
-            iframe.contentWindow,
-            args,
-          );
-        },
-      ) as typeof iframe.contentWindow.postMessage;
+        expect(el.getAttribute("data-theme")).toBe("light");
 
-      el.style.setProperty("--pg-bg", "#dddddd");
-      document.documentElement.setAttribute("data-theme", "light");
-      await waitFor(20);
-
-      const themeMessage = postSpy.mock.calls.find((call) => {
-        const data = call[0] as { type?: string };
-        return data && data.type === "__rikka_playground_theme";
-      });
-      expect(themeMessage).toBeTruthy();
-      if (themeMessage) {
-        const payload = themeMessage[0] as { css: string };
-        expect(payload.css).toContain("--pg-bg: #dddddd");
+        prefDark = true;
+        for (const l of [...listeners]) {
+          l({ matches: true, media: "(prefers-color-scheme: dark)" });
+        }
+        await waitFor(20);
+        expect(el.getAttribute("data-theme")).toBe("dark");
+      } finally {
+        window.matchMedia = original;
       }
-
-      iframe.contentWindow!.postMessage = originalPost;
-      document.documentElement.removeAttribute("data-theme");
     });
   });
 });

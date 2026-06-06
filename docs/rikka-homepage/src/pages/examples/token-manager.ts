@@ -1,7 +1,9 @@
-import { defineElement } from '@rikka/elements';
-import { css, div, h1, h2, p, a } from '@rikka/dom';
-import { signal, computed, effect } from '@rikka/signal';
-import { sharedStyles, examplePageStyles } from '../../shared/styles';
+import { defineElement } from '@takanashi/rikka-elements';
+import { css, div, h1, h2, p, a } from '@takanashi/rikka-dom';
+import { signal, computed, effect } from '@takanashi/rikka-signal';
+import {sharedHelpers} from '../../shared/helpers';
+import {examplePageStyles} from '../../shared/page-styles';
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`${examplePageStyles}`;
 
@@ -284,13 +286,15 @@ const ExampleTokenManager = defineElement('rikka-example-token-manager', {
       h1('Design System Token Manager'),
       p('A comprehensive example demonstrating signals, effects, and color palette management.'),
       div({ class: 'playground-container' },
-        sharedStyles.createPlayground(tokenManagerCode, '600', 'Token Manager Example'),
+        RikkaLivePlayground.h({
+    code: tokenManagerCode, height: '600', title: 'Token Manager Example'
+}),
       ),
       div({ class: 'explanation' },
         h2('Key Concepts'),
-        p(sharedStyles.inlineCode('signal({ ... })'), ' creates a reactive signal for color groups with immutable updates.'),
-        p(sharedStyles.inlineCode('effect()'), ' automatically syncs theme to document.body and localStorage.'),
-        p(sharedStyles.inlineCode('For(groups, (group) => ...)'), ' renders the color group list with proper reactivity.'),
+        p(sharedHelpers.inlineCode('signal({ ... })'), ' creates a reactive signal for color groups with immutable updates.'),
+        p(sharedHelpers.inlineCode('effect()'), ' automatically syncs theme to document.body and localStorage.'),
+        p(sharedHelpers.inlineCode('For(groups, (group) => ...)'), ' renders the color group list with proper reactivity.'),
         p('Click group headers to expand/collapse. Click colors to see hex/rgb/hsl details.'),
         p('Save presets to localStorage and export as CSS variables.'),
       ),

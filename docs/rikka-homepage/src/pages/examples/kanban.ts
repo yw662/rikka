@@ -1,7 +1,9 @@
-import { defineElement } from '@rikka/elements';
-import { css, div, h1, h2, p, span, a, For } from '@rikka/dom';
-import { signal, computed, effect } from '@rikka/signal';
-import { sharedStyles, examplePageStyles } from '../../shared/styles';
+import { defineElement } from '@takanashi/rikka-elements';
+import { css, div, h1, h2, p, span, a, For } from '@takanashi/rikka-dom';
+import { signal, computed, effect } from '@takanashi/rikka-signal';
+import {sharedHelpers} from '../../shared/helpers';
+import {examplePageStyles} from '../../shared/page-styles';
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`${examplePageStyles}`;
 
@@ -138,15 +140,17 @@ const ExampleKanban = defineElement('rikka-example-kanban', {
       h1('Kanban Project Board'),
       p('Drag and drop cards between columns to track project progress.'),
       div({ class: 'playground-container' },
-        sharedStyles.createPlayground(kanbanCode, '500', 'Kanban Board Example'),
+        RikkaLivePlayground.h({
+    code: kanbanCode, height: '500', title: 'Kanban Board Example'
+}),
       ),
       div({ class: 'explanation' },
         h2('Key Concepts'),
-        p(sharedStyles.inlineCode('signal([...])'), ' stores the cards array and dragging state.'),
-        p(sharedStyles.inlineCode('computed(() => ...)'), ' filters cards by column (todo, inProgress, done).'),
-        p(sharedStyles.inlineCode('effect()'), ' is used internally for reactive updates when cards change.'),
+        p(sharedHelpers.inlineCode('signal([...])'), ' stores the cards array and dragging state.'),
+        p(sharedHelpers.inlineCode('computed(() => ...)'), ' filters cards by column (todo, inProgress, done).'),
+        p(sharedHelpers.inlineCode('effect()'), ' is used internally for reactive updates when cards change.'),
         p('Drag cards by clicking and holding, then release on target column.'),
-        p('Priority colors appear as left border: ', sharedStyles.inlineCode('high=#ef4444'), ', ', sharedStyles.inlineCode('medium=#facc15'), ', ', sharedStyles.inlineCode('low=#4ade80')),
+        p('Priority colors appear as left border: ', sharedHelpers.inlineCode('high=#ef4444'), ', ', sharedHelpers.inlineCode('medium=#facc15'), ', ', sharedHelpers.inlineCode('low=#4ade80')),
       ),
       div({ class: 'example-nav' },
         a({ href: '#/examples/mission-control', class: 'prev-link' }, '\u2190 Mission Control'),

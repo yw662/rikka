@@ -1,7 +1,9 @@
-import { defineElement, css } from "@rikka/elements";
-import { div, h1, h2, p, a, span, For } from "@rikka/dom";
-import { signal, computed, effect } from "@rikka/signal";
-import { sharedStyles, examplePageStyles } from "../../shared/styles";
+import { defineElement, css } from "@takanashi/rikka-elements";
+import { div, h1, h2, p, a, span, For } from "@takanashi/rikka-dom";
+import { signal, computed, effect } from "@takanashi/rikka-signal";
+import {sharedHelpers} from "../../shared/helpers";
+import {examplePageStyles} from "../../shared/page-styles";
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
   ${examplePageStyles}
@@ -232,25 +234,27 @@ const ExampleMiniIde = defineElement(
         p("A file browser, tab system, editor, terminal, and status bar all working together with reactive signals."),
         div(
           { class: "playground-container" },
-          sharedStyles.createPlayground(miniIdeCode, "480", "Mini IDE Example"),
+          RikkaLivePlayground.h({
+    code: miniIdeCode, height: "480", title: "Mini IDE Example"
+}),
         ),
         div(
           { class: "explanation" },
           h2("Key Concepts"),
           p(
-            sharedStyles.inlineCode("signal([...])"),
+            sharedHelpers.inlineCode("signal([...])"),
             " creates a reactive signal for the file system structure.",
           ),
           p(
-            sharedStyles.inlineCode("signal<string[]>([])"),
+            sharedHelpers.inlineCode("signal<string[]>([])"),
             " tracks open tabs and terminal history.",
           ),
           p(
-            sharedStyles.inlineCode("For(files, renderFn)"),
+            sharedHelpers.inlineCode("For(files, renderFn)"),
             " renders the file tree with recursive folder support.",
           ),
           p(
-            sharedStyles.inlineCode("effect()"),
+            sharedHelpers.inlineCode("effect()"),
             " handles side effects like updating terminal output.",
           ),
           p(

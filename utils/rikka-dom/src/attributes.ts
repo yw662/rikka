@@ -1,4 +1,4 @@
-import type { Signal } from "@rikka/signal";
+import type { Signal } from "@takanashi/rikka-signal";
 
 export type AttrValue =
   | string

@@ -1,5 +1,5 @@
 {
-  "name": "@rikka/elements",
+  "name": "@takanashi/rikka-elements",
   "version": "0.1.0",
   "description": "Custom Elements tools — decorators for defining web components",
   "type": "module",
@@ -10,9 +10,6 @@
     "type": "git",
     "url": "git+https://github.com/yw662/rikka.git",
     "directory": "utils/rikka-elements"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
   },
   "exports": {
     ".": {
@@ -30,8 +27,8 @@
     "test:watch": "rstest -w"
   },
   "dependencies": {
-    "@rikka/signal": "workspace:*",
-    "@rikka/dom": "workspace:*"
+    "@takanashi/rikka-signal": "workspace:*",
+    "@takanashi/rikka-dom": "workspace:*"
   },
   "devDependencies": {
     "@rslib/core": "catalog:",

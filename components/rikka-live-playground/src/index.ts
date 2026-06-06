@@ -5,9 +5,9 @@ import {
   type RikkaElement,
   type ElementConfig,
   type AttributeSpec,
-} from "@rikka/elements";
-import { div, textarea, button, pre, span, section } from "@rikka/dom";
-import { computed, effect } from "@rikka/signal";
+} from "@takanashi/rikka-elements";
+import { div, textarea, button, pre, span, section } from "@takanashi/rikka-dom";
+import { computed, effect } from "@takanashi/rikka-signal";
 import * as esbuild from "esbuild-wasm";
 import wasmUrl from "esbuild-wasm/esbuild.wasm?url";
 
@@ -43,6 +43,38 @@ const livePlaygroundStyles = css`
     --pg-handle-grip: #475569;
     --pg-spinner-track: #334155;
     --pg-spinner-active: #6366f1;
+  }
+  :host([data-theme="light"]) {
+    --pg-bg: #ffffff;
+    --pg-surface: #f8fafc;
+    --pg-surface-elevated: #f1f5f9;
+    --pg-surface-2: #ffffff;
+    --pg-surface-hover: #e2e8f0;
+
+    --pg-border: #cbd5e1;
+
+    --pg-text: #1e293b;
+    --pg-text-muted: #475569;
+    --pg-text-subtle: #64748b;
+    --pg-text-strong: #0f172a;
+    --pg-text-inverse: #ffffff;
+
+    --pg-accent: #6366f1;
+    --pg-accent-soft: rgba(99, 102, 241, 0.08);
+    --pg-accent-soft-strong: rgba(99, 102, 241, 0.15);
+    --pg-accent-active: #4338ca;
+
+    --pg-error-bg: rgba(248, 81, 73, 0.06);
+
+    --pg-handle-grip: #94a3b8;
+    --pg-spinner-track: #cbd5e1;
+    --pg-spinner-active: #6366f1;
+  }
+  :host {
+    transition:
+      background-color 0.2s,
+      color 0.2s,
+      border-color 0.2s;
   }
   :host([fullscreen]) {
     position: fixed;
@@ -311,6 +343,33 @@ const livePlaygroundStyles = css`
   .resize-handle.active::after {
     background: var(--pg-accent);
   }
+  /* Touch-friendly hit area: prevent the page from scrolling while the
+     user is dragging the handle, and make the click target large enough
+     to grab with a finger. */
+  .resize-handle {
+    touch-action: none;
+  }
+  .resize-handle.editor-handle,
+  .resize-handle.preview-handle {
+    min-height: 14px;
+  }
+  .body.layout-horizontal .resize-handle.editor-handle {
+    min-width: 14px;
+  }
+  @media (hover: none) and (pointer: coarse) {
+    .resize-handle.editor-handle,
+    .resize-handle.preview-handle {
+      min-height: 22px;
+    }
+    .body.layout-horizontal .resize-handle.editor-handle {
+      min-width: 22px;
+    }
+    /* iOS Safari zooms into the page when an input is focused and its
+       computed font-size is < 16px. Bump on touch devices. */
+    .editor-area {
+      font-size: 1rem;
+    }
+  }
   .preview-iframe {
     width: 100%;
     height: 100%;
@@ -420,20 +479,43 @@ function getPlaygroundVars(host: HTMLElement): string {
 
 const THEME_WATCHER_KEY = Symbol.for("rikka.livePlayground.themeWatcher");
 const THEME_MESSAGE_TYPE = "__rikka_playground_theme";
+const RESOLVED_THEME_KEY = Symbol.for("rikka.livePlayground.resolvedTheme");
 
-function watchDocumentTheme(callback: () => void): () => void {
-  if (
-    typeof document === "undefined" ||
-    typeof MutationObserver === "undefined"
-  ) {
+function watchPrefersColorScheme(callback: () => void): () => void {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
     return () => {};
   }
-  const observer = new MutationObserver(() => callback());
-  observer.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ["data-theme"],
-  });
-  return () => observer.disconnect();
+  const mql = window.matchMedia("(prefers-color-scheme: dark)");
+  const handler = () => callback();
+  if (typeof mql.addEventListener === "function") {
+    mql.addEventListener("change", handler);
+  } else if (typeof (mql as MediaQueryList & {
+    addListener?: (cb: () => void) => void;
+  }).addListener === "function") {
+    (mql as MediaQueryList & {
+      addListener: (cb: () => void) => void;
+    }).addListener(handler);
+  }
+  return () => {
+    if (typeof mql.removeEventListener === "function") {
+      mql.removeEventListener("change", handler);
+    } else if (typeof (mql as MediaQueryList & {
+      removeListener?: (cb: () => void) => void;
+    }).removeListener === "function") {
+      (mql as MediaQueryList & {
+        removeListener: (cb: () => void) => void;
+      }).removeListener(handler);
+    }
+  };
+}
+
+function resolveSystemTheme(): "dark" | "light" {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return "dark";
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
 }
 
 let esbuildInitPromise: Promise<void> | null = null;
@@ -474,9 +556,9 @@ function generateIframeHtml(basePath: string, themeVarsCss: string): string {
   <script type="importmap">
   {
     "imports": {
-      "@rikka/signal": "${basePath}/esm/rikka-signal.js",
-      "@rikka/dom": "${basePath}/esm/rikka-dom.js",
-      "@rikka/elements": "${basePath}/esm/rikka-elements.js",
+      "@takanashi/rikka-signal": "${basePath}/esm/rikka-signal.js",
+      "@takanashi/rikka-dom": "${basePath}/esm/rikka-dom.js",
+      "@takanashi/rikka-elements": "${basePath}/esm/rikka-elements.js",
       "rikka-signal": "${basePath}/esm/rikka-signal.js",
       "rikka-dom": "${basePath}/esm/rikka-dom.js",
       "rikka-elements": "${basePath}/esm/rikka-elements.js",
@@ -658,6 +740,14 @@ const SETUP_SCRIPT = `
 
 type Panel = "both" | "editor" | "preview";
 type Layout = "vertical" | "horizontal";
+type Theme = "auto" | "dark" | "light";
+
+type Action =
+  | `layout-${Layout}`
+  | `panel-${Panel}`
+  | "fullscreen"
+  | "run"
+  | "reset";
 
 type LivePlaygroundConfig = ElementConfig & {
   attributes: {
@@ -666,6 +756,7 @@ type LivePlaygroundConfig = ElementConfig & {
     title: AttributeSpec<string>;
     layout: AttributeSpec<Layout>;
     panel: AttributeSpec<Panel>;
+    theme: AttributeSpec<Theme>;
   };
   events: {
     error: ((domEvent: Event) => string) | undefined;
@@ -673,20 +764,7 @@ type LivePlaygroundConfig = ElementConfig & {
   styles: CSSStyleSheet;
 };
 
-type LivePlaygroundElement = RikkaElement<LivePlaygroundConfig> & {
-  run: () => Promise<void>;
-  reset: () => void;
-  toggleLayout: () => void;
-  togglePanel: (target: Panel) => void;
-  setLayout: (layout: Layout) => void;
-  setPanel: (panel: Panel) => void;
-  toggleFullscreen: () => Promise<void>;
-  exitFullscreen: () => Promise<void>;
-  dispatchError: (
-    msg: string,
-    options?: Omit<CustomEventInit<string>, "detail">,
-  ) => boolean;
-};
+type LivePlaygroundElement = RikkaElement<LivePlaygroundConfig>;
 
 function isValidLayout(v: string | undefined): v is Layout {
   return v === "vertical" || v === "horizontal";
@@ -694,6 +772,10 @@ function isValidLayout(v: string | undefined): v is Layout {
 
 function isValidPanel(v: string | undefined): v is Panel {
   return v === "both" || v === "editor" || v === "preview";
+}
+
+function isValidTheme(v: string | undefined): v is Theme {
+  return v === "auto" || v === "dark" || v === "light";
 }
 
 function iconFor(name: string): SVGSVGElement {
@@ -737,7 +819,7 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
   attributes: {
     code: { toProp: (v?: string) => v ?? "", toAttribute: (v?: string) => v },
     height: {
-      toProp: (v?: string) => v ?? "200",
+      toProp: (v?: string) => v ?? "320",
       toAttribute: (v?: string) => v,
     },
     title: {
@@ -752,11 +834,60 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
       toProp: (v?: string) => (isValidPanel(v) ? v : "both"),
       toAttribute: (v?: string) => v,
     },
+    theme: {
+      toProp: (v?: string) => (isValidTheme(v) ? v : "auto"),
+      toAttribute: (v?: string) => v,
+    },
   },
   events: {
     error: event<string>(),
   },
   styles: livePlaygroundStyles,
+  methods: {
+    run(this: LivePlaygroundElement) {
+      return runPlayground(this);
+    },
+    reset(this: LivePlaygroundElement) {
+      const textareaEl = this.shadowRoot?.querySelector(
+        ".editor-area",
+      ) as HTMLTextAreaElement | null;
+      if (textareaEl) {
+        const originalCode = this.textContent?.trim() || this.code;
+        textareaEl.defaultValue = originalCode;
+        textareaEl.value = originalCode;
+      }
+      return runPlayground(this);
+    },
+    toggleLayout(this: LivePlaygroundElement) {
+      this.layout = this.layout === "vertical" ? "horizontal" : "vertical";
+    },
+    setLayout(this: LivePlaygroundElement, layout: Layout) {
+      this.layout = layout;
+    },
+    togglePanel(this: LivePlaygroundElement, target: Panel) {
+      this.panel = this.panel === target ? "both" : target;
+    },
+    setPanel(this: LivePlaygroundElement, panel: Panel) {
+      this.panel = panel;
+    },
+    setTheme(this: LivePlaygroundElement, theme: Theme) {
+      if (!isValidTheme(theme)) return;
+      this.theme = theme;
+    },
+    toggleTheme(this: LivePlaygroundElement) {
+      const slot = this as unknown as {
+        [RESOLVED_THEME_KEY]?: "dark" | "light";
+      };
+      const current: "dark" | "light" = slot[RESOLVED_THEME_KEY] ?? "dark";
+      this.theme = current === "dark" ? "light" : "dark";
+    },
+    toggleFullscreen(this: LivePlaygroundElement) {
+      return toggleFullscreen(this);
+    },
+    exitFullscreen(this: LivePlaygroundElement) {
+      return exitFullscreenFn(this);
+    },
+  },
   render(this: RikkaElement<LivePlaygroundConfig>) {
     const self = this as LivePlaygroundElement;
     const initialCode = this.textContent?.trim() || this.code;
@@ -766,7 +897,7 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
       textarea({
         class: "editor-area",
         spellcheck: false,
-        defaultValue: this.textContent?.trim() || this.code,
+        defaultValue: initialCode,
       }),
     );
 
@@ -786,78 +917,8 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
       ),
     );
 
-    const editorHandle = div({
-      class: "resize-handle editor-handle",
-      onmousedown: (e: MouseEvent) => {
-        e.preventDefault();
-        const handle = e.currentTarget as HTMLElement;
-        const editor = handle.previousElementSibling as HTMLElement;
-        if (!editor) return;
-
-        handle.classList.add("active");
-        const root = self.shadowRoot;
-        const body = root?.querySelector(".body") as HTMLElement | null;
-        const isHorizontal = body?.classList.contains("layout-horizontal");
-
-        const startX = e.clientX;
-        const startY = e.clientY;
-        const startSize = isHorizontal
-          ? editor.offsetWidth
-          : editor.offsetHeight;
-
-        const onMouseMove = (ev: MouseEvent) => {
-          const delta = isHorizontal
-            ? ev.clientX - startX
-            : ev.clientY - startY;
-          const min = isHorizontal ? 120 : 60;
-          const next = Math.max(min, startSize + delta);
-          if (isHorizontal) {
-            editor.style.width = `${next}px`;
-            editor.style.height = "100%";
-          } else {
-            editor.style.height = `${next}px`;
-            editor.style.width = "100%";
-          }
-        };
-
-        const onMouseUp = () => {
-          handle.classList.remove("active");
-          document.removeEventListener("mousemove", onMouseMove);
-          document.removeEventListener("mouseup", onMouseUp);
-        };
-
-        document.addEventListener("mousemove", onMouseMove);
-        document.addEventListener("mouseup", onMouseUp);
-      },
-    });
-
-    const previewHandle = div({
-      class: "resize-handle preview-handle",
-      onmousedown: (e: MouseEvent) => {
-        e.preventDefault();
-        const handle = e.currentTarget as HTMLElement;
-        const bodyEl = handle.parentElement as HTMLElement;
-        if (!bodyEl) return;
-
-        handle.classList.add("active");
-        const startY = e.clientY;
-        const startH = bodyEl.offsetHeight;
-
-        const onMouseMove = (ev: MouseEvent) => {
-          const next = Math.max(120, startH + ev.clientY - startY);
-          bodyEl.style.height = `${next}px`;
-        };
-
-        const onMouseUp = () => {
-          handle.classList.remove("active");
-          document.removeEventListener("mousemove", onMouseMove);
-          document.removeEventListener("mouseup", onMouseUp);
-        };
-
-        document.addEventListener("mousemove", onMouseMove);
-        document.addEventListener("mouseup", onMouseUp);
-      },
-    });
+    const editorHandle = div({ class: "resize-handle editor-handle" });
+    const previewHandle = div({ class: "resize-handle preview-handle" });
 
     const splitArea = div(
       { class: "split-area" },
@@ -874,182 +935,97 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
       previewHandle,
     );
 
-    const layoutVerticalBtn = button(
-      {
-        class: "icon-btn",
-        type: "button",
-        "data-action": "layout-vertical",
-        "aria-label": "Vertical layout",
-        title: "Vertical layout",
-        onclick: () => self.setLayout("vertical"),
-      },
-      iconFor("layout-vertical"),
-    );
-    const layoutHorizontalBtn = button(
-      {
-        class: "icon-btn",
-        type: "button",
-        "data-action": "layout-horizontal",
-        "aria-label": "Horizontal layout",
-        title: "Horizontal layout",
-        onclick: () => self.setLayout("horizontal"),
-      },
-      iconFor("layout-horizontal"),
-    );
+    // Single delegated action handler — `e.stopPropagation()` keeps the
+    // click from reaching the rikka-app (or any other ancestor), so the
+    // playground's internal state stays self-contained. We resolve the
+    // live-playground via `currentTarget.getRootNode().host` instead of
+    // a closure-captured `self`, because the element may be re-created
+    // (e.g. rikka-app's route effect re-running) and the closure would
+    // otherwise point at a detached instance.
+    const handleAction = (e: Event) => {
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      const action = target.dataset.action as Action | undefined;
+      if (!action) return;
+      const root = target.getRootNode() as ShadowRoot | Document;
+      const host = (root as ShadowRoot).host as LivePlaygroundElement | null;
+      if (host) dispatchAction(host, action);
+    };
 
-    const layoutGroup = div(
-      { class: "btn-group" },
-      layoutVerticalBtn,
-      div({ class: "btn-divider" }),
-      layoutHorizontalBtn,
-    );
-
-    const showBothBtn = button(
-      {
-        class: "icon-btn",
-        type: "button",
-        "data-action": "panel-both",
-        "aria-label": "Show both panels",
-        title: "Show both panels",
-        onclick: () => self.setPanel("both"),
-      },
-      iconFor("layout-vertical"),
-    );
-    const editorToggleBtn = button(
-      {
-        class: "icon-btn",
-        type: "button",
-        "data-action": "panel-editor",
-        "aria-label": "Show editor only",
-        title: "Show editor only",
-        onclick: () => self.togglePanel("editor"),
-      },
-      iconFor("code"),
-    );
-    const previewToggleBtn = button(
-      {
-        class: "icon-btn",
-        type: "button",
-        "data-action": "panel-preview",
-        "aria-label": "Show preview only",
-        title: "Show preview only",
-        onclick: () => self.togglePanel("preview"),
-      },
-      iconFor("eye"),
-    );
-
-    const panelGroup = div(
-      { class: "btn-group" },
-      showBothBtn,
-      div({ class: "btn-divider" }),
-      editorToggleBtn,
-      div({ class: "btn-divider" }),
-      previewToggleBtn,
-    );
-
-    const fullscreenBtn = button(
-      {
-        class: "icon-btn",
-        type: "button",
-        "data-action": "fullscreen",
-        "aria-label": "Enter fullscreen",
-        title: "Enter fullscreen",
-        onclick: () => self.toggleFullscreen(),
-      },
-      iconFor("expand"),
-    );
+    const iconBtn = (
+      action: Action,
+      label: string,
+      iconName: string,
+    ): HTMLElement =>
+      button(
+        {
+          class: "icon-btn",
+          type: "button",
+          "data-action": action,
+          "aria-label": label,
+          title: label,
+          onclick: handleAction,
+        },
+        iconFor(iconName),
+      );
 
     const header = div(
       { class: "header" },
       span({ class: "title" }, this.title),
       div(
         { class: "actions" },
-        layoutGroup,
-        panelGroup,
-        fullscreenBtn,
+        div(
+          { class: "btn-group" },
+          iconBtn("layout-vertical", "Vertical layout", "layout-vertical"),
+          div({ class: "btn-divider" }),
+          iconBtn("layout-horizontal", "Horizontal layout", "layout-horizontal"),
+        ),
+        div(
+          { class: "btn-group" },
+          iconBtn("panel-both", "Show both panels", "layout-vertical"),
+          div({ class: "btn-divider" }),
+          iconBtn("panel-editor", "Show editor only", "code"),
+          div({ class: "btn-divider" }),
+          iconBtn("panel-preview", "Show preview only", "eye"),
+        ),
+        iconBtn("fullscreen", "Enter fullscreen", "expand"),
         div({ class: "btn-divider" }),
-        button({ class: "run-btn", onclick: () => self.run() }, "\u25B6 Run"),
-        button({ class: "reset-btn", onclick: () => self.reset() }, "Reset"),
+        button(
+          { class: "run-btn", "data-action": "run", onclick: handleAction },
+          "\u25B6 Run",
+        ),
+        button(
+          { class: "reset-btn", "data-action": "reset", onclick: handleAction },
+          "Reset",
+        ),
       ),
     );
 
-    if (initialCode) {
-      queueMicrotask(() => self.run());
-    }
+    // Collect the action buttons while they're in scope so post-mount code
+    // can update their `active` state by reference, not by query (the
+    // shadow root doesn't exist yet while render is running).
+    const buttons = self.shadowRoot?.querySelectorAll(
+      '[data-action="layout-vertical"], [data-action="layout-horizontal"], [data-action="panel-both"], [data-action="panel-editor"], [data-action="panel-preview"]',
+    );
 
-    const slot = self as unknown as { [THEME_WATCHER_KEY]?: () => void };
-    slot[THEME_WATCHER_KEY]?.();
-    slot[THEME_WATCHER_KEY] = watchDocumentTheme(() => {
-      const iframe = self.shadowRoot?.querySelector(
-        ".preview-iframe",
-      ) as HTMLIFrameElement | null;
-      if (iframe?.contentWindow) {
-        try {
-          iframe.contentWindow.postMessage(
-            { type: THEME_MESSAGE_TYPE, css: getPlaygroundVars(self) },
-            "*",
-          );
-        } catch {
-          // ignore
-        }
-      }
+    // === Post-mount wiring: pointer drag for the resize handles, then
+    // initial run + reactive effects for layout/panel/theme. None of this
+    // leaks outside the element — every listener is tied to `self`. ===
+    wirePostMount(self, {
+      body,
+      editorPane,
+      previewPane,
+      editorHandle,
+      previewHandle,
+      splitArea,
+      header,
+      initialCode,
     });
 
-    const applyLayoutClass = (layout: Layout) => {
-      body.classList.toggle("layout-vertical", layout === "vertical");
-      body.classList.toggle("layout-horizontal", layout === "horizontal");
-      layoutVerticalBtn.classList.toggle("active", layout === "vertical");
-      layoutHorizontalBtn.classList.toggle("active", layout === "horizontal");
-      // Clear inline dimensions from previous layout's resize drag to avoid conflicts
-      if (layout === "horizontal") {
-        editorPane.style.removeProperty("width");
-        editorPane.style.setProperty("height", "100%");
-      } else {
-        editorPane.style.removeProperty("height");
-        editorPane.style.setProperty("width", "100%");
-      }
-    };
-
-    const applyPanelClass = (panel: Panel) => {
-      editorPane.classList.toggle("pane-hidden", panel === "preview");
-      previewPane.classList.toggle("pane-hidden", panel === "editor");
-      // Hide split handle when only one panel is visible
-      editorHandle.style.display = panel === "both" ? "" : "none";
-      // Mark split-area so CSS can make sole visible pane fill
-      splitArea.classList.remove("single-editor", "single-preview");
-      if (panel !== "both") {
-        splitArea.classList.add(
-          panel === "editor" ? "single-editor" : "single-preview",
-        );
-      }
-      showBothBtn.classList.toggle("active", panel === "both");
-      editorToggleBtn.classList.toggle("active", panel === "editor");
-      previewToggleBtn.classList.toggle("active", panel === "preview");
-    };
-
-    applyLayoutClass(this.layout);
-    applyPanelClass(this.panel);
-    applyFullscreenState(self, document.fullscreenElement === self);
-
-    effect(() => {
-      applyLayoutClass(this.$layout.get());
-    });
-
-    effect(() => {
-      applyPanelClass(this.$panel.get());
-    });
-
-    const fsHandler = () => {
-      applyFullscreenState(self, document.fullscreenElement === self);
-    };
-    document.addEventListener("fullscreenchange", fsHandler);
-    registerElementDisposable(self, () => {
-      document.removeEventListener("fullscreenchange", fsHandler);
-    });
-    registerElementDisposable(self, () => {
-      const themeSlot = self as unknown as { [THEME_WATCHER_KEY]?: () => void };
-      themeSlot[THEME_WATCHER_KEY]?.();
-      themeSlot[THEME_WATCHER_KEY] = undefined;
+    // Apply the initial button active states once the buttons are in the
+    // shadow (i.e. after connectedCallback appends the rendered tree).
+    queueMicrotask(() => {
+      applyButtonStates(self, self.layout, self.panel);
     });
 
     return div(
@@ -1085,169 +1061,395 @@ function applyFullscreenState(self: LivePlaygroundElement, isFs: boolean) {
   }
 }
 
-(RikkaLivePlayground.prototype as unknown as Record<string, unknown>).run =
-  async function (this: LivePlaygroundElement) {
-    const textareaEl = this.shadowRoot?.querySelector(
-      ".editor-area",
-    ) as HTMLTextAreaElement | null;
-    const previewEl = this.shadowRoot?.querySelector(
-      ".preview-area",
-    ) as HTMLElement | null;
-    const errorEl = this.shadowRoot?.querySelector(
-      ".error-area",
-    ) as HTMLPreElement | null;
-    const iframeEl = this.shadowRoot?.querySelector(
+function dispatchAction(self: LivePlaygroundElement, action: Action): void {
+  switch (action) {
+    case "layout-vertical":
+      self.layout = "vertical";
+      return;
+    case "layout-horizontal":
+      self.layout = "horizontal";
+      return;
+    case "panel-both":
+      self.panel = "both";
+      return;
+    case "panel-editor":
+      self.togglePanel("editor");
+      return;
+    case "panel-preview":
+      self.togglePanel("preview");
+      return;
+    case "fullscreen":
+      void self.toggleFullscreen();
+      return;
+    case "run":
+      void self.run();
+      return;
+    case "reset":
+      self.reset();
+      return;
+  }
+}
+
+interface PostMountRefs {
+  body: HTMLElement;
+  editorPane: HTMLElement;
+  previewPane: HTMLElement;
+  editorHandle: HTMLElement;
+  previewHandle: HTMLElement;
+  splitArea: HTMLElement;
+  header: HTMLElement;
+  initialCode: string;
+}
+
+function applyButtonStates(
+  self: LivePlaygroundElement,
+  layout: Layout,
+  panel: Panel,
+): void {
+  const header = self.shadowRoot?.querySelector(".header");
+  if (!header) return;
+  header.querySelectorAll<HTMLElement>("[data-action]").forEach((btn) => {
+    const action = btn.dataset.action;
+    if (
+      action === "layout-vertical" ||
+      action === "layout-horizontal"
+    ) {
+      btn.classList.toggle("active", action === `layout-${layout}`);
+    } else if (
+      action === "panel-both" ||
+      action === "panel-editor" ||
+      action === "panel-preview"
+    ) {
+      btn.classList.toggle("active", action === `panel-${panel}`);
+    }
+  });
+}
+
+function wirePostMount(self: LivePlaygroundElement, refs: PostMountRefs): void {
+  // === Resize handles: drag the editor ↔ preview divider (editor) or the
+  // bottom edge (preview). State is captured per-pointerdown and torn down
+  // on pointerup. Listeners are removed when the element disposes. ===
+  const {
+    body,
+    editorPane,
+    editorHandle,
+    previewHandle,
+    splitArea,
+  } = refs;
+
+  const onEditorPointerDown = (e: PointerEvent) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const handle = e.currentTarget as HTMLElement;
+    handle.classList.add("active");
+    try {
+      handle.setPointerCapture(e.pointerId);
+    } catch {
+      // pointer capture not supported; events still fire on handle
+    }
+    const isHorizontal = body.classList.contains("layout-horizontal");
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startSize = isHorizontal
+      ? editorPane.offsetWidth
+      : editorPane.offsetHeight;
+
+    const onMove = (ev: PointerEvent) => {
+      const delta = isHorizontal ? ev.clientX - startX : ev.clientY - startY;
+      const min = isHorizontal ? 120 : 60;
+      const next = Math.max(min, startSize + delta);
+      if (isHorizontal) {
+        editorPane.style.width = `${next}px`;
+        editorPane.style.height = "100%";
+      } else {
+        editorPane.style.height = `${next}px`;
+        editorPane.style.width = "100%";
+      }
+    };
+    const onEnd = () => {
+      handle.classList.remove("active");
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onEnd);
+      handle.removeEventListener("pointercancel", onEnd);
+    };
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onEnd);
+    handle.addEventListener("pointercancel", onEnd);
+  };
+  editorHandle.addEventListener("pointerdown", onEditorPointerDown);
+
+  const onPreviewPointerDown = (e: PointerEvent) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const handle = e.currentTarget as HTMLElement;
+    const bodyEl = handle.parentElement as HTMLElement;
+    if (!bodyEl) return;
+    handle.classList.add("active");
+    try {
+      handle.setPointerCapture(e.pointerId);
+    } catch {
+      // pointer capture not supported; events still fire on handle
+    }
+    const startY = e.clientY;
+    const startH = bodyEl.offsetHeight;
+    const onMove = (ev: PointerEvent) => {
+      bodyEl.style.height = `${Math.max(120, startH + ev.clientY - startY)}px`;
+    };
+    const onEnd = () => {
+      handle.classList.remove("active");
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onEnd);
+      handle.removeEventListener("pointercancel", onEnd);
+    };
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onEnd);
+    handle.addEventListener("pointercancel", onEnd);
+  };
+  previewHandle.addEventListener("pointerdown", onPreviewPointerDown);
+
+  // === Layout reactive: sync .layout-* classes and clear stale inline
+  // dimensions so the new layout's CSS can take over. ===
+  const applyLayoutClass = (layout: Layout) => {
+    body.classList.toggle("layout-vertical", layout === "vertical");
+    body.classList.toggle("layout-horizontal", layout === "horizontal");
+    if (layout === "horizontal") {
+      editorPane.style.removeProperty("width");
+      editorPane.style.setProperty("height", "100%");
+    } else {
+      editorPane.style.removeProperty("height");
+      editorPane.style.setProperty("width", "100%");
+    }
+    applyButtonStates(self, layout, self.panel);
+  };
+
+  // === Panel reactive: hide panes, toggle single-pane class, mark buttons. ===
+  const applyPanelClass = (panel: Panel) => {
+    refs.previewPane.classList.toggle("pane-hidden", panel === "editor");
+    editorPane.classList.toggle("pane-hidden", panel === "preview");
+    editorHandle.style.display = panel === "both" ? "" : "none";
+    splitArea.classList.remove("single-editor", "single-preview");
+    if (panel !== "both") {
+      splitArea.classList.add(
+        panel === "editor" ? "single-editor" : "single-preview",
+      );
+    }
+    applyButtonStates(self, self.layout, panel);
+  };
+
+  applyLayoutClass(self.layout);
+  applyPanelClass(self.panel);
+  applyFullscreenState(self, document.fullscreenElement === self);
+
+  effect(() => {
+    applyLayoutClass(self.$layout.get());
+  });
+  effect(() => {
+    applyPanelClass(self.$panel.get());
+  });
+
+  // === Theme: mirror the theme signal onto host data-theme and push the
+  // resolved CSS variables into the preview iframe. Track the watcher so
+  // we tear it down on disconnect. ===
+  const resolvedSlot = self as unknown as {
+    [RESOLVED_THEME_KEY]?: "dark" | "light";
+  };
+  const syncTheme = (theme: Theme) => {
+    const effective: "dark" | "light" =
+      theme === "auto" ? resolveSystemTheme() : theme;
+    resolvedSlot[RESOLVED_THEME_KEY] = effective;
+    if (self.getAttribute("data-theme") !== effective) {
+      self.setAttribute("data-theme", effective);
+    }
+    const iframe = self.shadowRoot?.querySelector(
       ".preview-iframe",
     ) as HTMLIFrameElement | null;
-
-    if (!textareaEl || !previewEl || !errorEl) return;
-
-    const currentCode =
-      textareaEl.value || this.textContent?.trim() || this.code;
-
-    errorEl.classList.remove("has-error");
-    errorEl.textContent = "";
-
-    if (iframeEl) {
-      const resizer = (
-        iframeEl as HTMLIFrameElement & { __resizer?: ResizeObserver }
-      ).__resizer;
-      resizer?.disconnect();
-      iframeEl.remove();
-    }
-
-    previewEl.innerHTML = "";
-    const loadingEl = document.createElement("div");
-    loadingEl.className = "loading-indicator";
-    loadingEl.innerHTML =
-      '<div class="loading-spinner"></div><span class="loading-text">Loading...</span>';
-    previewEl.appendChild(loadingEl);
-
-    let compiledCode: string;
-    try {
-      compiledCode = await transformCode(currentCode);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      loadingEl.remove();
-      errorEl.textContent = `Compile Error: ${msg}`;
-      errorEl.classList.add("has-error");
-      this.dispatchError(msg);
-      return;
-    }
-
-    try {
-      const codeHtml = generateIframeWithCode(
-        compiledCode,
-        getPlaygroundVars(this),
-      );
-      const newIframe = document.createElement("iframe");
-      newIframe.className = "preview-iframe";
-      newIframe.sandbox.add("allow-scripts", "allow-same-origin");
-      newIframe.srcdoc = codeHtml;
-      previewEl.appendChild(newIframe);
-
-      await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(
-          () => reject(new Error("Iframe load timeout")),
-          10000,
+    if (iframe?.contentWindow) {
+      try {
+        iframe.contentWindow.postMessage(
+          { type: THEME_MESSAGE_TYPE, css: getPlaygroundVars(self) },
+          "*",
         );
-        newIframe.onload = () => {
-          clearTimeout(timeout);
-          loadingEl.remove();
-          let lastSetHeight = 0;
-          let rafId = 0;
-          const fitIframeToContent = () => {
-            if (!newIframe.isConnected) return;
-            const doc = newIframe.contentDocument;
-            if (!doc) return;
-            const body = doc.body;
-            const html = doc.documentElement;
-            const contentHeight = Math.max(
-              body?.scrollHeight || 0,
-              body?.offsetHeight || 0,
-              html?.clientHeight || 0,
-              html?.scrollHeight || 0,
-            );
-            const next = contentHeight > 0 ? contentHeight + 8 : 0;
-            if (next !== lastSetHeight) {
-              lastSetHeight = next;
-              cancelAnimationFrame(rafId);
-              rafId = requestAnimationFrame(() => {
-                if (!newIframe.isConnected) return;
-                newIframe.style.height = next > 0 ? `${next}px` : "";
-              });
-            }
-          };
-          fitIframeToContent();
+      } catch {
+        // ignore
+      }
+    }
+  };
+  syncTheme(self.theme);
+  effect(() => {
+    syncTheme(self.$theme.get());
+  });
+
+  const watcherSlot = self as unknown as {
+    [THEME_WATCHER_KEY]?: () => void;
+  };
+  watcherSlot[THEME_WATCHER_KEY]?.();
+  watcherSlot[THEME_WATCHER_KEY] = watchPrefersColorScheme(() => {
+    if (self.theme === "auto") {
+      syncTheme("auto");
+    }
+  });
+
+  // === Fullscreen: keep the icon and host attribute in sync with the
+  // browser fullscreen element. ===
+  const fsHandler = () => {
+    applyFullscreenState(self, document.fullscreenElement === self);
+  };
+  document.addEventListener("fullscreenchange", fsHandler);
+
+  // === Initial run if there's starter code. ===
+  if (refs.initialCode) {
+    queueMicrotask(() => {
+      void runPlayground(self);
+    });
+  }
+
+  // === Disposables: tear down all listeners on disconnect. ===
+  registerElementDisposable(self, () => {
+    editorHandle.removeEventListener("pointerdown", onEditorPointerDown);
+    previewHandle.removeEventListener("pointerdown", onPreviewPointerDown);
+    document.removeEventListener("fullscreenchange", fsHandler);
+    const themeSlot = self as unknown as { [THEME_WATCHER_KEY]?: () => void };
+    themeSlot[THEME_WATCHER_KEY]?.();
+    themeSlot[THEME_WATCHER_KEY] = undefined;
+  });
+}
+
+async function runPlayground(self: LivePlaygroundElement): Promise<void> {
+  const textareaEl = self.shadowRoot?.querySelector(
+    ".editor-area",
+  ) as HTMLTextAreaElement | null;
+  const previewEl = self.shadowRoot?.querySelector(
+    ".preview-area",
+  ) as HTMLElement | null;
+  const errorEl = self.shadowRoot?.querySelector(
+    ".error-area",
+  ) as HTMLPreElement | null;
+  const iframeEl = self.shadowRoot?.querySelector(
+    ".preview-iframe",
+  ) as HTMLIFrameElement | null;
+
+  if (!textareaEl || !previewEl || !errorEl) return;
+
+  const currentCode = textareaEl.value || self.textContent?.trim() || self.code;
+
+  errorEl.classList.remove("has-error");
+  errorEl.textContent = "";
+
+  if (iframeEl) {
+    const resizer = (
+      iframeEl as HTMLIFrameElement & { __resizer?: ResizeObserver }
+    ).__resizer;
+    resizer?.disconnect();
+    iframeEl.remove();
+  }
+
+  previewEl.innerHTML = "";
+  const loadingEl = document.createElement("div");
+  loadingEl.className = "loading-indicator";
+  loadingEl.innerHTML =
+    '<div class="loading-spinner"></div><span class="loading-text">Loading...</span>';
+  previewEl.appendChild(loadingEl);
+
+  let compiledCode: string;
+  try {
+    compiledCode = await transformCode(currentCode);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    loadingEl.remove();
+    errorEl.textContent = `Compile Error: ${msg}`;
+    errorEl.classList.add("has-error");
+    self.dispatchError(msg);
+    return;
+  }
+
+  try {
+    const codeHtml = generateIframeWithCode(
+      compiledCode,
+      getPlaygroundVars(self),
+    );
+    const newIframe = document.createElement("iframe");
+    newIframe.className = "preview-iframe";
+    newIframe.sandbox.add("allow-scripts", "allow-same-origin");
+    newIframe.srcdoc = codeHtml;
+    previewEl.appendChild(newIframe);
+
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error("Iframe load timeout")),
+        10000,
+      );
+      newIframe.onload = () => {
+        clearTimeout(timeout);
+        loadingEl.remove();
+        let lastSetHeight = 0;
+        let rafId = 0;
+        const fitIframeToContent = () => {
+          if (!newIframe.isConnected) return;
           const doc = newIframe.contentDocument;
-          if (doc?.body) {
-            const observer = new ResizeObserver(fitIframeToContent);
-            observer.observe(doc.body);
-            (
-              newIframe as HTMLIFrameElement & { __resizer?: ResizeObserver }
-            ).__resizer = observer;
-            registerElementDisposable(this, () => {
-              observer.disconnect();
+          if (!doc) return;
+          const body = doc.body;
+          const html = doc.documentElement;
+          const contentHeight = Math.max(
+            body?.scrollHeight || 0,
+            body?.offsetHeight || 0,
+            html?.clientHeight || 0,
+            html?.scrollHeight || 0,
+          );
+          const next = contentHeight > 0 ? contentHeight + 8 : 0;
+          if (next !== lastSetHeight) {
+            lastSetHeight = next;
+            cancelAnimationFrame(rafId);
+            rafId = requestAnimationFrame(() => {
+              if (!newIframe.isConnected) return;
+              newIframe.style.height = next > 0 ? `${next}px` : "";
             });
           }
-          resolve();
         };
-        newIframe.onerror = () => {
-          clearTimeout(timeout);
-          reject(new Error("Iframe load error"));
-        };
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      loadingEl.remove();
-      errorEl.textContent = `Error: ${msg}`;
-      errorEl.classList.add("has-error");
-      this.dispatchError(msg);
-    }
-  };
+        fitIframeToContent();
+        const doc = newIframe.contentDocument;
+        if (doc?.body) {
+          const observer = new ResizeObserver(fitIframeToContent);
+          observer.observe(doc.body);
+          (
+            newIframe as HTMLIFrameElement & { __resizer?: ResizeObserver }
+          ).__resizer = observer;
+          registerElementDisposable(self, () => {
+            observer.disconnect();
+          });
+        }
+        resolve();
+      };
+      newIframe.onerror = () => {
+        clearTimeout(timeout);
+        reject(new Error("Iframe load error"));
+      };
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    loadingEl.remove();
+    errorEl.textContent = `Error: ${msg}`;
+    errorEl.classList.add("has-error");
+    self.dispatchError(msg);
+  }
+}
 
-(RikkaLivePlayground.prototype as unknown as Record<string, unknown>).reset =
-  function (this: LivePlaygroundElement) {
-    const textareaEl = this.shadowRoot?.querySelector(
-      ".editor-area",
-    ) as HTMLTextAreaElement | null;
-    if (textareaEl) {
-      const originalCode = this.textContent?.trim() || this.code;
-      textareaEl.defaultValue = originalCode;
-      textareaEl.value = originalCode;
-    }
-    this.run();
-  };
+function resetPlayground(self: LivePlaygroundElement): void {
+  const textareaEl = self.shadowRoot?.querySelector(
+    ".editor-area",
+  ) as HTMLTextAreaElement | null;
+  if (textareaEl) {
+    const originalCode = self.textContent?.trim() || self.code;
+    textareaEl.defaultValue = originalCode;
+    textareaEl.value = originalCode;
+  }
+  void runPlayground(self);
+}
 
-(
-  RikkaLivePlayground.prototype as unknown as Record<string, unknown>
-).toggleLayout = function (this: LivePlaygroundElement) {
-  this.setLayout(this.layout === "vertical" ? "horizontal" : "vertical");
-};
-
-(
-  RikkaLivePlayground.prototype as unknown as Record<string, unknown>
-).setLayout = function (this: LivePlaygroundElement, layout: Layout) {
-  this.layout = layout;
-};
-
-(
-  RikkaLivePlayground.prototype as unknown as Record<string, unknown>
-).togglePanel = function (this: LivePlaygroundElement, target: Panel) {
-  const next: Panel = this.panel === target ? "both" : target;
-  this.setPanel(next);
-};
-
-(RikkaLivePlayground.prototype as unknown as Record<string, unknown>).setPanel =
-  function (this: LivePlaygroundElement, panel: Panel) {
-    this.panel = panel;
-  };
-
-(
-  RikkaLivePlayground.prototype as unknown as Record<string, unknown>
-).toggleFullscreen = async function (this: LivePlaygroundElement) {
-  if (document.fullscreenElement || this.hasAttribute("fullscreen")) {
-    applyFullscreenState(this, false);
+async function toggleFullscreen(self: LivePlaygroundElement): Promise<void> {
+  if (document.fullscreenElement || self.hasAttribute("fullscreen")) {
+    applyFullscreenState(self, false);
     if (document.fullscreenElement) {
       try {
         await document.exitFullscreen();
@@ -1258,15 +1460,13 @@ function applyFullscreenState(self: LivePlaygroundElement, isFs: boolean) {
     return;
   }
   try {
-    await this.requestFullscreen();
+    await self.requestFullscreen();
   } catch {
-    applyFullscreenState(this, false);
+    applyFullscreenState(self, false);
   }
-};
+}
 
-(
-  RikkaLivePlayground.prototype as unknown as Record<string, unknown>
-).exitFullscreen = async function (this: LivePlaygroundElement) {
+async function exitFullscreenFn(self: LivePlaygroundElement): Promise<void> {
   if (document.fullscreenElement) {
     try {
       await document.exitFullscreen();
@@ -1274,8 +1474,8 @@ function applyFullscreenState(self: LivePlaygroundElement, isFs: boolean) {
       // ignore
     }
   }
-  applyFullscreenState(this, false);
-};
+  applyFullscreenState(self, false);
+}
 
 function generateIframeWithCode(
   compiledCode: string,
@@ -1437,3 +1637,6 @@ function generateIframeWithCode(
 
 export { RikkaLivePlayground };
 export type { LivePlaygroundElement };
+// LivePlaygroundElement is just an alias for the inferred element type —
+// prefer `InstanceType<typeof RikkaLivePlayground>` or `RikkaElement<Config>`
+// in new code.

@@ -1,6 +1,6 @@
-import { defineElement, css } from '@rikka/elements';
-import { div, textarea } from '@rikka/dom';
-import { effect } from '@rikka/signal';
+import { defineElement, css } from '@takanashi/rikka-elements';
+import { div, textarea } from '@takanashi/rikka-dom';
+import { effect } from '@takanashi/rikka-signal';
 import { activeTab, htmlCode, cssCode, jsCode } from '../editor-store';
 
 const editorStyles = css`

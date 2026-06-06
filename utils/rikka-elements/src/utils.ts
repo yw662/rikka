@@ -28,3 +28,11 @@ export function toCamelCase(str: string): string {
   const pascal = toPascalCase(str);
   return pascal.charAt(0).toLowerCase() + pascal.slice(1);
 }
+
+/**
+ * 运行时：将 camelCase 字符串转换为 kebab-case。
+ * 例如: 'userId' → 'user-id', 'foo' → 'foo', 'dataFoo' → 'data-foo'
+ */
+export function toKebabCase(str: string): string {
+  return str.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
+}

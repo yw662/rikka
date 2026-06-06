@@ -1,4 +1,4 @@
-import { signal, computed, effect } from '@rikka/signal';
+import { signal, computed, effect } from '@takanashi/rikka-signal';
 
 export type TransactionType = 'income' | 'expense';
 

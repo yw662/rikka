@@ -122,6 +122,10 @@ export default defineConfig({
         from: resolve(workspaceRoot, "docs/rikka-skills/common-pitfalls.md"),
         to: "skills/common-pitfalls.md",
       },
+      {
+        from: resolve(workspaceRoot, "llms.txt"),
+        to: "llms.txt",
+      },
     ],
   },
   tools: {

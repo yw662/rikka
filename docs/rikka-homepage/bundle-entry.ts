@@ -1,4 +1,4 @@
-export { Signal, signal, computed, effect } from "@rikka/signal";
+export { Signal, signal, computed, effect } from "@takanashi/rikka-signal";
 
 export {
   h,
@@ -82,7 +82,7 @@ export {
   svgtext,
   svgspan,
   svgtextPath,
-} from "@rikka/dom";
+} from "@takanashi/rikka-dom";
 
 export type {
   Child,
@@ -91,9 +91,9 @@ export type {
   TagFunction,
   Case,
   H,
-} from "@rikka/dom";
+} from "@takanashi/rikka-dom";
 
-export { defineElement, event, toPascalCase } from "@rikka/elements";
+export { defineElement, event, toPascalCase } from "@takanashi/rikka-elements";
 
 export type {
   AttributeSpec,
@@ -104,4 +104,4 @@ export type {
   TagFunctionH,
   TagFunctionProps,
   PascalCase,
-} from "@rikka/elements";
+} from "@takanashi/rikka-elements";

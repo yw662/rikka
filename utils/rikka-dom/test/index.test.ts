@@ -31,7 +31,7 @@ import {
   textPath as tagTextPath,
 } from "../src/tags.js";
 import { isPlainObject, isSignal, isWritableSignal, unwrapSignal } from "../src/signal-utils.js";
-import { signal, computed, effect, Signal } from "@rikka/signal";
+import { signal, computed, effect, Signal } from "@takanashi/rikka-signal";
 
 describe("h()", () => {
   it("creates an element with tag name", () => {

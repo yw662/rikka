@@ -1,4 +1,4 @@
-import { signal, computed, effect } from '@rikka/signal';
+import { signal, computed, effect } from '@takanashi/rikka-signal';
 import {
   div,
   form,
@@ -7,7 +7,7 @@ import {
   option,
   button,
   label,
-} from '@rikka/dom';
+} from '@takanashi/rikka-dom';
 import {
   addTransaction,
   getTodayDate,

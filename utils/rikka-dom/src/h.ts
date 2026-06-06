@@ -1,4 +1,4 @@
-import { effect, computed, Signal } from "@rikka/signal";
+import { effect, computed, Signal } from "@takanashi/rikka-signal";
 import {
   HTML_NS,
   SVG_NS,

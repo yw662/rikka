@@ -1,6 +1,8 @@
-import { defineElement, NumberAttr } from "@rikka/elements";
-import { css, div, h1, h2, p, a, pre, code } from "@rikka/dom";
-import { sharedStyles, docPageStyles } from "../../shared/styles";
+import { defineElement, NumberAttr } from "@takanashi/rikka-elements";
+import { css, div, h1, h2, p, a, pre, code } from "@takanashi/rikka-dom";
+import {sharedHelpers} from "../../shared/helpers";
+import {docPageStyles} from "../../shared/page-styles";
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
   ${docPageStyles}
@@ -12,7 +14,7 @@ const DocElements16 = defineElement("rikka-doc-elements-16", {
     return div(
       { class: "doc-page" },
       h1("event"),
-      sharedStyles.advancedBadge("event", "is part of @rikka/elements, an advanced feature. For simple event handling, use DOM event handler properties with h()."),
+      sharedHelpers.advancedBadge("event", "is part of @takanashi/rikka-elements, an advanced feature. For simple event handling, use DOM event handler properties with h()."),
       p("Custom events with type-safe dispatching and listening."),
       div(
         { class: "api-signature" },
@@ -23,13 +25,13 @@ const DocElements16 = defineElement("rikka-doc-elements-16", {
         h2("Event Declaration"),
         p(
           "Declare events in the ",
-          sharedStyles.inlineCode("config.events"),
+          sharedHelpers.inlineCode("config.events"),
           " record. The value is the detail type constructor or ",
-          sharedStyles.inlineCode("undefined"),
+          sharedHelpers.inlineCode("undefined"),
           " for events with no detail.",
         ),
-        sharedStyles.createPlayground(
-          `const MyComponent = defineElement('my-component', {
+        RikkaLivePlayground.h({
+    code: `const MyComponent = defineElement('my-component', {
   events: {
     change: Number,
     reset: undefined,
@@ -60,10 +62,8 @@ container.appendChild(div({},
   h2({}, 'Event Demo'),
   el,
   log
-));`,
-          "220",
-          "Event Declaration",
-        ),
+));`, height: "220", title: "Event Declaration"
+}),
         h2("Generated Methods"),
         p("A dispatch method is generated for each event:"),
         pre(
@@ -73,7 +73,7 @@ container.appendChild(div({},
         h2("Handler Property"),
         p(
           "An ",
-          sharedStyles.inlineCode("on${eventName}"),
+          sharedHelpers.inlineCode("on${eventName}"),
           " property is also generated as a handler that can be set directly:",
         ),
         pre(
@@ -85,12 +85,12 @@ container.appendChild(div({},
         h2("event<T>() Type Helper"),
         p(
           "Use the ",
-          sharedStyles.inlineCode("event<T>()"),
+          sharedHelpers.inlineCode("event<T>()"),
           " helper for custom detail types:",
         ),
         pre(
           { class: "code-block" },
-          code(`import { event } from '@rikka/elements';
+          code(`import { event } from '@takanashi/rikka-elements';
 
 events: {
   select: event<{ id: string; label: string }>(),
@@ -100,8 +100,8 @@ events: {
       div(
         { class: "playground-section" },
         h2("Try It"),
-        sharedStyles.createPlayground(
-          `const EventCounter = defineElement('event-counter', {
+        RikkaLivePlayground.h({
+    code: `const EventCounter = defineElement('event-counter', {
   attributes: { count: NumberAttr },
   events: {
     change: Number,
@@ -179,21 +179,19 @@ counter.addEventListener('change', (e) => {
 });
 
 container.appendChild(counter);
-container.appendChild(log);`,
-          "300",
-          "Custom Event",
-        ),
+container.appendChild(log);`, height: "300", title: "Custom Event"
+}),
       ),
       div(
         { class: "doc-nav" },
         a(
-          { href: "#/docs/@rikka/elements/attribute", class: "prev-link" },
+          { href: "#/docs/@takanashi/rikka-elements/attribute", class: "prev-link" },
           "\u2190 attribute",
         ),
         div({ class: "spacer" }),
         a(
           {
-            href: "#/docs/@rikka/elements/attach-template",
+            href: "#/docs/@takanashi/rikka-elements/attach-template",
             class: "next-link",
           },
           "attachTemplate \u2192",

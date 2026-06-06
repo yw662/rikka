@@ -1,6 +1,6 @@
-import { defineElement } from '@rikka/elements';
-import { div, h1, p, button, span, svg, path, css } from '@rikka/dom';
-import { effect } from '@rikka/signal';
+import { defineElement } from '@takanashi/rikka-elements';
+import { div, h1, p, button, span, svg, path, css } from '@takanashi/rikka-dom';
+import { effect } from '@takanashi/rikka-signal';
 import { searchQuery, selectedTags, stats, clearFilters, toggleTagFilter } from "../store.js";
 import { tagFilter } from "./tag-filter.js";
 import { searchBar } from "./search-bar.js";

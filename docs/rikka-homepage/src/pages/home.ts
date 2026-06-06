@@ -1,4 +1,4 @@
-import { defineElement, css } from "@rikka/elements";
+import { defineElement, css } from "@takanashi/rikka-elements";
 import {
   div,
   h1,
@@ -12,10 +12,10 @@ import {
   pre,
   a,
   code,
-} from "@rikka/dom";
-import { signal, computed } from "@rikka/signal";
-import "@rikka/live-playground";
-import { sharedStyles } from "../shared/styles";
+} from "@takanashi/rikka-dom";
+import { signal, computed } from "@takanashi/rikka-signal";
+import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
+import {sharedHelpers} from "../shared/helpers";
 
 const homeStyles = css`
   :host {
@@ -1267,7 +1267,7 @@ const HomePage = defineElement("rikka-home", {
       {
         title: "Smaller Bundle",
         desc: "Tree-shakeable packages with zero runtime overhead. Only ship what you use — no virtual DOM algorithm included.",
-        code: "// ✅ Rikka: Measured live from npm\n// Total: ~16KB (all 3 packages, min+gzip)\nimport { signal }       from '@rikka/signal';       // ~2KB\nimport { div, button }  from '@rikka/dom';          // ~6KB\nimport { defineElement } from '@rikka/elements';     // ~3KB\n\n// ❌ React: ~42KB (min+gzip)\n// + ReactDOM: ~130KB\n// Total: ~172KB minimum (10x larger!)",
+        code: "// ✅ Rikka: Measured live from npm\n// Total: ~16KB (all 3 packages, min+gzip)\nimport { signal }       from '@takanashi/rikka-signal';       // ~2KB\nimport { div, button }  from '@takanashi/rikka-dom';          // ~6KB\nimport { defineElement } from '@takanashi/rikka-elements';     // ~3KB\n\n// ❌ React: ~42KB (min+gzip)\n// + ReactDOM: ~130KB\n// Total: ~172KB minimum (10x larger!)",
       },
       {
         title: "Fine-Grained Updates",
@@ -1377,7 +1377,9 @@ const HomePage = defineElement("rikka-home", {
             { class: "section-subtitle" },
             "A real, working playground — no compilation, no build step. Just type and run.",
           ),
-          sharedStyles.createPlayground(counterCode, "300", "Live Counter"),
+          RikkaLivePlayground.h({
+    code: counterCode, height: "300", title: "Live Counter"
+}),
         ),
       ),
       section(
@@ -1555,7 +1557,7 @@ const HomePage = defineElement("rikka-home", {
               ),
               (() => {
                 const codes: Record<string, string> = {
-                  npm: "npm install @rikka/elements @rikka/dom @rikka/signal",
+                  npm: "npm install @takanashi/rikka-elements @takanashi/rikka-dom @takanashi/rikka-signal",
                   iife: '<script src="https://yw662.github.io/rikka/cdn/rikka.js"><\/script>',
                   esm: `import { signal, div, button } from 'https://yw662.github.io/rikka/cdn/rikka.esm.js';`,
                 };
@@ -1676,9 +1678,9 @@ const HomePage = defineElement("rikka-home", {
             ),
           ),
         ),
-        sharedStyles.createPlayground(
-          `import { signal, computed } from '@rikka/signal';
-import { div, span, button } from '@rikka/dom';
+        RikkaLivePlayground.h({
+    code: `import { signal, computed } from '@takanashi/rikka-signal';
+import { div, span, button } from '@takanashi/rikka-dom';
 
 const count = signal(0);
 const text = computed(() => \`Count: \${count.get()}\`);
@@ -1692,10 +1694,8 @@ const app = div(
   }, '+')
 );
 
-container.appendChild(app);`,
-          "220",
-          "Quick Example",
-        ),
+container.appendChild(app);`, height: "220", title: "Quick Example"
+}),
       ),
       section(
         { class: "packages-section" },
@@ -1712,27 +1712,27 @@ container.appendChild(app);`,
           { class: "package-grid" },
           div(
             { class: "package-card" },
-            h3("@rikka/elements"),
+            h3("@takanashi/rikka-elements"),
             p(
               "Define Custom Elements with Shadow DOM, attributes, events, and styles.",
             ),
-            div({ class: "npm" }, "npm install @rikka/elements"),
+            div({ class: "npm" }, "npm install @takanashi/rikka-elements"),
           ),
           div(
             { class: "package-card" },
-            h3("@rikka/dom"),
+            h3("@takanashi/rikka-dom"),
             p(
               "Type-safe h() and tag factories. For() for reactive lists. Signals as children for fine-grained updates.",
             ),
-            div({ class: "npm" }, "npm install @rikka/dom"),
+            div({ class: "npm" }, "npm install @takanashi/rikka-dom"),
           ),
           div(
             { class: "package-card" },
-            h3("@rikka/signal"),
+            h3("@takanashi/rikka-signal"),
             p(
               "TC39 Signals polyfill. signal(), computed(), and effect() for reactivity. Standards-based primitives.",
             ),
-            div({ class: "npm" }, "npm install @rikka/signal"),
+            div({ class: "npm" }, "npm install @takanashi/rikka-signal"),
           ),
         ),
       ),

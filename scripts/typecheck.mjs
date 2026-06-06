@@ -30,9 +30,9 @@ function log(color, msg) {
 }
 
 const projects = [
-  { name: '@rikka/signal', config: 'utils/rikka-signal/tsconfig.json' },
-  { name: '@rikka/dom', config: 'utils/rikka-dom/tsconfig.json' },
-  { name: '@rikka/elements', config: 'utils/rikka-elements/tsconfig.json' },
+  { name: '@takanashi/rikka-signal', config: 'utils/rikka-signal/tsconfig.json' },
+  { name: '@takanashi/rikka-dom', config: 'utils/rikka-dom/tsconfig.json' },
+  { name: '@takanashi/rikka-elements', config: 'utils/rikka-elements/tsconfig.json' },
   { name: 'rikka-live-playground', config: 'components/rikka-live-playground/tsconfig.json' },
   { name: 'rikka-homepage', config: 'docs/rikka-homepage/tsconfig.json' },
   { name: 'bookmark-manager', config: 'examples/bookmark-manager/tsconfig.json' },

@@ -3,7 +3,7 @@ import {
   NumberAttr,
   StringAttr,
   BooleanAttr,
-} from "@rikka/elements";
+} from "@takanashi/rikka-elements";
 import {
   css,
   div,
@@ -21,8 +21,9 @@ import {
   tr,
   th,
   td,
-} from "@rikka/dom";
-import { sharedStyles, docPageStyles } from "../../shared/styles";
+} from "@takanashi/rikka-dom";
+import {sharedHelpers} from "../../shared/helpers";
+import {docPageStyles} from "../../shared/page-styles";
 
 const styles = css`
   ${docPageStyles}
@@ -39,13 +40,13 @@ const DocApiReference = defineElement("rikka-doc-api-ref", {
       div(
         { class: "doc-content" },
 
-        h2("@rikka/signal"),
+        h2("@takanashi/rikka-signal"),
         p("Reactive primitives built on the TC39 Signals proposal."),
         p(
           "Re-exports ",
-          sharedStyles.inlineCode("Signal"),
+          sharedHelpers.inlineCode("Signal"),
           " from ",
-          sharedStyles.inlineCode("signal-polyfill"),
+          sharedHelpers.inlineCode("signal-polyfill"),
           ".",
         ),
 
@@ -114,7 +115,7 @@ Signal.subtle.Watcher  — low-level dependency watcher`,
           ),
         ),
 
-        h2("@rikka/dom"),
+        h2("@takanashi/rikka-dom"),
         p("DOM creation utilities: h(), tag helpers, control flow, templates."),
 
         h3("h(tag, attrs?, ...children)"),
@@ -136,15 +137,15 @@ const el = div({ class: 'card' }, 'Hello');  // HTMLDivElement
         ),
 
         h3("h`...` (tagged template)"),
-        sharedStyles.advancedBadge(
+        sharedHelpers.advancedBadge(
           "h`...`",
           "is an alternative to h() / tag helpers. Reach for it when you have static HTML-like structures with signal interpolation.",
         ),
         p(
           "HTML template literal returning Element[]. Use ",
-          sharedStyles.inlineCode("[0]"),
+          sharedHelpers.inlineCode("[0]"),
           " for single element, or ",
-          sharedStyles.inlineCode("h\\`<template>\\`[0]"),
+          sharedHelpers.inlineCode("h\\`<template>\\`[0]"),
           " for template elements.",
         ),
         pre(
@@ -163,7 +164,7 @@ const nodes = h\`<span>Hello \${name}!</span>\`;
         h3("Tag Helpers"),
         p(
           "40 pre-bound helpers with the same signature as ",
-          sharedStyles.inlineCode("h()"),
+          sharedHelpers.inlineCode("h()"),
           ":",
         ),
         pre(
@@ -230,7 +231,7 @@ visible.set(false);  // element removed from DOM`,
         ),
 
         h3("Switch(value, ...cases, fallback?)"),
-        sharedStyles.advancedBadge(
+        sharedHelpers.advancedBadge(
           "Switch()",
           "is for multi-way branching (3+ branches). For single/binary conditions, Show() / When() is simpler.",
         ),
@@ -253,7 +254,7 @@ Switch(tab,
         ),
 
         h3("Match(match, render)"),
-        sharedStyles.advancedBadge(
+        sharedHelpers.advancedBadge(
           "Match()",
           "is the companion to Switch() for defining each branch.",
         ),
@@ -269,7 +270,7 @@ Switch(tab,
         ),
 
         h3("css`...`"),
-        sharedStyles.advancedBadge(
+        sharedHelpers.advancedBadge(
           "css`...`",
           "is mainly for Shadow DOM styling via adoptedStyleSheets. For non-Shadow-DOM code, plain <style> blocks are simpler.",
         ),
@@ -289,7 +290,7 @@ defineElement('my-el', { styles });`,
         ),
 
         h3("inlineStyle`...`"),
-        sharedStyles.advancedBadge(
+        sharedHelpers.advancedBadge(
           "inlineStyle`...`",
           "is a niche helper that returns a camelCase style object. Most code uses style strings or external CSS.",
         ),
@@ -306,9 +307,9 @@ div({ style: s }, 'Hello')`,
           ),
         ),
 
-        h2("@rikka/elements"),
-        sharedStyles.advancedBadge(
-          "@rikka/elements",
+        h2("@takanashi/rikka-elements"),
+        sharedHelpers.advancedBadge(
+          "@takanashi/rikka-elements",
           "is an advanced feature. You can build complete apps using only h() and tag helpers — reach for defineElement only when you need reusable, encapsulated components with reactive attributes, custom events, Shadow DOM, and declarative lifecycle.",
         ),
         p(
@@ -420,9 +421,9 @@ undefined  // no detail (void)
         h3("Generated Instance Members"),
         p(
           "For each attribute ",
-          sharedStyles.inlineCode("name"),
+          sharedHelpers.inlineCode("name"),
           " of type ",
-          sharedStyles.inlineCode("T"),
+          sharedHelpers.inlineCode("T"),
           ":",
         ),
         table(
@@ -443,9 +444,9 @@ undefined  // no detail (void)
         ),
         p(
           "For each event ",
-          sharedStyles.inlineCode("name"),
+          sharedHelpers.inlineCode("name"),
           " with detail ",
-          sharedStyles.inlineCode("D"),
+          sharedHelpers.inlineCode("D"),
           ":",
         ),
         table(
@@ -485,7 +486,7 @@ undefined  // no detail (void)
         ),
 
         h3("Template Binding Syntax"),
-        p("When ", sharedStyles.inlineCode("config.template"), " is provided:"),
+        p("When ", sharedHelpers.inlineCode("config.template"), " is provided:"),
         table(
           { class: "api-table" },
           thead(tr(th("Syntax"), th("Binding Type"), th("Behavior"))),
@@ -515,72 +516,66 @@ undefined  // no detail (void)
           tbody(
             tr(
               td(code("Signal.State<T>")),
-              td("@rikka/signal"),
+              td("@takanashi/rikka-signal"),
               td("Writable reactive state container"),
             ),
             tr(
               td(code("Signal.Computed<T>")),
-              td("@rikka/signal"),
+              td("@takanashi/rikka-signal"),
               td("Read-only derived signal with caching"),
             ),
             tr(
               td(code("Child")),
-              td("@rikka/dom"),
+              td("@takanashi/rikka-dom"),
               td(
                 "string | number | Node | Signal | ReactiveRange | null | false",
               ),
             ),
             tr(
               td(code("Attributes<K>")),
-              td("@rikka/dom"),
+              td("@takanashi/rikka-dom"),
               td("Typed attribute map for element K"),
             ),
             tr(
               td(code("ReactiveRange")),
-              td("@rikka/dom"),
+              td("@takanashi/rikka-dom"),
               td("For/Show/When/Switch output — managed node range"),
             ),
             tr(
               td(code("Case<T>")),
-              td("@rikka/dom"),
+              td("@takanashi/rikka-dom"),
               td("Single case definition for Switch"),
             ),
             tr(
               td(code("AttributeSpec<T>")),
-              td("@rikka/elements"),
+              td("@takanashi/rikka-elements"),
               td("Attribute parser/serializer spec"),
             ),
             tr(
               td(code("EventSpec")),
-              td("@rikka/elements"),
+              td("@takanashi/rikka-elements"),
               td("(DOM Event → detail) transform | undefined"),
             ),
             tr(
               td(code("ElementConfig")),
-              td("@rikka/elements"),
+              td("@takanashi/rikka-elements"),
               td("Full configuration for defineElement"),
             ),
             tr(
               td(code("ElementInstance<C>")),
-              td("@rikka/elements"),
+              td("@takanashi/rikka-elements"),
               td("HTMLElement & props & signals & events & shadow & methods"),
             ),
             tr(
               td(code("ElementConstructor<C>")),
-              td("@rikka/elements"),
+              td("@takanashi/rikka-elements"),
               td("Typed constructor + observedAttributes"),
             ),
           ),
         ),
       ),
 
-      div(
-        { class: "doc-nav" },
-        a(
-          { href: "#/docs/advanced/fine-grained", class: "prev-link" },
-          "\u2190 Fine-grained Updates",
-        ),
-      ),
+      div({ class: "doc-nav" }),
     );
   },
 });
