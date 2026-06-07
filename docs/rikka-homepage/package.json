@@ -1,6 +1,6 @@
 {
   "name": "rikka-homepage",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Project Rikka homepage — documentation site and CDN bundle host",
   "type": "module",
   "scripts": {

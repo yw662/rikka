@@ -1,6 +1,6 @@
 {
   "name": "@takanashi/rikka-dom",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DOM utilities — hyperscript h() function and tag shortcuts",
   "type": "module",
   "main": "./dist/index.js",
