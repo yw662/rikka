@@ -183,7 +183,7 @@ export const searchBar = defineElement('search-bar', {
     const addBtn = button(
       { class: 'add-btn' },
       svg(
-        { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+        { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2' },
         path({ d: 'M12 5v14M5 12h14' })
       ),
       span({}, '添加')
@@ -198,7 +198,7 @@ export const searchBar = defineElement('search-bar', {
         div(
           { class: 'search-input-wrapper' },
           svg(
-            { class: 'search-icon', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+            { class: 'search-icon', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2' },
             path({ d: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' })
           ),
           inputEl

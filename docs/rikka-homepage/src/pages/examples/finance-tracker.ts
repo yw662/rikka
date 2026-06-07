@@ -1,5 +1,5 @@
 import { defineElement } from "@takanashi/rikka-elements";
-import { div, h1, h2, h3, p, a, pre, code, ul, li, h } from "@takanashi/rikka-dom";
+import { div, h1, h2, h3, h4, p, a, pre, code, ul, li, h } from "@takanashi/rikka-dom";
 import { showcasePageStyles } from "../../shared/page-styles";
 
 const FinanceTracker = defineElement("rikka-example-finance-tracker", {

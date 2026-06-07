@@ -3,12 +3,6 @@ import { div, a, span, button, svg, path, css } from '@takanashi/rikka-dom';
 import { toggleFavorite, deleteBookmark, openEditForm, getDomain, type Bookmark } from '../store.js';
 
 export const bookmarkItem = defineElement('bookmark-item', {
-  attributes: {
-    bookmark: {
-      type: Object,
-      default: null,
-    },
-  },
   styles: css`
     :host {
       display: block;
@@ -178,7 +172,7 @@ export const bookmarkItem = defineElement('bookmark-item', {
     const favBtn = button(
       { class: `action-btn favorite${bookmark.favorite ? ' active' : ''}` },
       svg(
-        { viewBox: '0 0 24 24', fill: bookmark.favorite ? 'currentColor' : 'none', stroke: 'currentColor', 'stroke-width': '2' },
+        { viewBox: '0 0 24 24', fill: bookmark.favorite ? 'currentColor' : 'none', stroke: 'currentColor', strokeWidth: '2' },
         path({
           d: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
         })
@@ -194,7 +188,7 @@ export const bookmarkItem = defineElement('bookmark-item', {
     const editBtn = button(
       { class: 'action-btn' },
       svg(
-        { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+        { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2' },
         path({
           d: 'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7',
         }),
@@ -211,7 +205,7 @@ export const bookmarkItem = defineElement('bookmark-item', {
     const deleteBtn = button(
       { class: 'action-btn delete' },
       svg(
-        { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+        { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2' },
         path({ d: 'M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2' }),
         path({ d: 'M10 11v6M14 11v6' })
       )

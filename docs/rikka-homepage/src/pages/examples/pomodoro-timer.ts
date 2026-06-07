@@ -1,5 +1,5 @@
 import { defineElement } from "@takanashi/rikka-elements";
-import { div, h1, h2, h3, p, a, pre, code, ul, li, h } from "@takanashi/rikka-dom";
+import { div, h1, h2, h3, h4, p, a, pre, code, ul, li, h } from "@takanashi/rikka-dom";
 import { sharedHelpers } from "../../shared/helpers";
 import { showcasePageStyles } from "../../shared/page-styles";
 

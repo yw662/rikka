@@ -1,5 +1,5 @@
 import { defineElement } from '@takanashi/rikka-elements';
-import { div, iframe, button, svg, path, css } from '@takanashi/rikka-dom';
+import { div, button, svg, path, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
 import { combinedPreviewHTML, addConsoleEntry, isConsoleOpen } from '../editor-store.js';
 
@@ -87,7 +87,7 @@ export const previewFrame = defineElement('preview-frame', {
     const refreshBtn = button(
       { class: 'action-btn' },
       svg(
-        { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+        { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2' },
         path({ d: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' })
       ),
       '刷新'
@@ -96,7 +96,7 @@ export const previewFrame = defineElement('preview-frame', {
     const toggleConsoleBtn = button(
       { class: 'action-btn' },
       svg(
-        { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+        { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2' },
         path({ d: 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' })
       ),
       '控制台'
