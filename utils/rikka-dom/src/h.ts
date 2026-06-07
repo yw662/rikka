@@ -80,18 +80,25 @@ export class ReactiveRange {
   clear(): void {
     const p = this.parent;
     if (!p) return;
-    let current: ChildNode | null = this.start.nextSibling;
-    while (current && current !== this.end) {
-      const next = current.nextSibling;
-      p.removeChild(current);
-      current = next;
-    }
+    const range = document.createRange();
+    range.setStartAfter(this.start);
+    range.setEndBefore(this.end);
+    range.deleteContents();
   }
 
   reconcile(newElements: Element[]): void {
     if (!this.#alive) return;
     const p = this.parent;
     if (!p) return;
+
+    // Fast path: if there are no existing children, just append all new elements.
+    if (this.start.nextSibling === this.end) {
+      for (const el of newElements) {
+        p.insertBefore(el, this.end);
+      }
+      return;
+    }
+
     const newSet = new Set(newElements as ChildNode[]);
 
     let current: ChildNode | null = this.start.nextSibling;
@@ -218,44 +225,10 @@ function toAttrName(key: string): string {
   return PROPERTY_TO_ATTR[key] ?? key;
 }
 
-function setAttr(el: Element, key: string, value: unknown): void {
+function applyAttrStatic(el: Element, key: string, value: unknown): void {
   if (key.startsWith("on") && key.length > 2) {
     if (typeof value === "function") {
       assignDomProperty(el, key, value);
-    }
-    return;
-  }
-
-  if (isSignal(value)) {
-    const signal = value;
-    const attrKey = key;
-    const weakRef = new WeakRef(el);
-
-    const dispose = effect(() => {
-      const target = weakRef.deref();
-      if (!target) return;
-      if (TWO_WAY_ATTRS.has(attrKey) && isInputElement(target)) {
-        assignDomProperty(target, attrKey, signal.get());
-      } else {
-        setAttr(target, attrKey, signal.get());
-      }
-    });
-
-    registerDisposable(el, dispose);
-
-    if (
-      isWritableSignal(signal) &&
-      TWO_WAY_ATTRS.has(attrKey) &&
-      isInputElement(el)
-    ) {
-      const eventType = getTwoWayEventType(attrKey, el);
-      const handler = () => {
-        const target = weakRef.deref();
-        if (!target) return;
-        signal.set(readDomProperty<unknown>(target, attrKey));
-      };
-      el.addEventListener(eventType, handler);
-      registerDisposable(el, () => el.removeEventListener(eventType, handler));
     }
     return;
   }
@@ -293,6 +266,42 @@ function setAttr(el: Element, key: string, value: unknown): void {
   el.setAttribute(toAttrName(key), String(value));
 }
 
+function applyAttrSignal(
+  el: Element,
+  key: string,
+  signal: Signal.State<unknown> | Signal.Computed<unknown>,
+): void {
+  const attrKey = key;
+  const weakRef = new WeakRef(el);
+
+  const dispose = effect(() => {
+    const target = weakRef.deref();
+    if (!target) return;
+    if (TWO_WAY_ATTRS.has(attrKey) && isInputElement(target)) {
+      assignDomProperty(target, attrKey, signal.get());
+    } else {
+      applyAttrStatic(target, attrKey, signal.get());
+    }
+  });
+
+  registerDisposable(el, dispose);
+
+  if (
+    isWritableSignal(signal) &&
+    TWO_WAY_ATTRS.has(attrKey) &&
+    isInputElement(el)
+  ) {
+    const eventType = getTwoWayEventType(attrKey, el);
+    const handler = () => {
+      const target = weakRef.deref();
+      if (!target) return;
+      signal.set(readDomProperty<unknown>(target, attrKey));
+    };
+    el.addEventListener(eventType, handler);
+    registerDisposable(el, () => el.removeEventListener(eventType, handler));
+  }
+}
+
 function getTwoWayEventType(attrKey: string, el: Element): string {
   if (attrKey === "checked") return "change";
   if (el instanceof HTMLSelectElement) return "change";
@@ -301,8 +310,57 @@ function getTwoWayEventType(attrKey: string, el: Element): string {
 }
 
 function applyAttrs(el: Element, attrs: Record<string, unknown>): void {
+  const signalEntries: [string, Signal.State<unknown> | Signal.Computed<unknown>][] = [];
+
   for (const [key, value] of Object.entries(attrs)) {
-    setAttr(el, key, value);
+    if (isSignal(value)) {
+      signalEntries.push([key, value]);
+    } else {
+      applyAttrStatic(el, key, value);
+    }
+  }
+
+  if (signalEntries.length === 0) return;
+
+  if (signalEntries.length === 1) {
+    const [key, sig] = signalEntries[0];
+    applyAttrSignal(el, key, sig);
+    return;
+  }
+
+  // Batch multiple signal attributes into a single effect
+  const weakRef = new WeakRef(el);
+  const twoWayEntries: [string, Signal.State<unknown>][] = [];
+
+  const dispose = effect(() => {
+    const target = weakRef.deref();
+    if (!target) return;
+    for (const [attrKey, sig] of signalEntries) {
+      if (TWO_WAY_ATTRS.has(attrKey) && isInputElement(target)) {
+        assignDomProperty(target, attrKey, sig.get());
+      } else {
+        applyAttrStatic(target, attrKey, sig.get());
+      }
+    }
+  });
+
+  registerDisposable(el, dispose);
+
+  for (const [attrKey, sig] of signalEntries) {
+    if (isWritableSignal(sig) && TWO_WAY_ATTRS.has(attrKey) && isInputElement(el)) {
+      twoWayEntries.push([attrKey, sig]);
+    }
+  }
+
+  for (const [attrKey, sig] of twoWayEntries) {
+    const eventType = getTwoWayEventType(attrKey, el);
+    const handler = () => {
+      const target = weakRef.deref();
+      if (!target) return;
+      sig.set(readDomProperty<unknown>(target, attrKey));
+    };
+    el.addEventListener(eventType, handler);
+    registerDisposable(el, () => el.removeEventListener(eventType, handler));
   }
 }
 

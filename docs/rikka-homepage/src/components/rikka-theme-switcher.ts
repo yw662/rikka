@@ -1,6 +1,17 @@
 import { defineElement, css } from "@takanashi/rikka-elements";
 import { button, span } from "@takanashi/rikka-dom";
 
+type ThemeMode = "auto" | "light" | "dark";
+
+function resolveSystemTheme(): "dark" | "light" {
+  if (typeof window === "undefined" || !window.matchMedia) {
+    return "dark";
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
 const themeSwitcherStyles = css`
   :host {
     display: inline-flex;
@@ -37,22 +48,42 @@ const themeSwitcherStyles = css`
     outline-offset: 2px;
   }
 
-  /* 太阳图标（亮色模式）*/
+  /* Auto icon (system) */
+  .auto-icon {
+    display: none;
+  }
+
+  /* Sun icon (light mode) */
   .sun-icon {
     display: none;
   }
 
-  /* 月亮图标（暗色模式）*/
+  /* Moon icon (dark mode) — default visible */
   .moon-icon {
     display: inline-block;
   }
 
-  /* 当主题为 light 时切换图标 */
+  :host([data-theme="auto"]) .auto-icon {
+    display: inline-block;
+  }
+  :host([data-theme="auto"]) .moon-icon,
+  :host([data-theme="auto"]) .sun-icon {
+    display: none;
+  }
+
   :host([data-theme="light"]) .sun-icon {
     display: inline-block;
   }
+  :host([data-theme="light"]) .moon-icon,
+  :host([data-theme="light"]) .auto-icon {
+    display: none;
+  }
 
-  :host([data-theme="light"]) .moon-icon {
+  :host([data-theme="dark"]) .moon-icon {
+    display: inline-block;
+  }
+  :host([data-theme="dark"]) .sun-icon,
+  :host([data-theme="dark"]) .auto-icon {
     display: none;
   }
 `;
@@ -60,82 +91,93 @@ const themeSwitcherStyles = css`
 export const ThemeSwitcher = defineElement("rikka-theme-switcher", {
   styles: themeSwitcherStyles,
   render() {
-    const toggleTheme = () => {
-      const currentTheme = document.documentElement.getAttribute("data-theme");
-      const newTheme = currentTheme === "light" ? "dark" : "light";
-      
-      // 应用新主题
-      document.documentElement.setAttribute("data-theme", newTheme);
-      this.setAttribute("data-theme", newTheme);
-      
-      // 保存到 localStorage
+    const applyMode = (mode: ThemeMode) => {
+      document.documentElement.setAttribute("data-theme", mode);
+      this.setAttribute("data-theme", mode);
+
       try {
-        localStorage.setItem("theme", newTheme);
-      } catch (e) {
-        console.warn("无法保存主题偏好到 localStorage:", e);
+        localStorage.setItem("theme", mode);
+      } catch {
+        // localStorage unavailable
       }
 
-      // 触发自定义事件
-      this.dispatchEvent(new CustomEvent("theme-changed", { 
-        detail: { theme: newTheme },
-        bubbles: true,
-        composed: true,
-      }));
+      this.dispatchEvent(
+        new CustomEvent("theme-changed", {
+          detail: { mode },
+          bubbles: true,
+          composed: true,
+        }),
+      );
     };
 
-    // 初始化：从 localStorage 或系统偏好读取
-    const initializeTheme = () => {
-      let savedTheme = null;
-      
-      try {
-        savedTheme = localStorage.getItem("theme");
-      } catch (e) {
-        console.warn("无法读取 localStorage:", e);
-      }
-
-      if (!savedTheme) {
-        // 检查系统偏好
-        if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) {
-          savedTheme = "light";
-        } else {
-          savedTheme = "dark"; // 默认暗色
-        }
-      }
-
-      document.documentElement.setAttribute("data-theme", savedTheme);
-      this.setAttribute("data-theme", savedTheme);
+    const cycleTheme = () => {
+      const current =
+        (document.documentElement.getAttribute("data-theme") as ThemeMode) ||
+        "auto";
+      const next: ThemeMode =
+        current === "dark" ? "light" : current === "light" ? "auto" : "dark";
+      applyMode(next);
     };
 
-    // 初始化主题
-    initializeTheme();
-
-    // 监听系统主题变化
-    if (window.matchMedia) {
-      window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", (e) => {
-        let savedTheme: string | null = null;
-        try {
-          savedTheme = localStorage.getItem("theme");
-        } catch {
-          // localStorage unavailable
-        }
-        if (!savedTheme) {
-          const newTheme = e.matches ? "light" : "dark";
-          document.documentElement.setAttribute("data-theme", newTheme);
-          this.setAttribute("data-theme", newTheme);
-        }
-      });
+    // Initialize: read from localStorage, default to auto
+    let savedMode: ThemeMode | null = null;
+    try {
+      const stored = localStorage.getItem("theme");
+      if (stored === "auto" || stored === "light" || stored === "dark") {
+        savedMode = stored;
+      }
+    } catch {
+      // localStorage unavailable
     }
+
+    const initialMode: ThemeMode = savedMode ?? "auto";
+    applyMode(initialMode);
+
+    // Listen for system theme changes — no DOM change needed since CSS
+    // @media (prefers-color-scheme) handles the auto mode automatically.
+    // We only need to re-dispatch so other JS listeners can react.
+    if (typeof window.matchMedia === "function") {
+      window
+        .matchMedia("(prefers-color-scheme: dark)")
+        .addEventListener("change", () => {
+          if (
+            document.documentElement.getAttribute("data-theme") === "auto"
+          ) {
+            this.dispatchEvent(
+              new CustomEvent("theme-changed", {
+                detail: { mode: "auto" },
+                bubbles: true,
+                composed: true,
+              }),
+            );
+          }
+        });
+    }
+
+    const nextLabel = () => {
+      const current =
+        (document.documentElement.getAttribute("data-theme") as ThemeMode) ||
+        "auto";
+      const next: ThemeMode =
+        current === "dark" ? "light" : current === "light" ? "auto" : "dark";
+      const labels: Record<ThemeMode, string> = {
+        dark: "dark",
+        light: "light",
+        auto: "system",
+      };
+      return labels[next];
+    };
 
     return button(
       {
         class: "theme-toggle",
-        onclick: () => toggleTheme(),
+        onclick: () => cycleTheme(),
         title: "Toggle theme",
-        "aria-label": `Switch to ${document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light"} mode`,
+        "aria-label": `Switch to ${nextLabel()} mode`,
       },
+      span({ class: "auto-icon" }, "💻"),
       span({ class: "sun-icon" }, "☀️"),
       span({ class: "moon-icon" }, "🌙"),
     );
   },
 });
-

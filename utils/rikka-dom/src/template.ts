@@ -78,26 +78,7 @@ export function inlineStyle(
   }
 
   const result: Record<string, unknown> = {};
-  const declarations: string[] = [];
-  let current = "";
-  let inString: string | null = null;
-  for (const ch of cssText) {
-    if (inString) {
-      current += ch;
-      if (ch === inString) inString = null;
-    } else if (ch === '"' || ch === "'") {
-      current += ch;
-      inString = ch;
-    } else if (ch === ";") {
-      const trimmed = current.trim();
-      if (trimmed) declarations.push(trimmed);
-      current = "";
-    } else {
-      current += ch;
-    }
-  }
-  const trimmed = current.trim();
-  if (trimmed) declarations.push(trimmed);
+  const declarations = splitDeclarations(cssText);
 
   for (const decl of declarations) {
     const colonIndex = decl.indexOf(":");
@@ -134,17 +115,51 @@ export function inlineStyle(
   return result;
 }
 
+/**
+ * Split CSS text into individual declarations, respecting quoted strings
+ * so semicolons inside quotes don't break the split.
+ */
+function splitDeclarations(cssText: string): string[] {
+  const declarations: string[] = [];
+  let current = "";
+  let inString: string | null = null;
+  for (let i = 0; i < cssText.length; i++) {
+    const ch = cssText[i];
+    if (inString) {
+      current += ch;
+      if (ch === inString && cssText[i - 1] !== "\\") inString = null;
+    } else if (ch === '"' || ch === "'") {
+      current += ch;
+      inString = ch;
+    } else if (ch === ";") {
+      const trimmed = current.trim();
+      if (trimmed) declarations.push(trimmed);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  const trimmed = current.trim();
+  if (trimmed) declarations.push(trimmed);
+  return declarations;
+}
+
 function isInAttributeValue(
   strings: TemplateStringsArray,
   index: number,
 ): boolean {
-  const before = strings[index];
+  // We must process all strings from 0..index to correctly carry over
+  // quote state across template segments. A single segment like
+  // '" title="' both closes one attribute and opens another; starting
+  // fresh for each segment would lose the opening quote.
   let inSingle = false;
   let inDouble = false;
-  for (let i = 0; i < before.length; i++) {
-    const ch = before[i];
-    if (ch === '"' && !inSingle) inDouble = !inDouble;
-    if (ch === "'" && !inDouble) inSingle = !inSingle;
+  for (let s = 0; s <= index; s++) {
+    for (let i = 0; i < strings[s].length; i++) {
+      const ch = strings[s][i];
+      if (ch === '"' && !inSingle) inDouble = !inDouble;
+      if (ch === "'" && !inDouble) inSingle = !inSingle;
+    }
   }
   return inSingle || inDouble;
 }
@@ -159,6 +174,7 @@ export function hTemplate(
   const textSignals = new Map<string, any>();
   const attrSignals = new Map<string, any>();
   const elementBindings = new Map<string, Element>();
+  const ATTR_BEACON = "data-rk-bind";
 
   for (let i = 0; i < strings.length; i++) {
     html += strings[i];
@@ -182,6 +198,15 @@ export function hTemplate(
         html += String(value ?? "");
       }
     }
+  }
+
+  // Inject beacon attributes on tags that contain signal markers,
+  // so we can find them with a precise selector instead of scanning all elements.
+  if (attrSignals.size > 0) {
+    html = html.replace(
+      /(<[a-zA-Z][a-zA-Z0-9-]*[^>]*__rk_attr_[^>]*?)(\s*\/?>)/g,
+      `$1 ${ATTR_BEACON}=""$2`,
+    );
   }
 
   container.innerHTML = html;
@@ -232,8 +257,9 @@ export function hTemplate(
   }
 
   if (attrSignals.size > 0) {
-    const allElements = container.querySelectorAll("*");
-    for (const el of allElements) {
+    const bindableElements = container.querySelectorAll(`[${ATTR_BEACON}]`);
+    for (const el of bindableElements) {
+      el.removeAttribute(ATTR_BEACON);
       for (const attr of Array.from(el.attributes)) {
         const attrBindings: Array<{ marker: string; signal: any }> = [];
         for (const [marker, signal] of attrSignals) {

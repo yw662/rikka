@@ -1118,6 +1118,60 @@ describe("h`` template tag", () => {
     for (const el of elements) container.appendChild(el);
     expect(container.querySelector("span")?.textContent).toBe("factory");
   });
+
+  it("does not leave data-rk-bind beacon attribute in DOM", async () => {
+    const color = signal("red");
+    const elements = h`<div style="color: ${color}">Text</div>`;
+    const div = elements[0];
+    expect(div.hasAttribute("data-rk-bind")).toBe(false);
+    expect(div.style.color).toBe("red");
+  });
+
+  it("finds beacon attribute via querySelectorAll in happy-dom", () => {
+    const container = document.createElement("div");
+    container.innerHTML = '<div data-rk-bind="" data-color="__rk_attr_0__">test</div>';
+    const found = container.querySelectorAll("[data-rk-bind]");
+    expect(found.length).toBe(1);
+    expect(found[0].getAttribute("data-color")).toBe("__rk_attr_0__");
+  });
+
+  it("beacon regex injects data-rk-bind for tags with __rk_attr_ markers", () => {
+    const html = '<div data-color="__rk_attr_0__" title="__rk_attr_1__">Text</div>';
+    const result = html.replace(
+      /(<[a-zA-Z][a-zA-Z0-9-]*[^>]*__rk_attr_[^>]*?)(\s*\/?>)/g,
+      '$1 data-rk-bind=""$2',
+    );
+    expect(result).toContain('data-rk-bind=""');
+  });
+
+  it("binds multiple signal attributes in template on same element", async () => {
+    const color = signal("red");
+    const title = signal("old");
+    const elements = h`<div data-color="${color}" title="${title}">Text</div>`;
+    const div = elements[0];
+    expect(div.getAttribute("data-color")).toBe("red");
+    expect(div.getAttribute("title")).toBe("old");
+    expect(div.hasAttribute("data-rk-bind")).toBe(false);
+
+    color.set("blue");
+    title.set("new");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(div.getAttribute("data-color")).toBe("blue");
+    expect(div.getAttribute("title")).toBe("new");
+  });
+
+  it("handles template with signal attrs on some elements but not others", async () => {
+    const color = signal("red");
+    const elements = h`<span>static</span><div style="color: ${color}">dynamic</div>`;
+    const span = elements[0];
+    const div = elements[1];
+    expect(span.hasAttribute("data-rk-bind")).toBe(false);
+    expect(div.hasAttribute("data-rk-bind")).toBe(false);
+    expect(div.style.color).toBe("red");
+    color.set("blue");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(div.style.color).toBe("blue");
+  });
 });
 
 describe("ReactiveRange", () => {
@@ -1154,6 +1208,20 @@ describe("ReactiveRange", () => {
     parent.insertBefore(h("span", "B"), range.end);
     parent.insertBefore(document.createTextNode("C"), range.end);
     expect(parent.childNodes.length).toBe(5);
+    range.clear();
+    expect(parent.childNodes.length).toBe(2);
+    expect(parent.firstChild).toBe(range.start);
+    expect(parent.lastChild).toBe(range.end);
+  });
+
+  it("clear() removes many children efficiently via Range API", () => {
+    const range = new ReactiveRange(() => {});
+    const parent = document.createElement("div");
+    range.attach(parent, null);
+    for (let i = 0; i < 100; i++) {
+      parent.insertBefore(document.createTextNode(`node-${i}`), range.end);
+    }
+    expect(parent.childNodes.length).toBe(102);
     range.clear();
     expect(parent.childNodes.length).toBe(2);
     expect(parent.firstChild).toBe(range.start);
@@ -1230,6 +1298,25 @@ describe("ReactiveRange", () => {
     );
     expect(children[0]).toBe(a);
     expect(children[1]).toBe(b);
+  });
+
+  it("reconcile() fast-path: appends all elements when range is empty", () => {
+    const range = new ReactiveRange(() => {});
+    const parent = document.createElement("div");
+    range.attach(parent, null);
+
+    const a = h("span", "A");
+    const b = h("span", "B");
+    const c = h("span", "C");
+    range.reconcile([a, b, c]);
+
+    const children = Array.from(parent.childNodes).filter(
+      (n) => n instanceof Element,
+    );
+    expect(children.length).toBe(3);
+    expect(children[0]).toBe(a);
+    expect(children[1]).toBe(b);
+    expect(children[2]).toBe(c);
   });
 
   it("detach() removes markers and clears content", () => {
@@ -1691,6 +1778,65 @@ describe("Two-way binding", () => {
   });
 });
 
+describe("Batched signal attribute binding", () => {
+  it("updates multiple signal attributes on the same element", async () => {
+    const className = signal("a");
+    const title = signal("old");
+    const el = h("div", { class: className, title, id: "static" });
+    expect(el.className).toBe("a");
+    expect(el.getAttribute("title")).toBe("old");
+    expect(el.id).toBe("static");
+
+    className.set("b");
+    title.set("new");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.className).toBe("b");
+    expect(el.getAttribute("title")).toBe("new");
+    expect(el.id).toBe("static");
+  });
+
+  it("handles mix of signal and static attributes", async () => {
+    const className = signal("initial");
+    const el = h("div", { class: className, id: "fixed", "data-x": "y" });
+    expect(el.className).toBe("initial");
+    expect(el.id).toBe("fixed");
+    expect(el.getAttribute("data-x")).toBe("y");
+
+    className.set("updated");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.className).toBe("updated");
+    expect(el.id).toBe("fixed");
+    expect(el.getAttribute("data-x")).toBe("y");
+  });
+
+  it("handles single signal attribute (non-batched path)", async () => {
+    const className = signal("a");
+    const el = h("div", { class: className, id: "static" });
+    expect(el.className).toBe("a");
+    className.set("b");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.className).toBe("b");
+  });
+
+  it("handles three signal attributes on one element", async () => {
+    const a = signal("1");
+    const b = signal("2");
+    const c = signal("3");
+    const el = h("div", { "data-a": a, "data-b": b, "data-c": c });
+    expect(el.getAttribute("data-a")).toBe("1");
+    expect(el.getAttribute("data-b")).toBe("2");
+    expect(el.getAttribute("data-c")).toBe("3");
+
+    a.set("x");
+    b.set("y");
+    c.set("z");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.getAttribute("data-a")).toBe("x");
+    expect(el.getAttribute("data-b")).toBe("y");
+    expect(el.getAttribute("data-c")).toBe("z");
+  });
+});
+
 describe("Signal boolean attribute binding", () => {
   it("binds Signal.State<boolean> to disabled attribute", async () => {
     const disabled = signal(false);
@@ -1857,6 +2003,18 @@ describe("inlineStyle edge cases", () => {
     value.set("blue");
     await new Promise((r) => setTimeout(r, 50));
     expect((el as HTMLElement).style.background).toBe("blue");
+  });
+
+  it("handles escaped quotes inside CSS values", () => {
+    const s = inlineStyle`content: "hello \\"world\\""; color: red`;
+    expect(s.content).toBe('"hello \\"world\\""');
+    expect(s.color).toBe("red");
+  });
+
+  it("handles single-quoted values with escaped quotes", () => {
+    const s = inlineStyle`content: 'it\\'s here'; color: blue`;
+    expect(s.content).toBe("'it\\'s here'");
+    expect(s.color).toBe("blue");
   });
 });
 
@@ -2085,5 +2243,256 @@ describe("control-flow: detached range early-returns on re-run", () => {
     val.set("b");
     range.detach();
     await new Promise((r) => setTimeout(r, 30));
+  });
+});
+
+describe("Batched two-way binding", () => {
+  it("syncs back input value when batched with another signal attribute", async () => {
+    const value = signal("hello");
+    const title = signal("old");
+    const el = h("input", { value, title }) as HTMLInputElement;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.value).toBe("hello");
+    expect(el.getAttribute("title")).toBe("old");
+
+    value.set("world");
+    title.set("new");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.value).toBe("world");
+    expect(el.getAttribute("title")).toBe("new");
+
+    el.value = "typed";
+    el.dispatchEvent(new Event("input"));
+    expect(value.get()).toBe("typed");
+    el.remove();
+  });
+
+  it("syncs back checkbox checked when batched with another signal attribute", async () => {
+    const checked = signal(false);
+    const title = signal("cb");
+    const el = h("input", { type: "checkbox", checked, title }) as HTMLInputElement;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.checked).toBe(false);
+    expect(el.getAttribute("title")).toBe("cb");
+
+    checked.set(true);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.checked).toBe(true);
+
+    el.checked = false;
+    el.dispatchEvent(new Event("change"));
+    expect(checked.get()).toBe(false);
+    el.remove();
+  });
+
+  it("handles batched value + checked on same input", async () => {
+    const value = signal("a");
+    const checked = signal(true);
+    const el = h("input", { type: "checkbox", value, checked }) as HTMLInputElement;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.value).toBe("a");
+    expect(el.checked).toBe(true);
+
+    value.set("b");
+    checked.set(false);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.value).toBe("b");
+    expect(el.checked).toBe(false);
+
+    el.value = "c";
+    el.dispatchEvent(new Event("input"));
+    expect(value.get()).toBe("c");
+
+    el.checked = true;
+    el.dispatchEvent(new Event("change"));
+    expect(checked.get()).toBe(true);
+    el.remove();
+  });
+});
+
+describe("h`` template tag: attribute binding edge cases", () => {
+  it("binds signal in single-quoted attribute", async () => {
+    const color = signal("red");
+    const elements = h`<div data-color='${color}'>Text</div>`;
+    const div = elements[0];
+    expect(div.getAttribute("data-color")).toBe("red");
+    color.set("blue");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(div.getAttribute("data-color")).toBe("blue");
+  });
+
+  it("binds multiple signal attributes with mixed quote styles", async () => {
+    const color = signal("red");
+    const title = signal("tip");
+    const elements = h`<div data-color='${color}' title="${title}">Text</div>`;
+    const div = elements[0];
+    expect(div.getAttribute("data-color")).toBe("red");
+    expect(div.getAttribute("title")).toBe("tip");
+    color.set("blue");
+    title.set("new");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(div.getAttribute("data-color")).toBe("blue");
+    expect(div.getAttribute("title")).toBe("new");
+  });
+
+  it("binds signal attribute with static prefix and suffix", async () => {
+    const size = signal("16");
+    const elements = h`<div style="font-size: ${size}px; color: red">Text</div>`;
+    const div = elements[0];
+    expect(div.style.fontSize).toBe("16px");
+    expect(div.style.color).toBe("red");
+    size.set("20");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(div.style.fontSize).toBe("20px");
+  });
+
+  it("binds multiple signals in the same attribute value", async () => {
+    const x = signal("10");
+    const y = signal("20");
+    const elements = h`<div style="top: ${x}px; left: ${y}px">Pos</div>`;
+    const div = elements[0];
+    expect(div.style.top).toBe("10px");
+    expect(div.style.left).toBe("20px");
+    x.set("30");
+    y.set("40");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(div.style.top).toBe("30px");
+    expect(div.style.left).toBe("40px");
+  });
+
+  it("updates signal text between static text", async () => {
+    const name = signal("Alice");
+    const elements = h`<span>Hello ${name}!</span>`;
+    const container = document.createElement("div");
+    for (const el of elements) container.appendChild(el);
+    expect(container.textContent).toBe("Hello Alice!");
+    name.set("Bob");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(container.textContent).toBe("Hello Bob!");
+  });
+
+  it("handles signal attribute on nested element", async () => {
+    const color = signal("red");
+    const elements = h`<div><span style="color: ${color}">inner</span></div>`;
+    const div = elements[0];
+    const span = div.querySelector("span")!;
+    expect(span.style.color).toBe("red");
+    color.set("blue");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(span.style.color).toBe("blue");
+  });
+
+  it("handles signal attribute on self-closing tag", async () => {
+    const src = signal("a.png");
+    const elements = h`<img src="${src}" />`;
+    const img = elements[0];
+    expect(img.getAttribute("src")).toBe("a.png");
+    src.set("b.png");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(img.getAttribute("src")).toBe("b.png");
+  });
+
+  it("handles null signal value in template text position", async () => {
+    const name = signal<string | null>("Alice");
+    const elements = h`<span>Hello ${name}!</span>`;
+    const container = document.createElement("div");
+    for (const el of elements) container.appendChild(el);
+    expect(container.textContent).toBe("Hello Alice!");
+    name.set(null);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(container.textContent).toBe("Hello !");
+  });
+});
+
+describe("ReactiveRange edge cases", () => {
+  it("clear() is no-op when range has no parent", () => {
+    const range = new ReactiveRange(() => {});
+    // Not attached, so parent is null — clear should not throw
+    range.clear();
+  });
+
+  it("reconcile() is no-op when range is not alive", () => {
+    const range = new ReactiveRange(() => {});
+    const parent = document.createElement("div");
+    range.attach(parent, null);
+    range.detach();
+    // After detach, alive is false — reconcile should not throw
+    range.reconcile([h("span", "A")]);
+    expect(parent.childNodes.length).toBe(0);
+  });
+
+  it("reconcile() is no-op when range has no parent", () => {
+    const range = new ReactiveRange(() => {});
+    // Not attached, so parent is null — reconcile should not throw
+    range.reconcile([h("span", "A")]);
+  });
+
+  it("detach() called twice does not throw", () => {
+    const range = new ReactiveRange(() => {});
+    const parent = document.createElement("div");
+    range.attach(parent, null);
+    range.detach();
+    // Second detach should be safe
+    range.detach();
+    expect(parent.childNodes.length).toBe(0);
+  });
+
+  it("attach() runs setup exactly once", () => {
+    let setupCalls = 0;
+    const range = new ReactiveRange(() => {
+      setupCalls++;
+    });
+    const parent = document.createElement("div");
+    range.attach(parent, null);
+    expect(setupCalls).toBe(1);
+  });
+});
+
+describe("h() with boolean signal attributes", () => {
+  it("toggles hidden attribute via signal", async () => {
+    const hidden = signal(false);
+    const el = h("div", { hidden });
+    expect(el.hasAttribute("hidden")).toBe(false);
+    hidden.set(true);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.hasAttribute("hidden")).toBe(true);
+    hidden.set(false);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.hasAttribute("hidden")).toBe(false);
+  });
+});
+
+describe("For with empty initial list", () => {
+  it("renders nothing for empty array", () => {
+    const items = signal<string[]>([]);
+    const list = For(items, (item) => h("li", item));
+    const container = h("div", list);
+    expect(container.querySelectorAll("li").length).toBe(0);
+  });
+
+  it("adds items from empty to non-empty", async () => {
+    const items = signal<string[]>([]);
+    const list = For(items, (item) => h("li", item));
+    const container = h("div", list);
+    expect(container.querySelectorAll("li").length).toBe(0);
+    items.set(["a", "b"]);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(container.querySelectorAll("li").length).toBe(2);
+  });
+});
+
+describe("Signal child with nested signal in style object", () => {
+  it("updates individual style property signal without clearing others", async () => {
+    const color = signal("red");
+    const el = h("div", { style: { color, fontSize: "16px" } });
+    expect(el.style.color).toBe("red");
+    expect(el.style.fontSize).toBe("16px");
+    color.set("blue");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.style.color).toBe("blue");
+    expect(el.style.fontSize).toBe("16px");
   });
 });

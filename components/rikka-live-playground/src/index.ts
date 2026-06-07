@@ -6,7 +6,14 @@ import {
   type ElementConfig,
   type AttributeSpec,
 } from "@takanashi/rikka-elements";
-import { div, textarea, button, pre, span, section } from "@takanashi/rikka-dom";
+import {
+  div,
+  textarea,
+  button,
+  pre,
+  span,
+  section,
+} from "@takanashi/rikka-dom";
 import { computed, effect } from "@takanashi/rikka-signal";
 import * as esbuild from "esbuild-wasm";
 import wasmUrl from "esbuild-wasm/esbuild.wasm?url";
@@ -478,44 +485,97 @@ function getPlaygroundVars(host: HTMLElement): string {
 }
 
 const THEME_WATCHER_KEY = Symbol.for("rikka.livePlayground.themeWatcher");
+const PAGE_THEME_WATCHER_KEY = Symbol.for(
+  "rikka.livePlayground.pageThemeWatcher",
+);
 const THEME_MESSAGE_TYPE = "__rikka_playground_theme";
 const RESOLVED_THEME_KEY = Symbol.for("rikka.livePlayground.resolvedTheme");
 
 function watchPrefersColorScheme(callback: () => void): () => void {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+  if (
+    typeof window === "undefined" ||
+    typeof window.matchMedia !== "function"
+  ) {
     return () => {};
   }
   const mql = window.matchMedia("(prefers-color-scheme: dark)");
   const handler = () => callback();
   if (typeof mql.addEventListener === "function") {
     mql.addEventListener("change", handler);
-  } else if (typeof (mql as MediaQueryList & {
-    addListener?: (cb: () => void) => void;
-  }).addListener === "function") {
-    (mql as MediaQueryList & {
-      addListener: (cb: () => void) => void;
-    }).addListener(handler);
+  } else if (
+    typeof (
+      mql as MediaQueryList & {
+        addListener?: (cb: () => void) => void;
+      }
+    ).addListener === "function"
+  ) {
+    (
+      mql as MediaQueryList & {
+        addListener: (cb: () => void) => void;
+      }
+    ).addListener(handler);
   }
   return () => {
     if (typeof mql.removeEventListener === "function") {
       mql.removeEventListener("change", handler);
-    } else if (typeof (mql as MediaQueryList & {
-      removeListener?: (cb: () => void) => void;
-    }).removeListener === "function") {
-      (mql as MediaQueryList & {
-        removeListener: (cb: () => void) => void;
-      }).removeListener(handler);
+    } else if (
+      typeof (
+        mql as MediaQueryList & {
+          removeListener?: (cb: () => void) => void;
+        }
+      ).removeListener === "function"
+    ) {
+      (
+        mql as MediaQueryList & {
+          removeListener: (cb: () => void) => void;
+        }
+      ).removeListener(handler);
     }
   };
 }
 
 function resolveSystemTheme(): "dark" | "light" {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+  if (typeof window === "undefined") {
+    return "dark";
+  }
+  // Prefer the page's explicit data-theme on <html> over the OS preference.
+  // This ensures the playground follows the host page's theme system (e.g.
+  // rikka-homepage sets data-theme="light"|"dark" on documentElement).
+  const pageTheme = document.documentElement.getAttribute("data-theme");
+  if (pageTheme === "light" || pageTheme === "dark") {
+    return pageTheme;
+  }
+  if (typeof window.matchMedia !== "function") {
     return "dark";
   }
   return window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
     : "light";
+}
+
+function watchPageTheme(callback: () => void): () => void {
+  if (
+    typeof window === "undefined" ||
+    typeof MutationObserver === "undefined"
+  ) {
+    return () => {};
+  }
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      if (
+        m.type === "attributes" &&
+        (m as MutationRecord).attributeName === "data-theme"
+      ) {
+        callback();
+        return;
+      }
+    }
+  });
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
+  return () => observer.disconnect();
 }
 
 let esbuildInitPromise: Promise<void> | null = null;
@@ -978,7 +1038,11 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
           { class: "btn-group" },
           iconBtn("layout-vertical", "Vertical layout", "layout-vertical"),
           div({ class: "btn-divider" }),
-          iconBtn("layout-horizontal", "Horizontal layout", "layout-horizontal"),
+          iconBtn(
+            "layout-horizontal",
+            "Horizontal layout",
+            "layout-horizontal",
+          ),
         ),
         div(
           { class: "btn-group" },
@@ -1110,10 +1174,7 @@ function applyButtonStates(
   if (!header) return;
   header.querySelectorAll<HTMLElement>("[data-action]").forEach((btn) => {
     const action = btn.dataset.action;
-    if (
-      action === "layout-vertical" ||
-      action === "layout-horizontal"
-    ) {
+    if (action === "layout-vertical" || action === "layout-horizontal") {
       btn.classList.toggle("active", action === `layout-${layout}`);
     } else if (
       action === "panel-both" ||
@@ -1129,13 +1190,7 @@ function wirePostMount(self: LivePlaygroundElement, refs: PostMountRefs): void {
   // === Resize handles: drag the editor ↔ preview divider (editor) or the
   // bottom edge (preview). State is captured per-pointerdown and torn down
   // on pointerup. Listeners are removed when the element disposes. ===
-  const {
-    body,
-    editorPane,
-    editorHandle,
-    previewHandle,
-    splitArea,
-  } = refs;
+  const { body, editorPane, editorHandle, previewHandle, splitArea } = refs;
 
   const onEditorPointerDown = (e: PointerEvent) => {
     if (e.button !== undefined && e.button !== 0) return;
@@ -1291,6 +1346,18 @@ function wirePostMount(self: LivePlaygroundElement, refs: PostMountRefs): void {
     }
   });
 
+  // Watch the page's data-theme attribute on <html> so the playground
+  // follows the host page's theme system when theme="auto".
+  const pageWatcherSlot = self as unknown as {
+    [PAGE_THEME_WATCHER_KEY]?: () => void;
+  };
+  pageWatcherSlot[PAGE_THEME_WATCHER_KEY]?.();
+  pageWatcherSlot[PAGE_THEME_WATCHER_KEY] = watchPageTheme(() => {
+    if (self.theme === "auto") {
+      syncTheme("auto");
+    }
+  });
+
   // === Fullscreen: keep the icon and host attribute in sync with the
   // browser fullscreen element. ===
   const fsHandler = () => {
@@ -1313,6 +1380,11 @@ function wirePostMount(self: LivePlaygroundElement, refs: PostMountRefs): void {
     const themeSlot = self as unknown as { [THEME_WATCHER_KEY]?: () => void };
     themeSlot[THEME_WATCHER_KEY]?.();
     themeSlot[THEME_WATCHER_KEY] = undefined;
+    const pageThemeSlot = self as unknown as {
+      [PAGE_THEME_WATCHER_KEY]?: () => void;
+    };
+    pageThemeSlot[PAGE_THEME_WATCHER_KEY]?.();
+    pageThemeSlot[PAGE_THEME_WATCHER_KEY] = undefined;
   });
 }
 

@@ -626,6 +626,116 @@ textarea {
   --shadow-primary: 0 4px 15px rgba(99, 102, 241, 0.2), 0 0 30px rgba(99, 102, 241, 0.08);
 }
 
+/* ===== Auto Theme + System Light (auto 模式跟随系统浅色) ===== */
+@media (prefers-color-scheme: light) {
+  [data-theme="auto"] {
+    --color-background: #ffffff;
+    --color-surface: #f8fafc;
+    --color-surface-elevated: #f1f5f9;
+    --color-surface-hover: #e2e8f0;
+    --color-surface-light: #f8fafc;
+    --color-code-bg: #f1f5f9;
+
+    --color-text-primary: #1e293b;
+    --color-text-secondary: #475569;
+    --color-text-muted: #64748b;
+    --color-text-inverse: #ffffff;
+
+    --color-border: #cbd5e1;
+    --color-border-subtle: #e2e8f0;
+    --color-border-hover: #94a3b8;
+
+    --color-card-bg: #ffffff;
+    --color-card-border: #e2e8f0;
+    --color-card-bg-hover: #f8fafc;
+    --color-card-gradient-start: #ffffff;
+    --color-card-gradient-end: #f8fafc;
+    --color-tag-bg: rgba(99, 102, 241, 0.08);
+    --color-tag-border: rgba(99, 102, 241, 0.2);
+    --color-tag-bg-hover: rgba(99, 102, 241, 0.15);
+    --color-tag-text: #4338ca;
+    --color-code-block-bg: #f1f5f9;
+    --color-code-block-text: #1e293b;
+    --color-code-block-border: #cbd5e1;
+    --color-npm-bg: #f1f5f9;
+    --color-npm-text: #4338ca;
+    --color-step-code-bg: rgba(99, 102, 241, 0.08);
+    --color-step-code-text: #4338ca;
+    --color-tagline-text: #4f46e5;
+    --color-footer-text: #475569;
+    --color-footer-text-muted: #94a3b8;
+    --color-footer-text-hover: #1e293b;
+    --color-footer-link: #475569;
+    --color-footer-bg: #f1f5f9;
+    --color-footer-border: #cbd5e1;
+    --color-tags-section-bg: rgba(99, 102, 241, 0.04);
+    --color-nav-bg: rgba(255, 255, 255, 0.85);
+    --color-nav-border: #e2e8f0;
+    --color-nav-link: #475569;
+    --color-nav-link-hover: #1e293b;
+    --color-nav-link-active: #6366f1;
+    --color-nav-link-bg: rgba(99, 102, 241, 0.08);
+    --color-nav-link-active-bg: rgba(99, 102, 241, 0.12);
+    --color-demo-section-bg: #f1f5f9;
+    --color-section-title: #1e293b;
+    --color-section-subtitle: #475569;
+    --color-hero-bg-start: #ffffff;
+    --color-hero-bg-end: #f8fafc;
+    --color-hero-glow-start: rgba(99, 102, 241, 0.08);
+    --color-hero-orb: rgba(99, 102, 241, 0.15);
+    --color-hero-grid: rgba(99, 102, 241, 0.05);
+    --color-hero-badge-bg: rgba(99, 102, 241, 0.08);
+    --color-hero-badge-border: rgba(99, 102, 241, 0.25);
+    --color-feature-icon-bg: rgba(99, 102, 241, 0.1);
+    --color-stat-pill-bg: rgba(99, 102, 241, 0.05);
+    --color-stat-pill-border: rgba(99, 102, 241, 0.18);
+    --color-btn-secondary-bg: rgba(255, 255, 255, 0.6);
+    --color-btn-secondary-border: #cbd5e1;
+    --color-btn-secondary-hover-bg: rgba(99, 102, 241, 0.1);
+    --color-advanced-tag-bg: rgba(210, 153, 34, 0.1);
+    --color-code-inline-bg: rgba(99, 102, 241, 0.08);
+    --color-showcase-learn-bg: rgba(99, 102, 241, 0.05);
+
+    --gradient-surface: linear-gradient(135deg, #f1f5f9 0%, #f8fafc 100%);
+    --gradient-text: linear-gradient(135deg, #1e293b 0%, #6366f1 50%, #a855f7 100%);
+    --gradient-card: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    --gradient-section-dark: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+    --gradient-hero-title: linear-gradient(135deg, #1e293b 0%, #6366f1 50%, #a855f7 100%);
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-primary: 0 4px 15px rgba(99, 102, 241, 0.2), 0 0 30px rgba(99, 102, 241, 0.08);
+  }
+
+  [data-theme="auto"] rikka-live-playground {
+    --pg-bg: var(--color-background);
+    --pg-surface: var(--color-surface);
+    --pg-surface-elevated: var(--color-surface-elevated);
+    --pg-surface-2: var(--color-surface);
+    --pg-surface-hover: var(--color-surface-hover);
+    --pg-border: var(--color-border);
+    --pg-text: var(--color-text-primary);
+    --pg-text-muted: var(--color-text-secondary);
+    --pg-text-subtle: var(--color-text-muted);
+    --pg-text-strong: var(--color-text-primary);
+    --pg-text-inverse: var(--color-text-inverse);
+    --pg-accent: var(--color-primary);
+    --pg-accent-soft: rgba(99, 102, 241, 0.08);
+    --pg-accent-soft-strong: rgba(99, 102, 241, 0.15);
+    --pg-accent-active: #6366f1;
+    --pg-error-bg: rgba(248, 81, 73, 0.06);
+    --pg-success: var(--color-success);
+    --pg-success-hover: var(--color-success);
+    --pg-warn: var(--color-warning);
+    --pg-error: var(--color-error);
+    --pg-info: var(--color-info);
+    --pg-handle-grip: var(--color-border);
+    --pg-spinner-track: var(--color-border);
+    --pg-spinner-active: var(--color-primary);
+  }
+}
+
 /* ===== Live Playground (浅色主题配色) ===== */
 [data-theme="light"] rikka-live-playground {
   --pg-bg: var(--color-background);
