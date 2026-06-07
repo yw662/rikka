@@ -281,7 +281,6 @@ const navRoutes = [
   { label: "Playground", path: "/playground" },
   { label: "Docs", path: "/docs" },
   { label: "Examples", path: "/examples" },
-  { label: "Showcases", path: "/showcases" },
   { label: "Agent Skills", path: "skills/index.html", external: true },
 ];
 

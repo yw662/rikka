@@ -16,18 +16,26 @@ const signalPolyfillDist = resolve(
 );
 
 export default defineConfig({
+  server: {
+    host: "0.0.0.0",
+    port: 3000,
+  },
   source: {
     entry: {
       index: "./src/main.ts",
     },
     tsconfigPath: "./tsconfig.json",
   },
+  resolve: {
+    alias: {
+      "@takanashi/rikka-signal": resolve(workspaceRoot, "utils/rikka-signal/src/index.ts"),
+      "@takanashi/rikka-dom": resolve(workspaceRoot, "utils/rikka-dom/src/index.ts"),
+      "@takanashi/rikka-elements": resolve(workspaceRoot, "utils/rikka-elements/src/index.ts"),
+      "@takanashi/rikka-live-playground": resolve(workspaceRoot, "components/rikka-live-playground/src/index.ts"),
+    },
+  },
   html: {
     template: "./index.html",
-  },
-  server: {
-    port: 3000,
-    host: "0.0.0.0",
   },
   output: {
     distPath: {
@@ -125,6 +133,23 @@ export default defineConfig({
       {
         from: resolve(workspaceRoot, "llms.txt"),
         to: "llms.txt",
+      },
+      // Copy examples
+      {
+        from: resolve(workspaceRoot, "examples/pomodoro-timer/dist"),
+        to: "examples/pomodoro-timer",
+      },
+      {
+        from: resolve(workspaceRoot, "examples/bookmark-manager/dist"),
+        to: "examples/bookmark-manager",
+      },
+      {
+        from: resolve(workspaceRoot, "examples/code-editor/dist"),
+        to: "examples/code-editor",
+      },
+      {
+        from: resolve(workspaceRoot, "examples/finance-tracker/dist"),
+        to: "examples/finance-tracker",
       },
     ],
   },

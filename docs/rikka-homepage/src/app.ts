@@ -30,21 +30,10 @@ import './pages/docs/17-attach-template';
 import './pages/docs/18-css-template';
 import './pages/docs/23-style-template';
 import './pages/docs/21-api-reference';
-import './pages/examples/counter';
-import './pages/examples/todo';
-import './pages/examples/color-picker';
-import './pages/examples/tabs';
-import './pages/examples/live-search';
-import './pages/examples/mission-control';
-import './pages/examples/kanban';
-import './pages/examples/token-manager';
-import './pages/examples/knowledge-base';
-import './pages/examples/mini-ide';
-import './pages/examples/collaboration';
-import './pages/showcases-index';
-import './pages/showcases/bookmark-manager';
-import './pages/showcases/code-editor';
-import './pages/showcases/finance-tracker';
+import './pages/examples/pomodoro-timer';
+import './pages/examples/bookmark-manager';
+import './pages/examples/code-editor';
+import './pages/examples/finance-tracker';
 
 interface RouteConfig {
   tag: string;
@@ -76,21 +65,10 @@ const routes: Record<string, RouteConfig> = {
   '/docs/@takanashi/rikka-elements/attach-template': { tag: 'rikka-doc-elements-17', showSidebar: true, title: 'attachTemplate — Rikka' },
   '/docs/api-reference': { tag: 'rikka-doc-api-ref', showSidebar: true, title: 'API Reference — Rikka' },
   '/examples': { tag: 'rikka-examples-index', showSidebar: false, title: 'Examples — Rikka' },
-  '/examples/counter': { tag: 'rikka-example-counter', showSidebar: false, title: 'Counter — Rikka' },
-  '/examples/todo': { tag: 'rikka-example-todo', showSidebar: false, title: 'Todo — Rikka' },
-  '/examples/color-picker': { tag: 'rikka-example-color-picker', showSidebar: false, title: 'Color Picker — Rikka' },
-  '/examples/tabs': { tag: 'rikka-example-tabs', showSidebar: false, title: 'Tabs — Rikka' },
-  '/examples/live-search': { tag: 'rikka-example-live-search', showSidebar: false, title: 'Live Search — Rikka' },
-  '/examples/mission-control': { tag: 'rikka-example-mission-control', showSidebar: false, title: 'Mission Control — Rikka' },
-  '/examples/kanban': { tag: 'rikka-example-kanban', showSidebar: false, title: 'Kanban — Rikka' },
-  '/examples/token-manager': { tag: 'rikka-example-token-manager', showSidebar: false, title: 'Token Manager — Rikka' },
-  '/examples/knowledge-base': { tag: 'rikka-example-knowledge-base', showSidebar: false, title: 'Knowledge Base — Rikka' },
-  '/examples/mini-ide': { tag: 'rikka-example-mini-ide', showSidebar: false, title: 'Mini IDE — Rikka' },
-  '/examples/collaboration': { tag: 'rikka-example-collaboration', showSidebar: false, title: 'Collaboration — Rikka' },
-  '/showcases': { tag: 'rikka-showcases-index', showSidebar: false, title: 'Showcases — Rikka' },
-  '/showcases/bookmark-manager': { tag: 'rikka-showcase-bookmark-manager', showSidebar: false, title: 'Bookmark Manager — Rikka' },
-  '/showcases/code-editor': { tag: 'rikka-showcase-code-editor', showSidebar: false, title: 'Code Editor — Rikka' },
-  '/showcases/finance-tracker': { tag: 'rikka-showcase-finance-tracker', showSidebar: false, title: 'Finance Tracker — Rikka' },
+  '/examples/pomodoro-timer': { tag: 'rikka-example-pomodoro-timer', showSidebar: false, title: 'Pomodoro Timer — Rikka' },
+  '/examples/bookmark-manager': { tag: 'rikka-example-bookmark-manager', showSidebar: false, title: 'Bookmark Manager — Rikka' },
+  '/examples/code-editor': { tag: 'rikka-example-code-editor', showSidebar: false, title: 'Code Editor — Rikka' },
+  '/examples/finance-tracker': { tag: 'rikka-example-finance-tracker', showSidebar: false, title: 'Finance Tracker — Rikka' },
 };
 
 const currentPath = signal('/');

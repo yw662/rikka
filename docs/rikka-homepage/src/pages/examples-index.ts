@@ -1,159 +1,169 @@
 import { defineElement } from "@takanashi/rikka-elements";
-import { css, div, h1, h2, p, a, span } from "@takanashi/rikka-dom";
-import {sharedHelpers} from "../shared/helpers";
-import {examplePageStyles} from "../shared/page-styles";
+import { div, h1, h2, h3, p, a, span, css } from "@takanashi/rikka-dom";
+import { examplePageStyles } from "../shared/page-styles";
 
 const styles = css`
   ${examplePageStyles}
 
   .examples-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1.5rem;
-    margin-top: 2rem;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 24px;
+    margin-top: 32px;
   }
+
   .example-card {
     background: var(--color-card-bg);
     border: 1px solid var(--color-card-border);
-    border-radius: 0.75rem;
-    padding: 1.5rem;
+    border-radius: 16px;
+    padding: 28px;
     transition: all 0.3s ease;
     text-decoration: none;
     color: inherit;
-    display: block;
-    position: relative;
-    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
-  .example-card::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--color-primary), var(--color-secondary), var(--color-primary));
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-  .example-card:hover::before {
-    opacity: 1;
-  }
+
   .example-card:hover {
     border-color: var(--color-primary);
     transform: translateY(-4px);
-    box-shadow: 0 12px 35px rgba(99, 102, 241, 0.18);
+    box-shadow: 0 20px 50px rgba(99, 102, 241, 0.15);
   }
-  .example-icon {
-    font-size: 2rem;
-    margin-bottom: 0.75rem;
-    display: block;
-  }
-  .example-card h2 {
-    color: var(--color-text-primary);
-    font-size: 1.25rem;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-  }
-  .example-card p {
-    color: var(--color-text-secondary);
-    font-size: 0.9375rem;
-    line-height: 1.6;
-    margin: 0 0 1rem 0;
-  }
-  .example-tags {
+
+  .example-header {
     display: flex;
-    gap: 0.5rem;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .example-icon {
+    font-size: 40px;
+    line-height: 1;
+  }
+
+  .example-meta {
+    display: flex;
+    gap: 8px;
     flex-wrap: wrap;
   }
+
   .example-tag {
     background: var(--color-tag-bg);
     color: var(--color-primary-light);
-    padding: 0.25rem 0.75rem;
-    border-radius: 1rem;
+    padding: 4px 12px;
+    border-radius: 20px;
     font-size: 0.75rem;
-    font-weight: 500;
+    font-weight: 600;
     border: 1px solid var(--color-tag-border);
+  }
+
+  .example-content h3 {
+    color: var(--color-text-primary);
+    font-size: 1.25rem;
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+
+  .example-content p {
+    color: var(--color-text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
+  .example-features {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .feature-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+  }
+
+  .feature-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    flex-shrink: 0;
+  }
+
+  .example-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-card-border);
+  }
+
+  .example-actions a {
+    flex: 1;
+    text-align: center;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .view-demo {
+    background: var(--color-primary);
+    color: white;
+  }
+
+  .view-demo:hover {
+    background: var(--color-secondary);
+  }
+
+  .view-source {
+    background: var(--color-tag-bg);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-card-border);
+  }
+
+  .view-source:hover {
+    background: var(--color-card-border);
   }
 `;
 
 const examples = [
   {
-    icon: "🔢",
-    title: "Counter",
-    desc: "A simple counter demonstrating signal and computed reactivity with real-time updates.",
-    href: "#/examples/counter",
-    tags: ["signal", "computed"],
+    slug: "pomodoro-timer",
+    title: "🍅 Pomodoro Timer",
+    description: "A beautiful productivity-focused Pomodoro timer with session tracking, animated progress ring, and Web Audio API notifications.",
+    tags: ["Web Components", "Signals", "Effects"],
+    features: ["Timer Modes", "Progress Ring", "Session Stats"]
   },
   {
-    icon: "✅",
-    title: "Todo List",
-    desc: "A reactive todo list with add, toggle, delete operations and remaining count.",
-    href: "#/examples/todo",
-    tags: ["arrays", "computed", "events"],
+    slug: "bookmark-manager",
+    title: "📌 Bookmark Manager",
+    description: "Comprehensive read-it-later application with instant search, smart tag system, and automatic localStorage persistence.",
+    tags: ["LocalStorage", "Filtering", "CRUD"],
+    features: ["Search & Filter", "Tag System", "Auto Save"]
   },
   {
-    icon: "🎨",
-    title: "Color Picker",
-    desc: "RGB sliders controlling a color preview in real-time with hex output.",
-    href: "#/examples/color-picker",
-    tags: ["multiple signals", "computed"],
+    slug: "code-editor",
+    title: "💻 Code Editor",
+    description: "Full-featured browser IDE with virtual file system, multi-tab editing, live preview, and integrated console capture.",
+    tags: ["Iframe", "Tabs", "Live Preview"],
+    features: ["File System", "Tabs UI", "Console Capture"]
   },
   {
-    icon: "📑",
-    title: "Tabs",
-    desc: "A tab component with reactive content switching using signals.",
-    href: "#/examples/tabs",
-    tags: ["conditional", "events"],
-  },
-  {
-    icon: "🔍",
-    title: "Live Search",
-    desc: "A search input that filters a list in real-time as you type.",
-    href: "#/examples/live-search",
-    tags: ["filter", "computed", "input"],
-  },
-  {
-    icon: "📊",
-    title: "Mission Control",
-    desc: "Real-time dashboard with 4 metrics updating every second, peak tracking, and threshold alerts.",
-    href: "#/examples/mission-control",
-    tags: ["effect", "signal", "For"],
-  },
-  {
-    icon: "📋",
-    title: "Kanban Board",
-    desc: "3-column project board with drag-and-drop cards, priority colors, and stats bar.",
-    href: "#/examples/kanban",
-    tags: ["effect", "drag-drop", "computed"],
-  },
-  {
-    icon: "🎨",
-    title: "Token Manager",
-    desc: "Design system color manager with groups, theme switching, and CSS export.",
-    href: "#/examples/token-manager",
-    tags: ["signal", "effect", "localStorage"],
-  },
-  {
-    icon: "📚",
-    title: "Knowledge Base",
-    desc: "Search interface with facets, history, popular tags, and reactive filtering.",
-    href: "#/examples/knowledge-base",
-    tags: ["computed", "effect", "localStorage"],
-  },
-  {
-    icon: "💻",
-    title: "Mini IDE",
-    desc: "File tree, closable tabs, editor area, and terminal simulator.",
-    href: "#/examples/mini-ide",
-    tags: ["signal", "effect", "For"],
-  },
-  {
-    icon: "👥",
-    title: "Collaboration",
-    desc: "Team simulator with avatars, status indicators, role filtering, and live updates.",
-    href: "#/examples/collaboration",
-    tags: ["effect", "computed", "signal"],
-  },
+    slug: "finance-tracker",
+    title: "💰 Finance Tracker",
+    description: "Sophisticated personal finance app with transaction management, real-time analytics, and reactive CSS-based visualizations.",
+    tags: ["Charting", "Analytics", "Vite"],
+    features: ["Income/Expense", "Category Stats", "Persistence"]
+  }
 ];
 
 const ExamplesIndex = defineElement("rikka-examples-index", {
@@ -162,28 +172,35 @@ const ExamplesIndex = defineElement("rikka-examples-index", {
     return div(
       { class: "example-page" },
       h1({}, "Examples"),
-      p(
-        {},
-        "Interactive examples showcasing Rikka's reactivity system in action. Click any example to see it live.",
-      ),
-
-      div(
-        { class: "examples-grid" },
-        ...examples.map((example) =>
-          a(
-            { href: example.href, class: "example-card" },
-            span({ class: "example-icon" }, example.icon),
-            h2({}, example.title),
-            p({}, example.desc),
-            div(
-              { class: "example-tags" },
-              ...example.tags.map((tag) => span({ class: "example-tag" }, tag)),
-            ),
+      p({}, "Complete, real-world applications built with Rikka through vibe coding. Each example is a standalone project you can explore, run, and learn from."),
+      div({ class: "examples-grid" },
+        ...examples.map(example => div(
+          { class: "example-card" },
+          div({ class: "example-header" },
+            span({ class: "example-icon" }, example.title.split(" ")[0]),
+            div({ class: "example-meta" },
+              ...example.tags.map(tag => span({ class: "example-tag" }, tag))
+            )
           ),
-        ),
-      ),
+          div({ class: "example-content" },
+            h3({}, example.title.substring(2).trim()),
+            p({}, example.description),
+            div({ class: "example-features" },
+              ...example.features.map(feature => div(
+                { class: "feature-item" },
+                span({ class: "feature-dot" }),
+                span({}, feature)
+              ))
+            )
+          ),
+          div({ class: "example-actions" },
+            a({ href: "#/examples/" + example.slug, class: "view-demo" }, "Learn More"),
+            a({ href: "./examples/" + example.slug + "/index.html", target: "_blank", class: "view-source" }, "View")
+          )
+        ))
+      )
     );
-  },
+  }
 });
 
 export { ExamplesIndex };

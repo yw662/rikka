@@ -6,15 +6,47 @@ export interface Bookmark {
   title: string;
   description: string;
   tags: string[];
-  read: boolean;
   createdAt: number;
+  favorite: boolean;
 }
+
+export type SortBy = 'date' | 'title';
+
+const DEFAULT_BOOKMARKS: Bookmark[] = [
+  {
+    id: '1',
+    url: 'https://github.com',
+    title: 'GitHub',
+    description: '世界上最大的代码托管平台',
+    tags: ['开发', '工具'],
+    createdAt: Date.now() - 86400000 * 7,
+    favorite: true,
+  },
+  {
+    id: '2',
+    url: 'https://developer.mozilla.org',
+    title: 'MDN Web Docs',
+    description: 'Web 开发文档，最好的参考资料',
+    tags: ['学习', '文档'],
+    createdAt: Date.now() - 86400000 * 5,
+    favorite: true,
+  },
+  {
+    id: '3',
+    url: 'https://stackoverflow.com',
+    title: 'Stack Overflow',
+    description: '程序员问答社区',
+    tags: ['开发', '问答'],
+    createdAt: Date.now() - 86400000 * 3,
+    favorite: false,
+  },
+];
 
 function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2);
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
 }
 
-export function getDomain(url: string): string {
+function getDomain(url: string): string {
   try {
     return new URL(url).hostname;
   } catch {
@@ -22,145 +54,100 @@ export function getDomain(url: string): string {
   }
 }
 
-const defaultBookmarks: Bookmark[] = [];
-const defaultSearchQuery = '';
-const defaultSelectedTags: string[] = [];
-
-function loadBookmarks(): Bookmark[] {
+function loadFromStorage(): Bookmark[] {
   try {
-    const saved = localStorage.getItem('bookmark-manager-state');
+    const saved = localStorage.getItem('bookmarks');
     if (saved) {
-      const parsed = JSON.parse(saved);
-      return parsed.bookmarks || defaultBookmarks;
-    }
-  } catch (e) {
-    console.warn('Failed to load state from localStorage:', e);
-  }
-  return defaultBookmarks;
-}
-
-function loadSearchQuery(): string {
-  try {
-    const saved = localStorage.getItem('bookmark-manager-state');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return parsed.searchQuery ?? defaultSearchQuery;
+      return JSON.parse(saved);
     }
   } catch {
+    console.warn('Failed to load bookmarks');
   }
-  return defaultSearchQuery;
+  return DEFAULT_BOOKMARKS;
 }
 
-function loadSelectedTags(): string[] {
-  try {
-    const saved = localStorage.getItem('bookmark-manager-state');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return parsed.selectedTags || defaultSelectedTags;
-    }
-  } catch {
-  }
-  return defaultSelectedTags;
-}
+export const bookmarks = signal<Bookmark[]>(loadFromStorage());
+export const searchQuery = signal('');
+export const selectedTags = signal<string[]>([]);
+export const sortBy = signal<SortBy>('date');
+export const showForm = signal(false);
+export const editingBookmark = signal<Bookmark | null>(null);
 
-export const bookmarks = signal<Bookmark[]>(loadBookmarks());
-export const searchQuery = signal<string>(loadSearchQuery());
-export const selectedTags = signal<string[]>(loadSelectedTags());
+export const allTags = computed(() => {
+  const tags = new Set<string>();
+  bookmarks.get().forEach((b) => b.tags.forEach((t) => tags.add(t)));
+  return Array.from(tags).sort();
+});
 
 export const filteredBookmarks = computed(() => {
+  let result = [...bookmarks.get()];
   const query = searchQuery.get().toLowerCase().trim();
   const tags = selectedTags.get();
 
-  return bookmarks.get().filter((bookmark: Bookmark) => {
-    if (query) {
-      const matchesTitle = bookmark.title.toLowerCase().includes(query);
-      const matchesUrl = bookmark.url.toLowerCase().includes(query);
-      const matchesTags = bookmark.tags.some((t: string) => t.toLowerCase().includes(query));
-      const matchesDescription = bookmark.description.toLowerCase().includes(query);
-      if (!matchesTitle && !matchesUrl && !matchesTags && !matchesDescription) {
-        return false;
-      }
-    }
+  if (query) {
+    result = result.filter(
+      (b) =>
+        b.title.toLowerCase().includes(query) ||
+        b.url.toLowerCase().includes(query) ||
+        b.description.toLowerCase().includes(query) ||
+        b.tags.some((t) => t.toLowerCase().includes(query))
+    );
+  }
 
-    if (tags.length > 0) {
-      const hasAllTags = tags.every((tag: string) =>
-        bookmark.tags.some((t: string) => t.toLowerCase() === tag.toLowerCase())
-      );
-      if (!hasAllTags) return false;
-    }
+  if (tags.length > 0) {
+    result = result.filter((b) =>
+      tags.every((tag) => b.tags.includes(tag))
+    );
+  }
 
-    return true;
-  });
-});
+  if (sortBy.get() === 'date') {
+    result.sort((a, b) => b.createdAt - a.createdAt);
+  } else {
+    result.sort((a, b) => a.title.localeCompare(b.title));
+  }
 
-export const tagCloud = computed(() => {
-  const tagCounts = new Map<string, number>();
-
-  bookmarks.get().forEach((bookmark: Bookmark) => {
-    bookmark.tags.forEach((tag: string) => {
-      const normalizedTag = tag.toLowerCase();
-      tagCounts.set(normalizedTag, (tagCounts.get(normalizedTag) || 0) + 1);
-    });
-  });
-
-  return Array.from(tagCounts.entries())
-    .map(([tag, count]) => ({ tag, count }))
-    .sort((a, b) => b.count - a.count);
+  return result;
 });
 
 export const stats = computed(() => {
   const bks = bookmarks.get();
-  const total = bks.length;
-  const read = bks.filter((b: Bookmark) => b.read).length;
-  const unread = total - read;
-  const topTags = tagCloud.get().slice(0, 5);
-
-  return { total, read, unread, topTags };
+  return {
+    total: bks.length,
+    favorites: bks.filter((b) => b.favorite).length,
+    tags: allTags.get().length,
+  };
 });
 
-export function addBookmark(url: string, title: string, description: string, tags: string[]): void {
+export function addBookmark(data: Omit<Bookmark, 'id' | 'createdAt'>): void {
   const bookmark: Bookmark = {
+    ...data,
     id: generateId(),
-    url,
-    title: title || url,
-    description,
-    tags: tags.map((t: string) => t.trim()).filter((t: string) => t),
-    read: false,
     createdAt: Date.now(),
   };
-
-  bookmarks.set([...bookmarks.get(), bookmark]);
+  bookmarks.set([bookmark, ...bookmarks.get()]);
 }
 
-export function removeBookmark(id: string): void {
-  bookmarks.set(bookmarks.get().filter((b: Bookmark) => b.id !== id));
+export function updateBookmark(id: string, data: Partial<Omit<Bookmark, 'id' | 'createdAt'>>): void {
+  bookmarks.set(
+    bookmarks.get().map((b) => (b.id === id ? { ...b, ...data } : b))
+  );
 }
 
-export function toggleRead(id: string): void {
-  bookmarks.set(bookmarks.get().map((b: Bookmark) =>
-    b.id === id ? { ...b, read: !b.read } : b
-  ));
+export function deleteBookmark(id: string): void {
+  bookmarks.set(bookmarks.get().filter((b) => b.id !== id));
 }
 
-export function updateBookmarkTags(id: string, tags: string[]): void {
-  bookmarks.set(bookmarks.get().map((b: Bookmark) =>
-    b.id === id ? { ...b, tags: tags.map((t: string) => t.trim()).filter((t: string) => t) } : b
-  ));
+export function toggleFavorite(id: string): void {
+  const b = bookmarks.get().find((x) => x.id === id);
+  if (b) {
+    updateBookmark(id, { favorite: !b.favorite });
+  }
 }
 
-export function updateBookmarkTitle(id: string, title: string): void {
-  bookmarks.set(bookmarks.get().map((b: Bookmark) =>
-    b.id === id ? { ...b, title } : b
-  ));
-}
-
-export function toggleTagFilter(tag: string): void {
+export function toggleTag(tag: string): void {
   const current = selectedTags.get();
-  const normalizedTag = tag.toLowerCase();
-  const index = current.findIndex((t: string) => t.toLowerCase() === normalizedTag);
-
-  if (index !== -1) {
-    selectedTags.set([...current.slice(0, index), ...current.slice(index + 1)]);
+  if (current.includes(tag)) {
+    selectedTags.set(current.filter((t) => t !== tag));
   } else {
     selectedTags.set([...current, tag]);
   }
@@ -171,15 +158,18 @@ export function clearFilters(): void {
   selectedTags.set([]);
 }
 
+export function openEditForm(bookmark: Bookmark): void {
+  editingBookmark.set(bookmark);
+  showForm.set(true);
+}
+
+export function closeForm(): void {
+  showForm.set(false);
+  editingBookmark.set(null);
+}
+
+export { getDomain };
+
 effect(() => {
-  const state = {
-    bookmarks: bookmarks.get(),
-    searchQuery: searchQuery.get(),
-    selectedTags: selectedTags.get(),
-  };
-  try {
-    localStorage.setItem('bookmark-manager-state', JSON.stringify(state));
-  } catch (e) {
-    console.warn('Failed to save state to localStorage:', e);
-  }
+  localStorage.setItem('bookmarks', JSON.stringify(bookmarks.get()));
 });

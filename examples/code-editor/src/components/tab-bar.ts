@@ -1,63 +1,85 @@
-import { defineElement, css } from '@takanashi/rikka-elements';
-import { div, button } from '@takanashi/rikka-dom';
-import { computed } from '@takanashi/rikka-signal';
-import { activeTab } from '../editor-store';
-import type { FileType } from '../editor-store';
+import { defineElement } from '@takanashi/rikka-elements';
+import { div, button, span, css } from '@takanashi/rikka-dom';
+import { effect } from '@takanashi/rikka-signal';
+import { activeTab, setActiveTab, type FileType } from '../editor-store.js';
 
-const tabBarStyles = css`
-:host {
-  display: block;
-}
-.tab-bar {
-  display: flex;
-  background: #252526;
-  border-bottom: 1px solid #3c3c3c;
-}
-.tab {
-  padding: 0.75rem 1.5rem;
-  background: #2d2d2d;
-  color: #d4d4d4;
-  border: none;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-family: inherit;
-  transition: background 0.15s, color 0.15s;
-  border-right: 1px solid #3c3c3c;
-}
-.tab:hover {
-  background: #353535;
-}
-.tab.active {
-  background: #1e1e1e;
-  color: #ffffff;
-}
-`;
-
-const TAB_CONFIG: { type: FileType; label: string }[] = [
-  { type: 'html', label: 'HTML' },
-  { type: 'css', label: 'CSS' },
-  { type: 'js', label: 'JavaScript' },
-];
-
-const TabBar = defineElement(
-  'tab-bar',
-  {
-    styles: tabBarStyles,
-    render() {
-      return div(
-        { class: 'tab-bar' },
-        ...TAB_CONFIG.map((tab) =>
-          button(
-            {
-              class: computed(() => `tab ${activeTab.get() === tab.type ? 'active' : ''}`),
-              onclick: () => activeTab.set(tab.type),
-            },
-            tab.label
-          )
-        )
-      );
+export const tabBar = defineElement('tab-bar', {
+  attributes: {},
+  styles: css`
+    :host {
+      display: block;
     }
-  }
-);
+    
+    .tab-container {
+      display: flex;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 0.75rem;
+      padding: 0.25rem;
+      gap: 0.25rem;
+    }
+    
+    .tab-btn {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 0.5rem;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    
+    .tab-btn:hover {
+      color: white;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .tab-btn.active {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .tab-icon {
+      font-size: 1.1rem;
+    }
+  `,
+  render() {
+    const tabs: { type: FileType; label: string; icon: string }[] = [
+      { type: 'html', label: 'HTML', icon: '🌐' },
+      { type: 'css', label: 'CSS', icon: '🎨' },
+      { type: 'js', label: 'JavaScript', icon: '⚡' },
+    ];
 
-export { TabBar };
+    const container = div({ class: 'tab-container' });
+
+    function renderTabs() {
+      container.innerHTML = '';
+      const current = activeTab.get();
+
+      tabs.forEach((tab) => {
+        const btn = button(
+          { class: `tab-btn${current === tab.type ? ' active' : ''}` },
+          span({ class: 'tab-icon' }, tab.icon),
+          span({}, tab.label)
+        );
+        btn.addEventListener('click', () => setActiveTab(tab.type));
+        container.appendChild(btn);
+      });
+    }
+
+    renderTabs();
+
+    effect(() => {
+      renderTabs();
+    });
+
+    return container;
+  },
+});

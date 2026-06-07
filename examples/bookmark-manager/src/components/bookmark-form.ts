@@ -1,248 +1,326 @@
 import { defineElement } from '@takanashi/rikka-elements';
+import { div, h3, input, textarea, button, label, svg, path, css } from '@takanashi/rikka-dom';
+import { effect } from '@takanashi/rikka-signal';
 import {
-  h2,
-  label,
-  textarea,
-  div,
-  input,
-  button,
-  span,
-  For,
-  Show,
-  css,
-} from '@takanashi/rikka-dom';
-import { signal, computed } from '@takanashi/rikka-signal';
-import { addBookmark, tagCloud } from "../store.js";
+  showForm,
+  editingBookmark,
+  closeForm,
+  addBookmark,
+  updateBookmark,
+  type Bookmark,
+} from '../store.js';
 
-export const bookmarkForm = defineElement("bookmark-form", {
+export const bookmarkForm = defineElement('bookmark-form', {
   attributes: {},
   styles: css`
     :host {
       display: block;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    
+    :host(.hidden) {
+      display: none;
+    }
+    
+    .form-modal {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-radius: 1.5rem;
+      padding: 2rem;
+      width: 100%;
+      max-width: 500px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      animation: slideUp 0.3s ease;
+    }
+    
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .form-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    
+    .form-header h3 {
+      color: white;
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0;
+    }
+    
+    .close-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+    
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+    
+    .form-group label {
+      display: block;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+    
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 0.75rem;
+      color: white;
+      font-size: 1rem;
+      outline: none;
+      transition: all 0.2s ease;
+      box-sizing: border-box;
+    }
+    
+    .form-group input::placeholder,
+    .form-group textarea::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+    
+    .form-group input:focus,
+    .form-group textarea:focus {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(102, 126, 234, 0.5);
+    }
+    
+    .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+    
+    .form-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.75rem;
+    }
+    
+    .cancel-btn {
+      flex: 1;
+      padding: 0.875rem 1.5rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 0.75rem;
+      color: white;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .cancel-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+    
+    .submit-btn {
+      flex: 2;
+      padding: 0.875rem 1.5rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      border-radius: 0.75rem;
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .submit-btn:hover {
+      transform: scale(1.02);
+      box-shadow: 0 10px 30px -10px rgba(102, 126, 234, 0.5);
     }
   `,
   render() {
-    const url = signal("");
-    const title = signal("");
-    const description = signal("");
-    const tags = signal<string[]>([]);
-    const tagInput = signal("");
-    const isSubmitting = signal(false);
+    const host = this;
 
-    const showAutocomplete = computed(() => {
-      const input = tagInput.get().trim();
-      const existingTags = tagCloud.get();
-      return (
-        input.length > 0 &&
-        existingTags.some(
-          (t) =>
-            t.tag.toLowerCase().includes(input.toLowerCase()) &&
-            !tags
-              .get()
-              .some((tag) => tag.toLowerCase() === t.tag.toLowerCase()),
-        )
-      );
+    const titleInput = input({
+      class: '',
+      placeholder: '书签标题',
     });
 
-    const autocompleteItems = computed(() => {
-      const input = tagInput.get().trim().toLowerCase();
-      const existingTags = tagCloud.get();
-      return existingTags
-        .filter((t) => t.tag.toLowerCase().includes(input))
-        .filter(
-          (t) =>
-            !tags
-              .get()
-              .some((tag) => tag.toLowerCase() === t.tag.toLowerCase()),
-        )
-        .slice(0, 5);
+    const urlInput = input({
+      class: '',
+      placeholder: 'https://example.com',
     });
 
-    const handleAddTag = (tag: string) => {
-      const normalizedTag = tag.trim();
-      if (
-        normalizedTag &&
-        !tags.get().some((t) => t.toLowerCase() === normalizedTag.toLowerCase())
-      ) {
-        tags.set([...tags.get(), normalizedTag]);
+    const descInput = textarea({
+      class: '',
+      placeholder: '书签描述（可选）',
+    });
+
+    const tagsInput = input({
+      class: '',
+      placeholder: '标签，用逗号分隔（可选）',
+    });
+
+    const titleEl = h3({}, '添加书签');
+
+    function resetForm() {
+      titleInput.value = '';
+      urlInput.value = '';
+      descInput.value = '';
+      tagsInput.value = '';
+    }
+
+    function handleSubmit() {
+      const title = titleInput.value.trim();
+      const url = urlInput.value.trim();
+
+      if (!title || !url) {
+        alert('请填写标题和链接');
+        return;
       }
-      tagInput.set("");
-    };
 
-    const handleRemoveTag = (tag: string) => {
-      tags.set(tags.get().filter((t) => t.toLowerCase() !== tag.toLowerCase()));
-    };
+      const tags = tagsInput.value
+        .split(',')
+        .map((t) => t.trim())
+        .filter((t) => t);
 
-    const handleTagInputKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        const value = tagInput.get().trim();
-        if (value) {
-          handleAddTag(value);
+      const edit = editingBookmark.get();
+
+      if (edit) {
+        updateBookmark(edit.id, {
+          title,
+          url,
+          description: descInput.value.trim(),
+          tags,
+        });
+      } else {
+        addBookmark({
+          title,
+          url,
+          description: descInput.value.trim(),
+          tags,
+          favorite: false,
+        });
+      }
+
+      closeForm();
+      resetForm();
+    }
+
+    effect(() => {
+      const isVisible = showForm.get();
+      const edit = editingBookmark.get();
+
+      if (isVisible) {
+        host.classList.remove('hidden');
+        if (edit) {
+          titleEl.textContent = '编辑书签';
+          titleInput.value = edit.title;
+          urlInput.value = edit.url;
+          descInput.value = edit.description;
+          tagsInput.value = edit.tags.join(', ');
+        } else {
+          titleEl.textContent = '添加书签';
+          resetForm();
         }
-      } else if (
-        e.key === "Backspace" &&
-        tagInput.get() === "" &&
-        tags.get().length > 0
-      ) {
-        handleRemoveTag(tags.get()[tags.get().length - 1]);
+        urlInput.focus();
+      } else {
+        host.classList.add('hidden');
       }
-    };
-
-    const handleAutocompleteClick = (tag: string) => {
-      handleAddTag(tag);
-    };
-
-    const handleSubmit = async () => {
-      const urlValue = url.get().trim();
-      if (!urlValue) return;
-
-      isSubmitting.set(true);
-
-      const titleValue = title.get().trim() || urlValue;
-
-      addBookmark(urlValue, titleValue, description.get().trim(), tags.get());
-
-      url.set("");
-      title.set("");
-      description.set("");
-      tags.set([]);
-
-      isSubmitting.set(false);
-    };
-
-    const isFormValid = computed(() => {
-      return url.get().trim().length > 0;
     });
 
-    const tagPlaceholder = computed(() => {
-      return tags.get().length === 0 ? "Type and press Enter to add tags" : "";
+    const closeBtn = button(
+      { class: 'close-btn' },
+      svg(
+        { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+        path({ d: 'M6 18L18 6M6 6l12 12' })
+      )
+    );
+
+    closeBtn.addEventListener('click', () => {
+      closeForm();
+      resetForm();
     });
 
-    const isDisabled = computed<string>(() => {
-      return !isFormValid.get() || isSubmitting.get() ? "true" : "";
+    const cancelBtn = button({ class: 'cancel-btn' }, '取消');
+    cancelBtn.addEventListener('click', () => {
+      closeForm();
+      resetForm();
     });
 
-    const buttonText = computed(() => {
-      return isSubmitting.get() ? "Adding..." : "Add Bookmark";
+    const submitBtn = button({ class: 'submit-btn' }, '保存');
+    submitBtn.addEventListener('click', handleSubmit);
+
+    host.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeForm();
+        resetForm();
+      }
+      if (e.key === 'Enter' && e.ctrlKey) {
+        handleSubmit();
+      }
     });
 
     return div(
-      { class: "bookmark-form" },
-      div({}, h2({}, "Add New Bookmark")),
+      { class: 'form-modal' },
       div(
-        { class: "form-group" },
-        label({ for: "url-input" }, "URL *"),
-        input({
-          id: "url-input",
-          type: "url",
-          placeholder: "https://example.com/article",
-          value: url,
-          onkeydown: (e: KeyboardEvent) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleSubmit();
-            }
-          },
-        }),
+        { class: 'form-header' },
+        titleEl,
+        closeBtn
       ),
       div(
-        { class: "form-group" },
-        label({ for: "title-input" }, "Title"),
-        input({
-          id: "title-input",
-          type: "text",
-          placeholder: "Enter title or leave blank to use URL",
-          value: title,
-        }),
+        { class: 'form-group' },
+        label({}, '标题'),
+        titleInput
       ),
       div(
-        { class: "form-group" },
-        label({ for: "desc-input" }, "Description"),
-        textarea({
-          id: "desc-input",
-          placeholder: "Add a note about this link...",
-          defaultValue: description.get(),
-          oninput: (e: Event) => {
-            description.set((e.target as HTMLTextAreaElement).value);
-          },
-        }),
+        { class: 'form-group' },
+        label({}, '链接'),
+        urlInput
       ),
       div(
-        { class: "form-group" },
-        label({}, "Tags"),
-        div(
-          { class: "tag-input-container" },
-          For(tags, (tag: string) =>
-            span(
-              { class: "tag-badge" },
-              tag,
-              button(
-                {
-                  type: "button",
-                  onclick: () => handleRemoveTag(tag),
-                },
-                "×",
-              ),
-            ),
-          ),
-          input({
-            type: "text",
-            placeholder: tagPlaceholder,
-            value: tagInput,
-            onkeydown: handleTagInputKeyDown,
-          }),
-        ),
-        Show(showAutocomplete, () =>
-          div(
-            { class: "autocomplete-dropdown" },
-            For(autocompleteItems, (item: { tag: string; count: number }) =>
-              div(
-                {
-                  class: "autocomplete-item",
-                  onclick: () => handleAutocompleteClick(item.tag),
-                },
-                span({}, item.tag),
-                span(
-                  {
-                    style: {
-                      fontSize: "0.8rem",
-                      color: "var(--color-text-secondary)",
-                      marginLeft: "8px",
-                    },
-                  },
-                  `(${item.count})`,
-                ),
-              ),
-            ),
-          ),
-        ),
+        { class: 'form-group' },
+        label({}, '描述'),
+        descInput
       ),
       div(
-        { class: "form-actions" },
-        button(
-          {
-            class: "btn btn-primary",
-            onclick: handleSubmit,
-            disabled: isDisabled,
-          },
-          buttonText,
-        ),
-        button(
-          {
-            class: "btn",
-            type: "button",
-            onclick: () => {
-              url.set("");
-              title.set("");
-              description.set("");
-              tags.set([]);
-              tagInput.set("");
-            },
-          },
-          "Clear",
-        ),
+        { class: 'form-group' },
+        label({}, '标签'),
+        tagsInput
       ),
+      div(
+        { class: 'form-actions' },
+        cancelBtn,
+        submitBtn
+      )
     );
   },
 });

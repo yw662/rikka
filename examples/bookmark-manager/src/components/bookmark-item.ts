@@ -1,313 +1,261 @@
-import { defineElement, NumberAttr, StringAttr, BooleanAttr } from '@takanashi/rikka-elements';
-import {
-  svg,
-  path,
-  polyline,
-  rect,
-  line,
-  div,
-  span,
-  a,
-  button,
-  p,
-  input,
-  For,
-  Show,
-  When,
-  css,
-} from '@takanashi/rikka-dom';
-import { signal, computed } from '@takanashi/rikka-signal';
-import {
-  removeBookmark,
-  toggleRead,
-  updateBookmarkTags,
-  getDomain,
-} from "../store.js";
+import { defineElement } from '@takanashi/rikka-elements';
+import { div, a, span, button, svg, path, css } from '@takanashi/rikka-dom';
+import { toggleFavorite, deleteBookmark, openEditForm, getDomain, type Bookmark } from '../store.js';
 
-export const bookmarkItem = defineElement("bookmark-item", {
+export const bookmarkItem = defineElement('bookmark-item', {
   attributes: {
-    id: StringAttr,
-    url: StringAttr,
-    title: StringAttr,
-    description: StringAttr,
-    tags: StringAttr,
-    read: BooleanAttr,
-    createdAt: NumberAttr,
-    selectedTags: StringAttr,
-  },
-  events: {
-    tagClick: (e: Event) => (e as CustomEvent).detail,
+    bookmark: {
+      type: Object,
+      default: null,
+    },
   },
   styles: css`
     :host {
       display: block;
     }
+    
+    .bookmark-card {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 1rem;
+      padding: 1.25rem;
+      transition: all 0.3s ease;
+    }
+    
+    .bookmark-card:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+    
+    .bookmark-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+    }
+    
+    .favicon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 1.25rem;
+    }
+    
+    .bookmark-info {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .bookmark-title {
+      color: white;
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .bookmark-title a {
+      color: inherit;
+      text-decoration: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .bookmark-title a:hover {
+      color: #667eea;
+    }
+    
+    .favorite-star {
+      color: #fbbf24;
+      font-size: 1rem;
+    }
+    
+    .bookmark-url {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 0.875rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .bookmark-desc {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.9rem;
+      margin-bottom: 0.75rem;
+      line-height: 1.5;
+    }
+    
+    .bookmark-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.375rem;
+    }
+    
+    .tag {
+      padding: 0.25rem 0.625rem;
+      background: rgba(102, 126, 234, 0.25);
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.9);
+    }
+    
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    .action-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 0.5rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+    
+    .action-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: white;
+    }
+    
+    .action-btn.delete:hover {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+    }
+    
+    .action-btn.favorite:hover,
+    .action-btn.favorite.active {
+      color: #fbbf24;
+    }
+    
+    .action-btn svg {
+      width: 18px;
+      height: 18px;
+    }
   `,
   render() {
-    const self = this as any;
-    const isEditingTags = signal(false);
-    const editTagsInput = signal("");
+    const host = this;
+    let bookmark = (host as any).bookmark as Bookmark;
 
-    const bookmarkId = () => self.id;
-    const bookmarkUrl = () => self.url;
-    const bookmarkTitle = () => self.title;
-    const bookmarkDescription = () => self.description;
-    const bookmarkTags = () =>
-      self.tags ? self.tags.split(",").filter((t: string) => t) : [];
-    const bookmarkRead = () => self.read;
-    const bookmarkCreatedAt = () => self.createdAt;
-    const selectedTagsSignal = () =>
-      self.selectedTags
-        ? self.selectedTags.split(",").filter((t: string) => t)
-        : [];
+    if (!bookmark) {
+      return div({}, '');
+    }
 
-    const isTagSelected = (tag: string) => {
-      return selectedTagsSignal().some(
-        (t: string) => t.toLowerCase() === tag.toLowerCase(),
-      );
-    };
+    const domain = getDomain(bookmark.url);
+    const faviconEmoji = getFaviconEmoji(domain);
 
-    const formatDate = (timestamp: number) => {
-      const date = new Date(timestamp);
-      return date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-    };
+    function getFaviconEmoji(domain: string) {
+      if (domain.includes('github')) return '🐙';
+      if (domain.includes('google')) return '🔍';
+      if (domain.includes('twitter') || domain.includes('x.com')) return '🐦';
+      if (domain.includes('youtube')) return '📺';
+      if (domain.includes('stackoverflow')) return '💻';
+      if (domain.includes('mdn')) return '📚';
+      return '🔗';
+    }
 
-    const handleToggleRead = () => {
-      toggleRead(bookmarkId());
-    };
+    const favBtn = button(
+      { class: `action-btn favorite${bookmark.favorite ? ' active' : ''}` },
+      svg(
+        { viewBox: '0 0 24 24', fill: bookmark.favorite ? 'currentColor' : 'none', stroke: 'currentColor', 'stroke-width': '2' },
+        path({
+          d: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+        })
+      )
+    );
 
-    const handleDelete = () => {
-      if (confirm("Delete this bookmark?")) {
-        removeBookmark(bookmarkId());
-      }
-    };
+    favBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleFavorite(bookmark.id);
+    });
 
-    const handleTagClick = (tag: string) => {
-      self.dispatchTagClick(tag, { bubbles: true });
-    };
-
-    const handleStartEditTags = () => {
-      isEditingTags.set(true);
-      editTagsInput.set(bookmarkTags().join(", "));
-    };
-
-    const handleSaveTags = () => {
-      const newTags = editTagsInput
-        .get()
-        .split(",")
-        .map((t) => t.trim())
-        .filter((t) => t);
-      updateBookmarkTags(bookmarkId(), newTags);
-      isEditingTags.set(false);
-    };
-
-    const handleCancelEditTags = () => {
-      isEditingTags.set(false);
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Enter") {
-        handleSaveTags();
-      } else if (e.key === "Escape") {
-        handleCancelEditTags();
-      }
-    };
-
-    const descriptionSignal = computed(() => bookmarkDescription());
-    const tagsSignal = computed(() => bookmarkTags());
-
-    const renderContent = () => {
-      const tags = bookmarkTags();
-      const isRead = bookmarkRead();
-      const domain = getDomain(bookmarkUrl());
-
-      return div(
-        { class: `bookmark-card${isRead ? "" : " unread"}` },
-        div(
-          { class: "bookmark-header" },
-          div(
-            { class: "bookmark-title" },
-            a(
-              {
-                href: bookmarkUrl(),
-                target: "_blank",
-                rel: "noopener noreferrer",
-              },
-              bookmarkTitle(),
-            ),
-          ),
-          div(
-            { class: "bookmark-actions" },
-            button(
-              {
-                class: "btn-icon",
-                title: "Edit tags",
-                onclick: handleStartEditTags,
-              },
-              svgIconEdit(),
-            ),
-            button(
-              { class: "btn-danger", title: "Delete", onclick: handleDelete },
-              svgIconTrash(),
-            ),
-          ),
-        ),
-        div(
-          { class: "bookmark-url" },
-          svgIconLink(),
-          a(
-            {
-              href: bookmarkUrl(),
-              target: "_blank",
-              rel: "noopener noreferrer",
-            },
-            domain,
-          ),
-        ),
-        Show(descriptionSignal, () =>
-          p({ class: "bookmark-description" }, bookmarkDescription()),
-        ),
-        div(
-          { class: "bookmark-tags" },
-          For(tagsSignal, (tag: string) =>
-            span(
-              {
-                class: () =>
-                  `bookmark-tag${isTagSelected(tag) ? " filter-active" : ""}`,
-                onclick: () => handleTagClick(tag),
-              } as any,
-              tag,
-            ),
-          ),
-        ),
-        div(
-          { class: "bookmark-meta" },
-          div(
-            { class: "read-toggle" },
-            input({
-              type: "checkbox",
-              checked: () => bookmarkRead(),
-              onchange: handleToggleRead,
-            } as any),
-            span({ class: "toggle-slider" } as any),
-            span(
-              {} as any,
-              (() => (bookmarkRead() ? "Read" : "Unread")) as any,
-            ) as any,
-          ),
-          div(
-            { class: "bookmark-date" },
-            svgIconCalendar(),
-            span({}, formatDate(bookmarkCreatedAt())),
-          ),
-        ),
-      );
-    };
-
-    const renderTagEdit = () => {
-      return div(
-        { class: "tag-edit-container" },
-        input({
-          type: "text",
-          placeholder: "Enter tags separated by commas",
-          value: editTagsInput,
-          onkeydown: handleKeyDown,
+    const editBtn = button(
+      { class: 'action-btn' },
+      svg(
+        { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+        path({
+          d: 'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7',
         }),
-        button(
-          { class: "btn btn-primary btn-small", onclick: handleSaveTags },
-          "Save",
-        ),
-        button(
-          { class: "btn btn-small", onclick: handleCancelEditTags },
-          "Cancel",
-        ),
-      );
-    };
+        path({ d: 'M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z' })
+      )
+    );
 
-    return (When as any)(
-      () => isEditingTags.get(),
-      renderTagEdit,
-      renderContent,
+    editBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openEditForm(bookmark);
+    });
+
+    const deleteBtn = button(
+      { class: 'action-btn delete' },
+      svg(
+        { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+        path({ d: 'M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2' }),
+        path({ d: 'M10 11v6M14 11v6' })
+      )
+    );
+
+    deleteBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (confirm('确定要删除这个书签吗？')) {
+        deleteBookmark(bookmark.id);
+      }
+    });
+
+    const tagList = div({ class: 'tag-list' });
+    bookmark.tags.forEach((tag) => {
+      tagList.appendChild(span({ class: 'tag' }, tag));
+    });
+
+    return div(
+      { class: 'bookmark-card' },
+      div(
+        { class: 'bookmark-header' },
+        div({ class: 'favicon' }, faviconEmoji),
+        div(
+          { class: 'bookmark-info' },
+          div(
+            { class: 'bookmark-title' },
+            a({ href: bookmark.url, target: '_blank' }, bookmark.title),
+            bookmark.favorite ? span({ class: 'favorite-star' }, '⭐') : null
+          ),
+          div({ class: 'bookmark-url' }, domain)
+        )
+      ),
+      bookmark.description ? div({ class: 'bookmark-desc' }, bookmark.description) : null,
+      div(
+        { class: 'bookmark-footer' },
+        tagList,
+        div(
+          { class: 'actions' },
+          favBtn,
+          editBtn,
+          deleteBtn
+        )
+      )
     );
   },
 });
-
-function svgIconEdit() {
-  return svg(
-    {
-      xmlns: "http://www.w3.org/2000/svg",
-      width: "16",
-      height: "16",
-      viewBox: "0 0 24 24",
-      fill: "none",
-      stroke: "currentColor",
-      strokeWidth: "2",
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-    },
-    path({ d: "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" }),
-    path({ d: "M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" }),
-  );
-}
-
-function svgIconTrash() {
-  return svg(
-    {
-      xmlns: "http://www.w3.org/2000/svg",
-      width: "16",
-      height: "16",
-      viewBox: "0 0 24 24",
-      fill: "none",
-      stroke: "currentColor",
-      strokeWidth: "2",
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-    },
-    polyline({ points: "3 6 5 6 21 6" }),
-    path({
-      d: "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2",
-    }),
-  );
-}
-
-function svgIconLink() {
-  return svg(
-    {
-      xmlns: "http://www.w3.org/2000/svg",
-      width: "14",
-      height: "14",
-      viewBox: "0 0 24 24",
-      fill: "none",
-      stroke: "currentColor",
-      strokeWidth: "2",
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-    },
-    path({ d: "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" }),
-    path({ d: "M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" }),
-  );
-}
-
-function svgIconCalendar() {
-  return svg(
-    {
-      xmlns: "http://www.w3.org/2000/svg",
-      width: "14",
-      height: "14",
-      viewBox: "0 0 24 24",
-      fill: "none",
-      stroke: "currentColor",
-      strokeWidth: "2",
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-    },
-    rect({ x: "3", y: "4", width: "18", height: "18", rx: "2", ry: "2" }),
-    line({ x1: "16", y1: "2", x2: "16", y2: "6" } as any),
-    line({ x1: "8", y1: "2", x2: "8", y2: "6" } as any),
-    line({ x1: "3", y1: "10", x2: "21", y2: "10" } as any),
-  );
-}

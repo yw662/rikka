@@ -169,7 +169,6 @@ const RikkaFooter = defineElement("rikka-footer", {
               a({ href: "#/docs" }, "Documentation"),
               a({ href: "#/docs/@takanashi/rikka-signal/getting-started" }, "Getting Started"),
               a({ href: "#/examples" }, "Examples"),
-              a({ href: "#/showcases" }, "Showcases"),
             ),
           ),
           div(

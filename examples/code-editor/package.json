@@ -5,11 +5,18 @@
   "type": "module",
   "description": "Code editor example built with Rikka",
   "scripts": {
+    "dev": "rsbuild dev",
+    "build": "rsbuild build",
+    "preview": "rsbuild preview",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@takanashi/rikka-signal": "workspace:*",
     "@takanashi/rikka-dom": "workspace:*",
     "@takanashi/rikka-elements": "workspace:*"
+  },
+  "devDependencies": {
+    "@rsbuild/core": "catalog:",
+    "typescript": "catalog:"
   }
 }

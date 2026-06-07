@@ -1,80 +1,102 @@
-import { defineElement, css } from '@takanashi/rikka-elements';
-import { div, textarea } from '@takanashi/rikka-dom';
+import { defineElement } from '@takanashi/rikka-elements';
+import { div, textarea, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
-import { activeTab, htmlCode, cssCode, jsCode } from '../editor-store';
+import {
+  activeTab,
+  htmlCode,
+  cssCode,
+  jsCode,
+  type FileType,
+} from '../editor-store.js';
 
-const editorStyles = css`
-:host {
-  display: block;
-  flex: 1;
-  min-height: 0;
-}
-.editor-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-.code-textarea {
-  flex: 1;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 1rem;
-  background: #1e1e1e;
-  color: #d4d4d4;
-  border: none;
-  resize: none;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 14px;
-  line-height: 1.6;
-  outline: none;
-  tab-size: 2;
-}
-.code-textarea::placeholder {
-  color: #6a6a6a;
-}
-`;
-
-const CodeEditor = defineElement(
-  'code-editor',
-  {
-    styles: editorStyles,
-    render() {
-      const ta = textarea({
-        class: 'code-textarea',
-        spellcheck: false,
-        oninput: (e: Event) => {
-          const value = (e.target as HTMLTextAreaElement).value;
-          const tab = activeTab.get();
-          if (tab === 'html') htmlCode.set(value);
-          else if (tab === 'css') cssCode.set(value);
-          else jsCode.set(value);
-        },
-        onkeydown: (e: KeyboardEvent) => {
-          if (e.key === 'Tab') {
-            e.preventDefault();
-            const target = e.target as HTMLTextAreaElement;
-            const start = target.selectionStart;
-            const end = target.selectionEnd;
-            target.value = target.value.substring(0, start) + '  ' + target.value.substring(end);
-            target.selectionStart = target.selectionEnd = start + 2;
-            target.dispatchEvent(new Event('input'));
-          }
-        },
-      });
-
-      effect(() => {
-        const tab = activeTab.get();
-        if (tab === 'html') ta.value = htmlCode.get();
-        else if (tab === 'css') ta.value = cssCode.get();
-        else ta.value = jsCode.get();
-      });
-
-      return div(
-        { class: 'editor-container' },
-        ta
-      );
+export const codeEditor = defineElement('code-editor', {
+  attributes: {},
+  styles: css`
+    :host {
+      display: block;
+      height: 100%;
     }
-  }
-);
+    
+    .editor-container {
+      height: 100%;
+      position: relative;
+    }
+    
+    .code-textarea {
+      width: 100%;
+      height: 100%;
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border: none;
+      padding: 1.25rem;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 0.875rem;
+      line-height: 1.6;
+      resize: none;
+      outline: none;
+      border-radius: 0.75rem;
+    }
+    
+    .code-textarea::placeholder {
+      color: rgba(205, 214, 244, 0.3);
+    }
+  `,
+  render() {
+    const textareaEl = textarea({
+      class: 'code-textarea',
+      spellcheck: 'false',
+    });
 
-export { CodeEditor };
+    function getCodeSignal(type: FileType) {
+      switch (type) {
+        case 'html':
+          return htmlCode;
+        case 'css':
+          return cssCode;
+        case 'js':
+          return jsCode;
+        default:
+          return htmlCode;
+      }
+    }
+
+    textareaEl.addEventListener('input', (e) => {
+      const currentTab = activeTab.get();
+      const signal = getCodeSignal(currentTab);
+      signal.set((e.target as HTMLTextAreaElement).value);
+    });
+
+    // Handle tab key
+    textareaEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const target = e.target as HTMLTextAreaElement;
+        const start = target.selectionStart;
+        const end = target.selectionEnd;
+        const value = target.value;
+        target.value = value.substring(0, start) + '  ' + value.substring(end);
+        target.selectionStart = target.selectionEnd = start + 2;
+        
+        const currentTab = activeTab.get();
+        const signal = getCodeSignal(currentTab);
+        signal.set(target.value);
+      }
+    });
+
+    effect(() => {
+      const currentTab = activeTab.get();
+      const signal = getCodeSignal(currentTab);
+      textareaEl.value = signal.get();
+      
+      textareaEl.placeholder = 
+        currentTab === 'html' ? '在这里编写 HTML...' :
+        currentTab === 'css' ? '在这里编写 CSS...' :
+        '在这里编写 JavaScript...';
+    });
+
+    return div(
+      { class: 'editor-container' },
+      textareaEl
+    );
+  },
+});

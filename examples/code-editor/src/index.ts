@@ -1,4 +1,3 @@
-import { AppElement } from './components/app';
+import { app } from './components/app.js';
 
-const app = AppElement.h();
-document.body.appendChild(app);
+document.body.appendChild(app.h({}));

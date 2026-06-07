@@ -1,4 +1,4 @@
-import './components/app.js';
+import { app } from './components/app.js';
+import './styles/main.css';
 
-const app = document.createElement('bookmark-app');
-document.body.appendChild(app);
+document.body.appendChild(app.h({}));
