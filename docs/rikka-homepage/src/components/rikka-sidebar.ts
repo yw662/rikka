@@ -1,9 +1,11 @@
 import { defineElement } from '@takanashi/rikka-elements';
 import { css, div, span, a, button } from '@takanashi/rikka-dom';
 import { signal, effect, type Signal } from '@takanashi/rikka-signal';
+import { tr, type Locale } from '../shared/i18n';
+import { docContent } from '../shared/doc-content';
 
 interface TOCItem {
-  title: string;
+  title: Record<Locale, string>;
   path: string;
   advanced?: boolean;
 }
@@ -17,40 +19,40 @@ const tableOfContents: TOCGroup[] = [
   {
     group: '@takanashi/rikka-signal',
     items: [
-      { title: 'Getting Started', path: '/docs/@takanashi/rikka-signal/getting-started' },
-      { title: 'signal()', path: '/docs/@takanashi/rikka-signal/signal' },
-      { title: 'computed()', path: '/docs/@takanashi/rikka-signal/computed' },
-      { title: 'effect()', path: '/docs/@takanashi/rikka-signal/effect' },
+      { title: docContent.sidebar.gettingStarted, path: '/docs/@takanashi/rikka-signal/getting-started' },
+      { title: docContent.sidebar.signal, path: '/docs/@takanashi/rikka-signal/signal' },
+      { title: docContent.sidebar.computed, path: '/docs/@takanashi/rikka-signal/computed' },
+      { title: docContent.sidebar.effect, path: '/docs/@takanashi/rikka-signal/effect' },
     ],
   },
   {
     group: '@takanashi/rikka-dom',
     items: [
-      { title: 'h()', path: '/docs/@takanashi/rikka-dom/h' },
-      { title: 'Tag Helpers', path: '/docs/@takanashi/rikka-dom/tag-helpers' },
-      { title: 'For', path: '/docs/@takanashi/rikka-dom/for' },
-      { title: 'Conditionals', path: '/docs/@takanashi/rikka-dom/conditionals' },
-      { title: 'h``', path: '/docs/@takanashi/rikka-dom/html-template', advanced: true },
-      { title: 'Signal Interpolation', path: '/docs/@takanashi/rikka-dom/signal-interpolation', advanced: true },
-      { title: 'css``', path: '/docs/@takanashi/rikka-dom/css-template', advanced: true },
-      { title: 'inlineStyle``', path: '/docs/@takanashi/rikka-dom/inlineStyle', advanced: true },
+      { title: docContent.sidebar.h, path: '/docs/@takanashi/rikka-dom/h' },
+      { title: docContent.sidebar.tagHelpers, path: '/docs/@takanashi/rikka-dom/tag-helpers' },
+      { title: docContent.sidebar.for, path: '/docs/@takanashi/rikka-dom/for' },
+      { title: docContent.sidebar.conditionals, path: '/docs/@takanashi/rikka-dom/conditionals' },
+      { title: docContent.sidebar.htmlTemplate, path: '/docs/@takanashi/rikka-dom/html-template', advanced: true },
+      { title: docContent.sidebar.signalInterpolation, path: '/docs/@takanashi/rikka-dom/signal-interpolation', advanced: true },
+      { title: docContent.sidebar.cssTemplate, path: '/docs/@takanashi/rikka-dom/css-template', advanced: true },
+      { title: docContent.sidebar.inlineStyle, path: '/docs/@takanashi/rikka-dom/inlineStyle', advanced: true },
     ],
   },
   {
     group: '@takanashi/rikka-elements',
     items: [
-      { title: 'defineElement', path: '/docs/@takanashi/rikka-elements/define-element', advanced: true },
-      { title: 'Shadow DOM', path: '/docs/@takanashi/rikka-elements/shadow', advanced: true },
-      { title: 'adoptStyle', path: '/docs/@takanashi/rikka-elements/adopt-style', advanced: true },
-      { title: 'attribute', path: '/docs/@takanashi/rikka-elements/attribute', advanced: true },
-      { title: 'event', path: '/docs/@takanashi/rikka-elements/event', advanced: true },
-      { title: 'attachTemplate', path: '/docs/@takanashi/rikka-elements/attach-template', advanced: true },
+      { title: docContent.sidebar.defineElement, path: '/docs/@takanashi/rikka-elements/define-element', advanced: true },
+      { title: docContent.sidebar.shadowDom, path: '/docs/@takanashi/rikka-elements/shadow', advanced: true },
+      { title: docContent.sidebar.adoptStyle, path: '/docs/@takanashi/rikka-elements/adopt-style', advanced: true },
+      { title: docContent.sidebar.attribute, path: '/docs/@takanashi/rikka-elements/attribute', advanced: true },
+      { title: docContent.sidebar.event, path: '/docs/@takanashi/rikka-elements/event', advanced: true },
+      { title: docContent.sidebar.attachTemplate, path: '/docs/@takanashi/rikka-elements/attach-template', advanced: true },
     ],
   },
   {
     group: 'API Reference',
     items: [
-      { title: 'API Reference', path: '/docs/api-reference' },
+      { title: docContent.sidebar.apiReference, path: '/docs/api-reference' },
     ],
   },
 ];
@@ -283,7 +285,7 @@ const RikkaSidebar = defineElement('rikka-sidebar', {
       {
         class: 'sidebar-fab',
         onclick: () => toggleDrawer(),
-        'aria-label': 'Table of Contents',
+        'aria-label': tr(docContent.sidebar.drawerTitle),
         'aria-expanded': String(drawerOpen.get()),
       },
       '\u229e',  // ⊞ table of contents
@@ -299,7 +301,7 @@ const RikkaSidebar = defineElement('rikka-sidebar', {
 
       const drawerHeader = div(
         { class: 'sidebar-drawer-header' },
-        span({ class: 'sidebar-drawer-title' }, 'Table of Contents'),
+        span({ class: 'sidebar-drawer-title' }, tr(docContent.sidebar.drawerTitle)),
         button(
           { class: 'sidebar-drawer-close', onclick: () => closeDrawer() },
           '\u2715',
@@ -316,7 +318,7 @@ const RikkaSidebar = defineElement('rikka-sidebar', {
               href: `#${item.path}`,
               onclick: () => closeDrawer(),
             },
-            item.title,
+            tr(item.title),
             advancedBadge,
           );
         });

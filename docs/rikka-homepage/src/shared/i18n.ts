@@ -21,11 +21,21 @@ function detectLocale(): Locale {
 export const locale = signal<Locale>(detectLocale());
 
 /**
- * Persist locale changes to localStorage.
+ * Persist locale changes to localStorage and notify in-tab listeners.
+ * Embedded components (e.g. the live playground) listen for this event
+ * to keep their own locale signal in sync without needing direct
+ * access to this module.
  */
 export function setLocale(l: Locale) {
   locale.set(l);
-  localStorage.setItem("rikka-locale", l);
+  try {
+    localStorage.setItem("rikka-locale", l);
+  } catch {
+    // localStorage may be unavailable
+  }
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("rikka:locale-change", { detail: l }));
+  }
 }
 
 /**

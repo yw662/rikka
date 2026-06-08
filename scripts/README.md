@@ -28,7 +28,6 @@ The canonical pipeline scripts are wrapped by `pnpm` aliases (see the root
 |--------|--------------|
 | `check-debug.mjs` | Edit the `ROUTE` constant, then run. Prints page-level + DOM-level info for that route: app/shadow presence, content text, content HTML, main HTML, rikka-app shadow HTML, conditional element inspection. |
 | `debug-iframe.mjs` | Dumps the full `srcdoc` of the first playground iframe on a page to `/tmp/iframe-srcdoc.html`. Useful for inspecting the importmap, SETUP_SCRIPT, and compiled user code. |
-| `extract-playground.mjs` | Extracts the Nth `createPlayground(...)` source from a rikka-homepage page file, optionally filtered by height, and prints the source plus its esbuild-wasm-compiled output. Use to debug why a playground fails to compile or run. |
 
 ## Conventions
 

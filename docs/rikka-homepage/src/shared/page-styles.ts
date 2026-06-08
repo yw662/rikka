@@ -1,4 +1,56 @@
+export const hljsTheme = `
+/* Highlight.js token theme, mapped to --code-syntax-* page variables.
+   Inherits across shadow DOM boundaries via CSS custom properties. */
+.hljs-comment,
+.hljs-quote {
+  color: var(--code-syntax-comment);
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-link {
+  color: var(--code-syntax-keyword);
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-template-tag {
+  color: var(--code-syntax-string);
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet {
+  color: var(--code-syntax-number);
+}
+.hljs-title,
+.hljs-title.function_,
+.hljs-title.class_ {
+  color: var(--code-syntax-function);
+}
+.hljs-attr,
+.hljs-attribute,
+.hljs-property,
+.hljs-variable.language_ {
+  color: var(--code-syntax-property);
+}
+.hljs-built_in,
+.hljs-type,
+.hljs-class .hljs-title {
+  color: var(--code-syntax-builtin);
+}
+.hljs-meta,
+.hljs-doctag {
+  color: var(--code-syntax-meta);
+}
+.hljs-deletion { color: var(--color-error); }
+.hljs-addition { color: var(--color-success); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 700; }
+`;
+
 export const docPageStyles = `
+${hljsTheme}
 :host { display: block; }
 .doc-page {
   max-width: 800px;
@@ -397,6 +449,7 @@ export const examplePageStyles = `
 `;
 
 const showcasePageStylesText = `
+${hljsTheme}
 :host { display: block; }
 .showcase-page { padding: 3rem 1rem; }
 .showcase-hero {

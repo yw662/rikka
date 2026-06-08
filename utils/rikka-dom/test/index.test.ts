@@ -1748,6 +1748,39 @@ describe("Two-way binding", () => {
     el.remove();
   });
 
+  it("keeps numeric signal a number when bound to type=number input", async () => {
+    const value = signal(0);
+    const el = h("input", { type: "number", value }) as HTMLInputElement;
+    document.body.appendChild(el);
+    el.value = "42";
+    el.dispatchEvent(new Event("input"));
+    expect(typeof value.get()).toBe("number");
+    expect(value.get()).toBe(42);
+    el.remove();
+  });
+
+  it("keeps numeric signal a number when bound to type=range input", async () => {
+    const value = signal(0);
+    const el = h("input", { type: "range", min: "0", max: "255", value }) as HTMLInputElement;
+    document.body.appendChild(el);
+    el.value = "200";
+    el.dispatchEvent(new Event("input"));
+    expect(typeof value.get()).toBe("number");
+    expect(value.get()).toBe(200);
+    el.remove();
+  });
+
+  it("falls back to string when signal is a string even on type=number input", async () => {
+    const value = signal("0");
+    const el = h("input", { type: "number", value }) as HTMLInputElement;
+    document.body.appendChild(el);
+    el.value = "7";
+    el.dispatchEvent(new Event("input"));
+    expect(typeof value.get()).toBe("string");
+    expect(value.get()).toBe("7");
+    el.remove();
+  });
+
   it("binds Signal.State to checkbox checked and syncs back on change event", async () => {
     const checked = signal(false);
     const el = h("input", { type: "checkbox", checked }) as HTMLInputElement;

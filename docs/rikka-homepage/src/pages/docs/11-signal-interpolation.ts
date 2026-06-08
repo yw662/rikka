@@ -2,6 +2,8 @@ import { defineElement } from '@takanashi/rikka-elements';
 import { css, div, h1, h2, p, a, ul, li } from '@takanashi/rikka-dom';
 import {sharedHelpers} from '../../shared/helpers';
 import {docPageStyles} from '../../shared/page-styles';
+import { docContent } from '../../shared/doc-content';
+import { tr } from '../../shared/i18n';
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`${docPageStyles}`;
@@ -10,17 +12,17 @@ const DocDom11 = defineElement('rikka-doc-dom-11', {
   styles,
   render() {
     return div({ class: 'doc-page' },
-      h1('Signal Interpolation'),
-      sharedHelpers.advancedBadge("Signal Interpolation", "is an advanced topic. Understanding fine-grained vs coarse-grained updates is only needed when optimizing performance."),
-      p('How signals behave differently depending on how you use them in templates.'),
+      h1({}, tr(docContent.sidebar.signalInterpolation)),
+      sharedHelpers.advancedBadge("Signal Interpolation", docContent.signalInterpolation.advancedNote),
+      p({}, tr(docContent.signalInterpolation.desc)),
       div({ class: 'doc-content' },
-        h2('Three Modes'),
+        h2({}, tr(docContent.signalInterpolation.threeModes)),
         ul(
-          li(sharedHelpers.inlineCode('${signal}'), ' — Fine-grained: signal passed as a child. Only the text node updates. Focus is preserved.'),
-          li(sharedHelpers.inlineCode('signal.get() outside computed'), ' — Loses reactivity entirely. The value is read once and never updates.'),
-          li(sharedHelpers.inlineCode('computed(() => { ... signal.get() ... })'), ' — Coarse-grained: signal.get() inside computed creates a dependency. When the signal changes, computed re-executes and rebuilds the entire DOM subtree.'),
+          li(sharedHelpers.inlineCode('${signal}'), tr(docContent.signalInterpolation.mode1)),
+          li(sharedHelpers.inlineCode('signal.get() outside computed'), tr(docContent.signalInterpolation.mode2)),
+          li(sharedHelpers.inlineCode('computed(() => { ... signal.get() ... })'), tr(docContent.signalInterpolation.mode3)),
         ),
-        h2('Live Comparison'),
+        h2({}, tr(docContent.signalInterpolation.liveComparison)),
         RikkaLivePlayground.h({
     code: `// Three signals, three different behaviors
 const fine = signal("Alice");
@@ -62,9 +64,13 @@ container.appendChild(div({ style: { display: "flex", flexDirection: "column", g
 }),
       ),
       div({ class: 'doc-nav' },
-        a({ href: '#/docs/@takanashi/rikka-dom/html-template', class: 'prev-link' }, '\u2190 h\`\`'),
+        a({ href: '#/docs/@takanashi/rikka-dom/html-template', class: 'prev-link' },
+          tr(docContent.signalInterpolation.prevHtmlTemplate),
+        ),
         div({ class: 'spacer' }),
-        a({ href: '#/docs/@takanashi/rikka-dom/css-template', class: 'next-link' }, 'css\`\` \u2192'),
+        a({ href: '#/docs/@takanashi/rikka-dom/css-template', class: 'next-link' },
+          tr(docContent.signalInterpolation.nextCssTemplate),
+        ),
       ),
     );
   }

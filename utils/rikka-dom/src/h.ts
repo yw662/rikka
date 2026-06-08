@@ -221,6 +221,29 @@ function readDomProperty<T>(el: Element, key: string): T {
   return (el as unknown as Record<string, T>)[key];
 }
 
+/**
+ * Read the value to write back into a two-way-bound signal. For numeric
+ * inputs (`<input type="number">` / `<input type="range">`) we prefer
+ * `valueAsNumber` so the signal stays a number when it was initialized as
+ * one — `el.value` is always a `DOMString` and would silently coerce the
+ * signal to a string. All other cases fall back to the raw property.
+ */
+function readTwoWayValue(
+  el: Element,
+  attrKey: string,
+  signal: Signal.State<unknown> | Signal.Computed<unknown>,
+): unknown {
+  if (
+    attrKey === "value" &&
+    typeof signal.get() === "number" &&
+    el instanceof HTMLInputElement &&
+    (el.type === "number" || el.type === "range")
+  ) {
+    return el.valueAsNumber;
+  }
+  return readDomProperty<unknown>(el, attrKey);
+}
+
 function toAttrName(key: string): string {
   return PROPERTY_TO_ATTR[key] ?? key;
 }
@@ -295,7 +318,7 @@ function applyAttrSignal(
     const handler = () => {
       const target = weakRef.deref();
       if (!target) return;
-      signal.set(readDomProperty<unknown>(target, attrKey));
+      signal.set(readTwoWayValue(target, attrKey, signal));
     };
     el.addEventListener(eventType, handler);
     registerDisposable(el, () => el.removeEventListener(eventType, handler));
@@ -357,7 +380,7 @@ function applyAttrs(el: Element, attrs: Record<string, unknown>): void {
     const handler = () => {
       const target = weakRef.deref();
       if (!target) return;
-      sig.set(readDomProperty<unknown>(target, attrKey));
+      sig.set(readTwoWayValue(target, attrKey, sig));
     };
     el.addEventListener(eventType, handler);
     registerDisposable(el, () => el.removeEventListener(eventType, handler));

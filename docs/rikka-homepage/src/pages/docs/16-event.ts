@@ -2,6 +2,8 @@ import { defineElement, NumberAttr } from "@takanashi/rikka-elements";
 import { css, div, h1, h2, p, a, pre, code } from "@takanashi/rikka-dom";
 import {sharedHelpers} from "../../shared/helpers";
 import {docPageStyles} from "../../shared/page-styles";
+import { docContent } from "../../shared/doc-content";
+import { tr } from "../../shared/i18n";
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
@@ -13,22 +15,22 @@ const DocElements16 = defineElement("rikka-doc-elements-16", {
   render() {
     return div(
       { class: "doc-page" },
-      h1("event"),
-      sharedHelpers.advancedBadge("event", "is part of @takanashi/rikka-elements, an advanced feature. For simple event handling, use DOM event handler properties with h()."),
-      p("Custom events with type-safe dispatching and listening."),
+      h1({}, tr(docContent.sidebar.event)),
+      sharedHelpers.advancedBadge("event", docContent.event.advancedNote),
+      p({}, tr(docContent.event.desc)),
       div(
         { class: "api-signature" },
         `config.events?: Record<string, EventSpec>`,
       ),
       div(
         { class: "doc-content" },
-        h2("Event Declaration"),
+        h2({}, tr(docContent.event.eventDeclaration)),
         p(
-          "Declare events in the ",
+          tr(docContent.event.eventDeclarationDesc1),
           sharedHelpers.inlineCode("config.events"),
-          " record. The value is the detail type constructor or ",
+          tr(docContent.event.eventDeclarationDesc1End),
           sharedHelpers.inlineCode("undefined"),
-          " for events with no detail.",
+          tr(docContent.event.eventDeclarationDesc1Final),
         ),
         RikkaLivePlayground.h({
     code: `const MyComponent = defineElement('my-component', {
@@ -64,17 +66,17 @@ container.appendChild(div({},
   log
 ));`, height: "220", title: "Event Declaration"
 }),
-        h2("Generated Methods"),
-        p("A dispatch method is generated for each event:"),
+        h2({}, tr(docContent.event.generatedMethods)),
+        p({}, tr(docContent.event.generatedMethodsDesc)),
         pre(
           { class: "code-block" },
           code(`this.dispatchChange(detail?, options?)  // Dispatch the event`),
         ),
-        h2("Handler Property"),
+        h2({}, tr(docContent.event.handlerProperty)),
         p(
-          "An ",
+          tr(docContent.event.handlerPropertyDesc1),
           sharedHelpers.inlineCode("on${eventName}"),
-          " property is also generated as a handler that can be set directly:",
+          tr(docContent.event.handlerPropertyDesc1End),
         ),
         pre(
           { class: "code-block" },
@@ -82,11 +84,11 @@ container.appendChild(div({},
   console.log('Changed:', e.detail);
 };`),
         ),
-        h2("event<T>() Type Helper"),
+        h2({}, tr(docContent.event.eventTypeHelper)),
         p(
-          "Use the ",
+          tr(docContent.event.eventTypeHelperDesc1),
           sharedHelpers.inlineCode("event<T>()"),
-          " helper for custom detail types:",
+          tr(docContent.event.eventTypeHelperDesc1End),
         ),
         pre(
           { class: "code-block" },
@@ -99,7 +101,7 @@ events: {
       ),
       div(
         { class: "playground-section" },
-        h2("Try It"),
+        h2({}, tr(docContent.ui.tryIt)),
         RikkaLivePlayground.h({
     code: `const EventCounter = defineElement('event-counter', {
   attributes: { count: NumberAttr },
@@ -186,15 +188,12 @@ container.appendChild(log);`, height: "300", title: "Custom Event"
         { class: "doc-nav" },
         a(
           { href: "#/docs/@takanashi/rikka-elements/attribute", class: "prev-link" },
-          "\u2190 attribute",
+          tr(docContent.event.prevAttribute),
         ),
         div({ class: "spacer" }),
         a(
-          {
-            href: "#/docs/@takanashi/rikka-elements/attach-template",
-            class: "next-link",
-          },
-          "attachTemplate \u2192",
+          { href: "#/docs/@takanashi/rikka-elements/attach-template", class: "next-link" },
+          tr(docContent.event.nextAttachTemplate),
         ),
       ),
     );

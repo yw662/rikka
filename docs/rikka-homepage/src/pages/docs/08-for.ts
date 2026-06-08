@@ -2,6 +2,8 @@ import { defineElement } from '@takanashi/rikka-elements';
 import { css, div, h1, h2, p, a, pre, code, ul, li } from '@takanashi/rikka-dom';
 import {sharedHelpers} from '../../shared/helpers';
 import {docPageStyles} from '../../shared/page-styles';
+import { docContent } from '../../shared/doc-content';
+import { tr } from '../../shared/i18n';
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`${docPageStyles}`;
@@ -10,17 +12,21 @@ const DocDom08 = defineElement('rikka-doc-dom-08', {
   styles,
   render() {
     return div({ class: 'doc-page' },
-      h1('For'),
-      p('Reactive list rendering with reference-based caching.'),
+      h1({}, tr(docContent.sidebar.for)),
+      p({}, tr(docContent.for.desc)),
       div({ class: 'doc-content' },
-        h2('Key Concepts'),
+        h2({}, tr(docContent.for.keyConcepts)),
         ul(
-          li(sharedHelpers.inlineCode('For(source, render, keyFn?)'), ' — Render a list reactively from a Signal array.'),
-          li('Cache-based diffing: only adds/removes/moves what changed.'),
-          li('Key function for stable identity across re-renders.'),
-          li('Returns a ', sharedHelpers.inlineCode('ReactiveRange'), ' that auto-updates.'),
+          li(sharedHelpers.inlineCode('For(source, render, keyFn?)'), tr(docContent.for.bullet1)),
+          li({}, tr(docContent.for.bullet2)),
+          li({}, tr(docContent.for.bullet3)),
+          li(
+            tr(docContent.for.bullet4),
+            sharedHelpers.inlineCode('ReactiveRange'),
+            tr(docContent.for.bullet4End),
+          ),
         ),
-        h2('API Signature'),
+        h2({}, tr(docContent.for.apiSignature)),
         pre({ class: 'code-block' }, code(
           `For<T, K = T>(
   source: Signal.State<T[]> | Signal.Computed<T[]>,
@@ -31,7 +37,7 @@ const DocDom08 = defineElement('rikka-doc-dom-08', {
         )),
       ),
       div({ class: 'playground-section' },
-        h2('Try It'),
+        h2({}, tr(docContent.ui.tryIt)),
         RikkaLivePlayground.h({
     code: `import { For } from '@takanashi/rikka-dom';
 
@@ -68,9 +74,13 @@ container.appendChild(ListDemo());`, height: '300', title: 'Add / Remove Items'
 }),
       ),
       div({ class: 'doc-nav' },
-        a({ href: '#/docs/@takanashi/rikka-dom/tag-helpers', class: 'prev-link' }, '\u2190 Tag Helpers'),
+        a({ href: '#/docs/@takanashi/rikka-dom/tag-helpers', class: 'prev-link' },
+          tr(docContent.for.prevTagHelpers),
+        ),
         div({ class: 'spacer' }),
-        a({ href: '#/docs/@takanashi/rikka-dom/conditionals', class: 'next-link' }, 'Conditionals \u2192'),
+        a({ href: '#/docs/@takanashi/rikka-dom/conditionals', class: 'next-link' },
+          tr(docContent.for.nextConditionals),
+        ),
       ),
     );
   }

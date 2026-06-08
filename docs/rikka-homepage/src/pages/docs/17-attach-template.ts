@@ -2,6 +2,8 @@ import { defineElement, NumberAttr, StringAttr } from "@takanashi/rikka-elements
 import { css, div, h1, h2, p, a, pre, code } from "@takanashi/rikka-dom";
 import {sharedHelpers} from "../../shared/helpers";
 import {docPageStyles} from "../../shared/page-styles";
+import { docContent } from "../../shared/doc-content";
+import { tr } from "../../shared/i18n";
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
@@ -13,22 +15,22 @@ const DocElements17 = defineElement("rikka-doc-elements-17", {
   render() {
     return div(
       { class: "doc-page" },
-      h1("attachTemplate"),
+      h1({}, tr(docContent.sidebar.attachTemplate)),
       sharedHelpers.advancedBadge(
         "attachTemplate",
-        "is part of @takanashi/rikka-elements, an advanced feature. For most use cases, h() and tag helpers are simpler and more flexible.",
+        docContent.attachTemplate.advancedNote,
       ),
-      p("Declarative templates with {{slot}} bindings."),
+      p({}, tr(docContent.attachTemplate.desc)),
       div({ class: "api-signature" }, `config.template?: HTMLTemplateElement`),
       div(
         { class: "doc-content" },
-        h2("Template Option"),
+        h2({}, tr(docContent.attachTemplate.templateOption)),
         p(
-          "Use the ",
+          tr(docContent.attachTemplate.templateOptionDesc1),
           sharedHelpers.inlineCode("config.template"),
-          " option to provide an HTML template. ",
+          tr(docContent.attachTemplate.templateOptionDesc1End),
           sharedHelpers.inlineCode("{{name}}"),
-          " slots auto-bind to instance properties.",
+          tr(docContent.attachTemplate.templateOptionDesc1Final),
         ),
         RikkaLivePlayground.h({
     code: `import { h } from '@takanashi/rikka-dom';
@@ -52,18 +54,16 @@ container.appendChild(div({},
   el
 ));`, height: "200", title: "Template Option"
 }),
-        h2("Binding Types"),
-        p("Three types of bindings are supported:"),
+        h2({}, tr(docContent.attachTemplate.bindingTypes)),
+        p({}, tr(docContent.attachTemplate.bindingTypesDesc)),
         pre(
           { class: "code-block" },
           code(`Text binding:      {{name}}              → textContent
 Attribute binding: class="{{name}}"        → setAttribute
 Event binding:     onclick="{{@action}}"    → dispatchAction(detail)`),
         ),
-        h2("Signal Support"),
-        p(
-          "Properties can be Signals for reactive updates. When a Signal changes, the bound text node updates automatically without re-rendering the entire template.",
-        ),
+        h2({}, tr(docContent.attachTemplate.signalSupport)),
+        p({}, tr(docContent.attachTemplate.signalSupportDesc)),
         pre(
           { class: "code-block" },
           code(`const el = document.createElement('my-component');
@@ -74,7 +74,7 @@ container.appendChild(el);`),
       ),
       div(
         { class: "playground-section" },
-        h2("Try It"),
+        h2({}, tr(docContent.ui.tryIt)),
         RikkaLivePlayground.h({
     code: `import { h } from '@takanashi/rikka-dom';
 
@@ -141,12 +141,12 @@ container.appendChild(el);`, height: "300", title: "Template Binding"
         { class: "doc-nav" },
         a(
           { href: "#/docs/@takanashi/rikka-elements/event", class: "prev-link" },
-          "\u2190 event",
+          tr(docContent.attachTemplate.prevEvent),
         ),
         div({ class: "spacer" }),
         a(
           { href: "#/docs/api-reference", class: "next-link" },
-          "API Reference \u2192",
+          tr(docContent.attachTemplate.nextApiReference),
         ),
       ),
     );

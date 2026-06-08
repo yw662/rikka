@@ -2,6 +2,8 @@ import { defineElement } from "@takanashi/rikka-elements";
 import { css, div, h1, h2, p, a, pre, code } from "@takanashi/rikka-dom";
 import {sharedHelpers} from "../../shared/helpers";
 import {docPageStyles} from "../../shared/page-styles";
+import { docContent } from "../../shared/doc-content";
+import { tr } from "../../shared/i18n";
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
@@ -13,32 +15,32 @@ const DocElements14 = defineElement("rikka-doc-elements-14", {
   render() {
     return div(
       { class: "doc-page" },
-      h1("adoptStyle"),
-      sharedHelpers.advancedBadge("adoptStyle", "is part of @takanashi/rikka-elements, an advanced feature. Use css`` with h() for simpler styling needs."),
-      p("Inject CSS stylesheets into the ShadowRoot."),
+      h1({}, tr(docContent.sidebar.adoptStyle)),
+      sharedHelpers.advancedBadge("adoptStyle", docContent.adoptStyle.advancedNote),
+      p({}, tr(docContent.adoptStyle.desc)),
       div(
         { class: "api-signature" },
         `config.styles?: CSSStyleSheet | CSSStyleSheet[]`,
       ),
       div(
         { class: "doc-content" },
-        h2("Overview"),
+        h2({}, tr(docContent.adoptStyle.overview)),
         p(
-          "The ",
+          tr(docContent.adoptStyle.overviewDesc1),
           sharedHelpers.inlineCode("config.styles"),
-          " option accepts a ",
+          tr(docContent.adoptStyle.overviewDesc1End),
           sharedHelpers.inlineCode("CSSStyleSheet"),
-          " or an array of them. These are injected into the shadow root via the ",
+          tr(docContent.adoptStyle.overviewDesc1Mid),
           sharedHelpers.inlineCode("adoptedStyleSheets"),
-          " API when the element connects.",
+          tr(docContent.adoptStyle.overviewDesc1MidEnd),
         ),
-        h2("css Tag Template"),
+        h2({}, tr(docContent.adoptStyle.cssTagTemplate)),
         p(
-          "Use the ",
+          tr(docContent.adoptStyle.cssTagTemplateDesc1),
           sharedHelpers.inlineCode("css"),
-          " tagged template literal to create ",
+          tr(docContent.adoptStyle.cssTagTemplateDesc1End),
           sharedHelpers.inlineCode("CSSStyleSheet"),
-          " objects:",
+          tr(docContent.adoptStyle.cssTagTemplateDesc1Final),
         ),
         RikkaLivePlayground.h({
     code: `const MyComponent = defineElement('my-component', {
@@ -59,8 +61,8 @@ const DocElements14 = defineElement("rikka-doc-elements-14", {
 
 container.appendChild(document.createElement('my-component'));`, height: "180", title: "css Template"
 }),
-        h2("Multiple Stylesheets"),
-        p("Pass an array to compose styles from multiple sources:"),
+        h2({}, tr(docContent.adoptStyle.multipleStylesheets)),
+        p({}, tr(docContent.adoptStyle.multipleStylesheetsDesc)),
         pre(
           { class: "code-block" },
           code(`const baseStyles = css\`:host { display: block; }\`;
@@ -70,18 +72,18 @@ const MyElement = defineElement('my-element', {
   styles: [baseStyles, themeStyles]
 });`),
         ),
-        h2("adoptedStyleSheets API"),
+        h2({}, tr(docContent.adoptStyle.adoptedStyleSheetsApi)),
         p(
-          "Under the hood, ",
+          tr(docContent.adoptStyle.adoptedStyleSheetsApiDesc1),
           sharedHelpers.inlineCode("defineElement"),
-          " merges styles into ",
+          tr(docContent.adoptStyle.adoptedStyleSheetsApiDesc1End),
           sharedHelpers.inlineCode("shadow.adoptedStyleSheets"),
-          " for performant, deduplicated style application.",
+          tr(docContent.adoptStyle.adoptedStyleSheetsApiDesc1Final),
         ),
       ),
       div(
         { class: "playground-section" },
-        h2("Try It"),
+        h2({}, tr(docContent.ui.tryIt)),
         RikkaLivePlayground.h({
     code: `const cardStyle = css\`
   :host {
@@ -127,12 +129,12 @@ container.appendChild(document.createElement('styled-card'));`, height: "250", t
         { class: "doc-nav" },
         a(
           { href: "#/docs/@takanashi/rikka-elements/shadow", class: "prev-link" },
-          "\u2190 Shadow DOM",
+          tr(docContent.adoptStyle.prevShadow),
         ),
         div({ class: "spacer" }),
         a(
           { href: "#/docs/@takanashi/rikka-elements/attribute", class: "next-link" },
-          "attribute \u2192",
+          tr(docContent.adoptStyle.nextAttribute),
         ),
       ),
     );

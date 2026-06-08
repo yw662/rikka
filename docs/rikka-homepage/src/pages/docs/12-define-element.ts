@@ -2,6 +2,8 @@ import { defineElement, NumberAttr } from "@takanashi/rikka-elements";
 import { css, div, h1, h2, p, a, pre, code } from "@takanashi/rikka-dom";
 import {sharedHelpers} from "../../shared/helpers";
 import {docPageStyles} from "../../shared/page-styles";
+import { docContent } from "../../shared/doc-content";
+import { tr } from "../../shared/i18n";
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
@@ -13,41 +15,38 @@ const DocElements12 = defineElement("rikka-doc-elements-12", {
   render() {
     return div(
       { class: "doc-page" },
-      h1("defineElement"),
-      sharedHelpers.advancedBadge("defineElement", "is an advanced feature. You can build entire apps using only h(), div(), and other tag helpers. Use defineElement when you need reusable, encapsulated components with Shadow DOM isolation."),
-      p(
-        "Define custom elements for reusable components with reactive attributes, events, and styles.",
-      ),
+      h1({}, tr(docContent.sidebar.defineElement)),
+      sharedHelpers.advancedBadge("defineElement", docContent.defineElement.advancedNote),
+      p({}, tr(docContent.defineElement.desc)),
       div(
         { class: "api-signature" },
         `defineElement(tagName: string, config?: ElementConfig): ElementConstructor`,
       ),
       div(
         { class: "doc-content" },
-        h2("Overview"),
+        h2({}, tr(docContent.defineElement.overview)),
         p(
-          "The ",
+          tr(docContent.defineElement.overviewDesc1),
           sharedHelpers.inlineCode("defineElement"),
-          " function is an ",
+          tr(docContent.defineElement.overviewDesc1Mid),
           sharedHelpers.inlineCode("optional"),
-          " utility for creating reusable, encapsulated components. It registers a custom element with the browser by creating a class extending ",
+          tr(docContent.defineElement.overviewDesc1End),
           sharedHelpers.inlineCode("HTMLElement"),
-          ", configuring shadow DOM, styles, attributes, and events via ",
+          tr(docContent.defineElement.overviewDesc1Final),
           sharedHelpers.inlineCode("customElements.define"),
-          ".",
+          tr(docContent.defineElement.overviewDesc1FinalEnd),
         ),
         p(
-          { style: { color: "#94a3b8", marginTop: "8px" } },
-          "Most Rikka applications work perfectly fine using only ",
+          tr(docContent.defineElement.overviewDesc2),
           sharedHelpers.inlineCode("h()"),
-          ", ",
+          tr(docContent.defineElement.overviewDesc2Mid),
           sharedHelpers.inlineCode("div()"),
-          ", and signal interpolation directly. Use ",
+          tr(docContent.defineElement.overviewDesc2End),
           sharedHelpers.inlineCode("defineElement"),
-          " when you need component reuse across different parts of your app, or when you want style encapsulation via shadow DOM.",
+          tr(docContent.defineElement.overviewDesc2Final),
         ),
-        h2("ElementConfig Interface"),
-        p("The configuration object declares all features of the element:"),
+        h2({}, tr(docContent.defineElement.elementConfig)),
+        p({}, tr(docContent.defineElement.elementConfigDesc)),
         pre(
           { class: "code-block" },
           code(`type BaseConfig = {
@@ -63,19 +62,19 @@ type ElementConfig =
   | (BaseConfig & { template?: never; render?: () => Element })
   | BaseConfig;`),
         ),
-        h2("Render Function"),
+        h2({}, tr(docContent.defineElement.renderFunction)),
         p(
-          "The ",
+          tr(docContent.defineElement.renderDesc1),
           sharedHelpers.inlineCode("render"),
-          " function is mounted on the element prototype and called in ",
+          tr(docContent.defineElement.renderDesc1Mid),
           sharedHelpers.inlineCode("connectedCallback"),
-          ". Inside render, ",
+          tr(docContent.defineElement.renderDesc1End),
           sharedHelpers.inlineCode("this"),
-          " is the element instance. It must return an ",
+          tr(docContent.defineElement.renderDesc1Final),
           sharedHelpers.inlineCode("Element"),
-          " to append to ",
+          tr(docContent.defineElement.renderDesc1FinalMid),
           sharedHelpers.inlineCode("this.shadowRoot"),
-          ".",
+          tr(docContent.defineElement.renderDesc1FinalEnd),
         ),
         pre(
           { class: "code-block" },
@@ -91,7 +90,7 @@ type ElementConfig =
       ),
       div(
         { class: "playground-section" },
-        h2("Try It"),
+        h2({}, tr(docContent.ui.tryIt)),
         RikkaLivePlayground.h({
     code: `const MyElement = defineElement('my-element', {
   render() {
@@ -111,12 +110,12 @@ customElements.whenDefined('my-element').then(() => {
         { class: "doc-nav" },
         a(
           { href: "#/docs/@takanashi/rikka-dom/inlineStyle", class: "prev-link" },
-          "\u2190 inlineStyle``",
+          tr(docContent.defineElement.prevInlineStyle),
         ),
         div({ class: "spacer" }),
         a(
           { href: "#/docs/@takanashi/rikka-elements/shadow", class: "next-link" },
-          "Shadow DOM \u2192",
+          tr(docContent.defineElement.nextShadow),
         ),
       ),
     );

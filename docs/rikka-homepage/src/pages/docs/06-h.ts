@@ -1,8 +1,9 @@
 import { defineElement } from '@takanashi/rikka-elements';
 import { css, div, h1, h2, p, a, pre, code, ul, li } from '@takanashi/rikka-dom';
-import { signal } from '@takanashi/rikka-signal';
 import {sharedHelpers} from '../../shared/helpers';
 import {docPageStyles} from '../../shared/page-styles';
+import { docContent } from '../../shared/doc-content';
+import { tr } from '../../shared/i18n';
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`${docPageStyles}`;
@@ -10,20 +11,34 @@ const styles = css`${docPageStyles}`;
 const DocDom06 = defineElement('rikka-doc-dom-06', {
   styles,
   render() {
-    const count = signal(0);
-
     return div({ class: 'doc-page' },
-      h1('h()'),
-      p('The core function for creating DOM elements with reactive support.'),
+      h1({}, tr(docContent.sidebar.h)),
+      p({}, tr(docContent.h.desc)),
       div({ class: 'doc-content' },
-        h2('Key Concepts'),
+        h2({}, tr(docContent.h.keyConcepts)),
         ul(
-          li(sharedHelpers.inlineCode('h(tag, attrs?, ...children)'), ' — Create an element by tag name.'),
-          li('Children can be ', sharedHelpers.inlineCode('string'), ', ', sharedHelpers.inlineCode('number'), ', ', sharedHelpers.inlineCode('Element'), ', ', sharedHelpers.inlineCode('Signal'), ', or ', sharedHelpers.inlineCode('array'), '.'),
-          li('Signals in children automatically subscribe and update when changed.'),
-          li('Attributes accept plain objects; event handlers use ', sharedHelpers.inlineCode('on{Event}'), ' naming.'),
+          li(sharedHelpers.inlineCode('h(tag, attrs?, ...children)'), tr(docContent.h.bullet1)),
+          li(
+            tr(docContent.h.bullet2),
+            sharedHelpers.inlineCode('string'),
+            tr(docContent.h.bullet2Mid),
+            sharedHelpers.inlineCode('number'),
+            tr(docContent.h.bullet2Mid),
+            sharedHelpers.inlineCode('Element'),
+            tr(docContent.h.bullet2Mid),
+            sharedHelpers.inlineCode('Signal'),
+            tr(docContent.h.bullet2End),
+            sharedHelpers.inlineCode('array'),
+            tr(docContent.h.bullet2Mid),
+          ),
+          li({}, tr(docContent.h.bullet3)),
+          li(
+            tr(docContent.h.bullet4),
+            sharedHelpers.inlineCode('on{Event}'),
+            tr(docContent.h.bullet4End),
+          ),
         ),
-        h2('API Signature'),
+        h2({}, tr(docContent.h.apiSignature)),
         pre({ class: 'code-block' }, code(
           `h<K extends keyof ElementTagNameMap>(
   tag: K,
@@ -33,7 +48,7 @@ const DocDom06 = defineElement('rikka-doc-dom-06', {
         )),
       ),
       div({ class: 'playground-section' },
-        h2('Try It'),
+        h2({}, tr(docContent.ui.tryIt)),
         RikkaLivePlayground.h({
     code: `function CounterExample() {
   const count = signal(0);
@@ -49,9 +64,13 @@ container.appendChild(CounterExample());`, height: '220', title: 'Basic h() Usag
 }),
       ),
       div({ class: 'doc-nav' },
-        a({ href: '#/docs/@takanashi/rikka-signal/effect', class: 'prev-link' }, '\u2190 effect()'),
+        a({ href: '#/docs/@takanashi/rikka-signal/effect', class: 'prev-link' },
+          tr(docContent.h.prevEffect),
+        ),
         div({ class: 'spacer' }),
-        a({ href: '#/docs/@takanashi/rikka-dom/tag-helpers', class: 'next-link' }, 'Tag Helpers \u2192'),
+        a({ href: '#/docs/@takanashi/rikka-dom/tag-helpers', class: 'next-link' },
+          tr(docContent.h.nextTagHelpers),
+        ),
       ),
     );
   }

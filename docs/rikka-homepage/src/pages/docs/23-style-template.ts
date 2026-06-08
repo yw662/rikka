@@ -2,23 +2,27 @@ import { defineElement } from "@takanashi/rikka-elements";
 import { css, div, h1, h2, p, a, pre, code as codeTag } from "@takanashi/rikka-dom";
 import {sharedHelpers} from "../../shared/helpers";
 import {docPageStyles} from "../../shared/page-styles";
+import { docContent } from "../../shared/doc-content";
+import { tr } from "../../shared/i18n";
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
   ${docPageStyles}
 `;
 
+const C = docContent.inlineStyle;
+
 const DocDomStyle = defineElement("rikka-doc-dom-style", {
   styles,
   render() {
     return div(
       { class: "doc-page" },
-      h1("inlineStyle``"),
-      sharedHelpers.advancedBadge("inlineStyle``", "is an advanced feature. For most styling needs, css`` or external stylesheets are preferred."),
+      h1({}, tr(docContent.sidebar.inlineStyle)),
+      sharedHelpers.advancedBadge("inlineStyle``", C.advancedNote),
       p(
-        "Tag template for creating inline style objects. Exported from ",
+        tr(C.desc1),
         sharedHelpers.inlineCode("@takanashi/rikka-dom"),
-        ".",
+        tr(C.desc1End),
       ),
       div(
         { class: "api-signature" },
@@ -26,11 +30,11 @@ const DocDomStyle = defineElement("rikka-doc-dom-style", {
       ),
       div(
         { class: "doc-content" },
-        h2("Basic Usage"),
+        h2({}, tr(C.basicUsage)),
         p(
-          "The ",
+          tr(C.basicUsageDesc1),
           sharedHelpers.inlineCode("inlineStyle"),
-          " tagged template creates a JavaScript style object from CSS-like syntax:",
+          tr(C.basicUsageDesc1End),
         ),
         RikkaLivePlayground.h({
     code: `const cardStyle = inlineStyle\`
@@ -45,10 +49,8 @@ container.appendChild(div({ style: cardStyle },
   p({}, 'This uses the inlineStyle template tag.')
 ));`, height: "180", title: "inlineStyle Template Basics"
 }),
-        h2("CSS to camelCase"),
-        p(
-          "CSS property names are automatically converted to camelCase for JavaScript compatibility:",
-        ),
+        h2({}, tr(C.cssToCamelCase)),
+        p({}, tr(C.cssToCamelCaseDesc)),
         pre(
           { class: "code-block" },
           codeTag(`const s = inlineStyle\`
@@ -58,22 +60,22 @@ container.appendChild(div({ style: cardStyle },
 \`;
 // => { fontSize: '14px', backgroundColor: 'red', borderTopLeftRadius: '4px' }`),
         ),
-        h2("vs css``"),
+        h2({}, tr(C.vsCss)),
         p(
           sharedHelpers.inlineCode("css``"),
-          " returns a ",
+          tr(C.vsCssDesc1),
           sharedHelpers.inlineCode("CSSStyleSheet"),
-          " for ",
+          tr(C.vsCssDesc1End),
           sharedHelpers.inlineCode("adoptedStyleSheets"),
-          " or ",
+          tr(C.vsCssDesc1Final),
           sharedHelpers.inlineCode("config.styles"),
-          ".",
+          tr(C.vsCssDesc1End),
         ),
         p(
           sharedHelpers.inlineCode("inlineStyle\`\`"),
-          " returns a plain object for the ",
+          tr(C.vsCssDesc2),
           sharedHelpers.inlineCode("style"),
-          " attribute of individual elements.",
+          tr(C.vsCssDesc2End),
         ),
         pre(
           { class: "code-block" },
@@ -85,8 +87,8 @@ defineElement('my-el', { styles: sheet });
 const inline = inlineStyle\`padding: 8px; color: red\`;
 div({ style: inline }, 'Text')`),
         ),
-        h2("Interpolation"),
-        p("String and number values can be interpolated:"),
+        h2({}, tr(C.interpolation)),
+        p({}, tr(C.interpolationDesc)),
         pre(
           { class: "code-block" },
           codeTag(`const size = 16;
@@ -101,7 +103,7 @@ const s = inlineStyle\`
       ),
       div(
         { class: "playground-section" },
-        h2("Try It"),
+        h2({}, tr(docContent.ui.tryIt)),
         RikkaLivePlayground.h({
     code: `const cardStyle = inlineStyle\`
   padding: 20px;
@@ -137,12 +139,12 @@ container.appendChild(app);`, height: "200", title: "inlineStyle Template"
         { class: "doc-nav" },
         a(
           { href: "#/docs/@takanashi/rikka-dom/css-template", class: "prev-link" },
-          "\u2190 css``",
+          tr(C.prevCssTemplate),
         ),
         div({ class: "spacer" }),
         a(
           { href: "#/docs/@takanashi/rikka-elements/define-element", class: "next-link" },
-          "defineElement \u2192",
+          tr(C.nextDefineElement),
         ),
       ),
     );

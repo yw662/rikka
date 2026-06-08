@@ -170,14 +170,15 @@ describe("RikkaLivePlayground", () => {
       expect(resetBtn!.textContent).toContain("Reset");
     });
 
-    it("renders a textarea with editor-area class", async () => {
+    it("renders a contenteditable div with editor-area class", async () => {
       document.body.appendChild(el);
       await waitFor(10);
-      const textarea = el.shadowRoot!.querySelector(
+      const editor = el.shadowRoot!.querySelector(
         ".editor-area",
-      ) as HTMLTextAreaElement;
-      expect(textarea).toBeTruthy();
-      expect(textarea.tagName).toBe("TEXTAREA");
+      ) as HTMLElement;
+      expect(editor).toBeTruthy();
+      expect(editor.tagName).toBe("DIV");
+      expect(editor.getAttribute("contenteditable")).toBeTruthy();
     });
 
     it("sets textarea height from height attribute", async () => {
@@ -190,13 +191,14 @@ describe("RikkaLivePlayground", () => {
       expect(body.style.height).toBe("400px");
     });
 
-    it("passes spellcheck attribute to textarea", async () => {
+    it("editor-area has spellcheck attribute", async () => {
       document.body.appendChild(el);
       await waitFor(10);
-      const textarea = el.shadowRoot!.querySelector(
+      const editor = el.shadowRoot!.querySelector(
         ".editor-area",
-      ) as HTMLTextAreaElement;
-      expect(textarea).toBeTruthy();
+      ) as HTMLElement;
+      expect(editor).toBeTruthy();
+      expect(editor.getAttribute("spellcheck")).toBe("false");
     });
 
     it("renders a preview section", async () => {
@@ -229,20 +231,20 @@ describe("RikkaLivePlayground", () => {
       el.textContent = "const x = 1";
       document.body.appendChild(el);
       await waitFor(10);
-      const textarea = el.shadowRoot!.querySelector(
+      const editor = el.shadowRoot!.querySelector(
         ".editor-area",
-      ) as HTMLTextAreaElement;
-      expect(textarea.value).toBe("const x = 1");
+      ) as HTMLElement;
+      expect(editor.textContent).toBe("const x = 1");
     });
 
     it("trims textContent before using as code", async () => {
       el.textContent = "  const x = 1  \n";
       document.body.appendChild(el);
       await waitFor(10);
-      const textarea = el.shadowRoot!.querySelector(
+      const editor = el.shadowRoot!.querySelector(
         ".editor-area",
-      ) as HTMLTextAreaElement;
-      expect(textarea.value).toBe("const x = 1");
+      ) as HTMLElement;
+      expect(editor.textContent).toBe("const x = 1");
     });
 
     it("prefers textContent over code attribute", async () => {
@@ -250,52 +252,52 @@ describe("RikkaLivePlayground", () => {
       el.setAttribute("code", "from-attribute");
       document.body.appendChild(el);
       await waitFor(10);
-      const textarea = el.shadowRoot!.querySelector(
+      const editor = el.shadowRoot!.querySelector(
         ".editor-area",
-      ) as HTMLTextAreaElement;
-      expect(textarea.value).toBe("from-textcontent");
+      ) as HTMLElement;
+      expect(editor.textContent).toBe("from-textcontent");
     });
 
     it("falls back to code attribute when textContent is empty", async () => {
       el.setAttribute("code", "from-attribute");
       document.body.appendChild(el);
       await waitFor(10);
-      const textarea = el.shadowRoot!.querySelector(
+      const editor = el.shadowRoot!.querySelector(
         ".editor-area",
-      ) as HTMLTextAreaElement;
-      expect(textarea.value).toBe("from-attribute");
+      ) as HTMLElement;
+      expect(editor.textContent).toBe("from-attribute");
     });
   });
 
   describe("reset button", () => {
-    it("restores original code to textarea", async () => {
+    it("restores original code to editor", async () => {
       el.setAttribute("code", "original code");
       document.body.appendChild(el);
       await waitFor(10);
-      const textarea = el.shadowRoot!.querySelector(
+      const editor = el.shadowRoot!.querySelector(
         ".editor-area",
-      ) as HTMLTextAreaElement;
-      textarea.value = "modified code";
+      ) as HTMLElement;
+      editor.textContent = "modified code";
       const resetBtn = el.shadowRoot!.querySelector(
         ".reset-btn",
       ) as HTMLButtonElement;
       resetBtn.click();
-      expect(textarea.value).toBe("original code");
+      expect(editor.textContent).toBe("original code");
     });
 
     it("restores textContent code on reset", async () => {
       el.textContent = "  textcontent code  ";
       document.body.appendChild(el);
       await waitFor(10);
-      const textarea = el.shadowRoot!.querySelector(
+      const editor = el.shadowRoot!.querySelector(
         ".editor-area",
-      ) as HTMLTextAreaElement;
-      textarea.value = "modified code";
+      ) as HTMLElement;
+      editor.textContent = "modified code";
       const resetBtn = el.shadowRoot!.querySelector(
         ".reset-btn",
       ) as HTMLButtonElement;
       resetBtn.click();
-      expect(textarea.value).toBe("textcontent code");
+      expect(editor.textContent).toBe("textcontent code");
     });
   });
 
@@ -430,11 +432,11 @@ describe("RikkaLivePlayground", () => {
       const fakeIframe = document.createElement("iframe");
       fakeIframe.className = "preview-iframe";
       previewEl.appendChild(fakeIframe);
-      expect(previewEl.querySelector(".preview-iframe")).toBeTruthy();
+      expect(previewEl.contains(fakeIframe)).toBe(true);
       try {
         await el.run();
       } catch {}
-      expect(previewEl.querySelector(".preview-iframe")).toBeNull();
+      expect(previewEl.contains(fakeIframe)).toBe(false);
     });
   });
 
@@ -449,24 +451,24 @@ describe("RikkaLivePlayground", () => {
       el.setAttribute("code", "original code");
       document.body.appendChild(el);
       await waitFor(10);
-      const textarea = el.shadowRoot!.querySelector(
+      const editor = el.shadowRoot!.querySelector(
         ".editor-area",
-      ) as HTMLTextAreaElement;
-      textarea.value = "modified code";
+      ) as HTMLElement;
+      editor.textContent = "modified code";
       el.reset();
-      expect(textarea.value).toBe("original code");
+      expect(editor.textContent).toBe("original code");
     });
 
     it("reset restores original code from textContent", async () => {
       el.textContent = "  textcontent code  ";
       document.body.appendChild(el);
       await waitFor(10);
-      const textarea = el.shadowRoot!.querySelector(
+      const editor = el.shadowRoot!.querySelector(
         ".editor-area",
-      ) as HTMLTextAreaElement;
-      textarea.value = "modified code";
+      ) as HTMLElement;
+      editor.textContent = "modified code";
       el.reset();
-      expect(textarea.value).toBe("textcontent code");
+      expect(editor.textContent).toBe("textcontent code");
     });
   });
 

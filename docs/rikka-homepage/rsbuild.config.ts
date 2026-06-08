@@ -154,14 +154,4 @@ export default defineConfig({
       },
     ],
   },
-  tools: {
-    rspack: (config) => {
-      config.module.rules = config.module.rules || [];
-      config.module.rules.push({
-        test: /\.wasm$/,
-        resourceQuery: /url/,
-        type: "asset/resource",
-      });
-    },
-  },
 });

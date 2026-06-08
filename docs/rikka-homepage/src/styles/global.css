@@ -45,6 +45,15 @@
   --color-code-block-bg: #0d1117;
   --color-code-block-text: #e6edf3;
   --color-code-block-border: #334155;
+  /* Syntax highlighting palette (used by highlight.js .hljs-* rules) */
+  --code-syntax-comment: #6b7280;
+  --code-syntax-keyword: #c084fc;
+  --code-syntax-string: #86efac;
+  --code-syntax-number: #fbbf24;
+  --code-syntax-function: #60a5fa;
+  --code-syntax-property: #f472b6;
+  --code-syntax-builtin: #7dd3fc;
+  --code-syntax-meta: #94a3b8;
   --color-npm-bg: #0d1117;
   --color-npm-text: #a5b4fc;
   --color-step-code-bg: rgba(99, 102, 241, 0.15);
@@ -575,6 +584,14 @@ textarea {
   --color-code-block-bg: #f1f5f9;
   --color-code-block-text: #1e293b;
   --color-code-block-border: #cbd5e1;
+  --code-syntax-comment: #6b7280;
+  --code-syntax-keyword: #7c3aed;
+  --code-syntax-string: #16a34a;
+  --code-syntax-number: #d97706;
+  --code-syntax-function: #2563eb;
+  --code-syntax-property: #db2777;
+  --code-syntax-builtin: #0891b2;
+  --code-syntax-meta: #475569;
   --color-npm-bg: #f1f5f9;
   --color-npm-text: #4338ca;
   --color-step-code-bg: rgba(99, 102, 241, 0.08);
@@ -657,6 +674,14 @@ textarea {
     --color-code-block-bg: #f1f5f9;
     --color-code-block-text: #1e293b;
     --color-code-block-border: #cbd5e1;
+    --code-syntax-comment: #6b7280;
+    --code-syntax-keyword: #7c3aed;
+    --code-syntax-string: #16a34a;
+    --code-syntax-number: #d97706;
+    --code-syntax-function: #2563eb;
+    --code-syntax-property: #db2777;
+    --code-syntax-builtin: #0891b2;
+    --code-syntax-meta: #475569;
     --color-npm-bg: #f1f5f9;
     --color-npm-text: #4338ca;
     --color-step-code-bg: rgba(99, 102, 241, 0.08);
@@ -733,6 +758,14 @@ textarea {
     --pg-handle-grip: var(--color-border);
     --pg-spinner-track: var(--color-border);
     --pg-spinner-active: var(--color-primary);
+    --pg-syntax-comment: var(--code-syntax-comment);
+    --pg-syntax-keyword: var(--code-syntax-keyword);
+    --pg-syntax-string: var(--code-syntax-string);
+    --pg-syntax-number: var(--code-syntax-number);
+    --pg-syntax-function: var(--code-syntax-function);
+    --pg-syntax-property: var(--code-syntax-property);
+    --pg-syntax-builtin: var(--code-syntax-builtin);
+    --pg-syntax-meta: var(--code-syntax-meta);
   }
 }
 
@@ -762,11 +795,14 @@ textarea {
   --pg-handle-grip: var(--color-border);
   --pg-spinner-track: var(--color-border);
   --pg-spinner-active: var(--color-primary);
-}
-
-/* Playground 页面填满内容区 */
-.content:has(> rikka-playground) {
-  padding: 0;
+  --pg-syntax-comment: var(--code-syntax-comment);
+  --pg-syntax-keyword: var(--code-syntax-keyword);
+  --pg-syntax-string: var(--code-syntax-string);
+  --pg-syntax-number: var(--code-syntax-number);
+  --pg-syntax-function: var(--code-syntax-function);
+  --pg-syntax-property: var(--code-syntax-property);
+  --pg-syntax-builtin: var(--code-syntax-builtin);
+  --pg-syntax-meta: var(--code-syntax-meta);
 }
 
 /* 平滑过渡 */

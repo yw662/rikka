@@ -18,6 +18,8 @@ import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 import { sharedHelpers } from "../shared/helpers";
 import { locale, t, type Locale } from "../shared/i18n";
 import { homeContent } from "../shared/home-content";
+import { hljsTheme } from "../shared/page-styles";
+import { highlightInline } from "../shared/highlight";
 
 const cdnGzipKB = signal<string | null>(null);
 
@@ -43,6 +45,7 @@ async function measureCdnGzipSize() {
 measureCdnGzipSize();
 
 const homeStyles = css`
+  ${hljsTheme}
   :host {
     display: block;
     color: var(--color-text-primary);
@@ -360,25 +363,6 @@ const homeStyles = css`
     white-space: pre;
     overflow-x: auto;
   }
-  .hero-demo-code .kw {
-    color: #c084fc;
-  }
-  .hero-demo-code .fn {
-    color: #60a5fa;
-  }
-  .hero-demo-code .str {
-    color: #86efac;
-  }
-  .hero-demo-code .cmt {
-    color: #64748b;
-    font-style: italic;
-  }
-  .hero-demo-code .num {
-    color: #fbbf24;
-  }
-  .hero-demo-code .var {
-    color: #f472b6;
-  }
   .hero-demo-preview {
     flex: 0 0 220px;
     padding: 1.25rem 1.5rem;
@@ -667,22 +651,6 @@ const homeStyles = css`
     tab-size: 2;
     margin: 0;
     flex: 1;
-  }
-  .advantage-card .code-snippet .kw {
-    color: #c084fc;
-  }
-  .advantage-card .code-snippet .fn {
-    color: #60a5fa;
-  }
-  .advantage-card .code-snippet .str {
-    color: #86efac;
-  }
-  .advantage-card .code-snippet .cmt {
-    color: #64748b;
-    font-style: italic;
-  }
-  .advantage-card .code-snippet .num {
-    color: #fbbf24;
   }
   .advantage-card .code-snippet::before {
     content: "Rikka";
@@ -1169,33 +1137,6 @@ const homeStyles = css`
   }
 `;
 
-function highlightCode(code: string): string {
-  const tokens: { type: string; value: string }[] = [];
-  const re =
-    /(\/\/[^\n]*)|(`[^`]*`|'[^']*'|"[^"]*")|(\b(?:const|let|var|function|return|if|else|import|from|as|new)\b)|(\b(?:signal|computed|effect|div|button|span|document)\b)|(\b\d+\b)|([^\s\w]+)|(\w+)|\s+/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(code)) !== null) {
-    if (m[1]) tokens.push({ type: "cmt", value: m[1] });
-    else if (m[2]) tokens.push({ type: "str", value: m[2] });
-    else if (m[3]) tokens.push({ type: "kw", value: m[3] });
-    else if (m[4]) tokens.push({ type: "fn", value: m[4] });
-    else if (m[5]) tokens.push({ type: "num", value: m[5] });
-    else if (m[6]) tokens.push({ type: "op", value: m[6] });
-    else if (m[7]) tokens.push({ type: "id", value: m[7] });
-    else if (m[0]) tokens.push({ type: "ws", value: m[0] });
-  }
-  return tokens
-    .map((t) => {
-      const safe = t.value
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-      if (t.type === "ws" || t.type === "op" || t.type === "id") return safe;
-      return `<span class="${t.type}">${safe}</span>`;
-    })
-    .join("");
-}
-
 const counterCode = `// Try editing this code!
 const count = signal(0);
 const doubled = computed(() => count.get() * 2);
@@ -1227,7 +1168,7 @@ const HomePage = defineElement("rikka-home", {
         (() => {
           const codeEl = document.createElement("pre");
           codeEl.className = "hero-demo-code";
-          codeEl.innerHTML = highlightCode(counterCode);
+          codeEl.innerHTML = highlightInline(counterCode);
           return codeEl;
         })(),
         div(
@@ -1575,10 +1516,10 @@ const HomePage = defineElement("rikka-home", {
                     el.className = "code-snippet";
                     const codeVal = a.code;
                     if (typeof codeVal === "string") {
-                      el.innerHTML = highlightCode(codeVal);
+                      el.innerHTML = highlightInline(codeVal);
                     } else {
                       effect(() => {
-                        el.innerHTML = highlightCode(codeVal.get());
+                        el.innerHTML = highlightInline(codeVal.get());
                       });
                     }
                     return el;

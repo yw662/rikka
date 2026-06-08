@@ -48,9 +48,9 @@ docs/rikka-homepage     文档站
 
 ### @takanashi/rikka-live-playground
 
-实时代码编辑器组件。基于 esbuild-wasm 在浏览器中编译 TypeScript，在沙箱 iframe 中运行。
+实时代码编辑器组件。使用 Sucrase 在浏览器中擦除 TypeScript 类型，用 CodeJar + highlight.js 提供可编辑的语法高亮，在沙箱 iframe 中运行用户代码。
 
-**为什么放在 components/**：esbuild-wasm 集成、iframe 沙箱、代码编译 —— 这些不是原语级别的工具，而是基于 rikka-elements 构建的完整组件。
+**为什么放在 components/**：编辑器集成、iframe 沙箱、代码转译 —— 这些不是原语级别的工具，而是基于 rikka-elements 构建的完整组件。
 
 ## 计划中的包
 

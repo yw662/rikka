@@ -2,6 +2,8 @@ import { defineElement, NumberAttr, StringAttr, BooleanAttr } from "@takanashi/r
 import { css, div, h1, h2, p, a, pre, code } from "@takanashi/rikka-dom";
 import {sharedHelpers} from "../../shared/helpers";
 import {docPageStyles} from "../../shared/page-styles";
+import { docContent } from "../../shared/doc-content";
+import { tr } from "../../shared/i18n";
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
@@ -13,20 +15,20 @@ const DocElements15 = defineElement("rikka-doc-elements-15", {
   render() {
     return div(
       { class: "doc-page" },
-      h1("attribute"),
-      sharedHelpers.advancedBadge("attribute", "is part of @takanashi/rikka-elements, an advanced feature. For simple components, use signal() to manage state directly."),
-      p("Reactive properties synced with HTML attributes."),
+      h1({}, tr(docContent.sidebar.attribute)),
+      sharedHelpers.advancedBadge("attribute", docContent.attribute.advancedNote),
+      p({}, tr(docContent.attribute.desc)),
       div(
         { class: "api-signature" },
         `config.attributes?: Record<string, AttributeSpec>`,
       ),
       div(
         { class: "doc-content" },
-        h2("Attribute Declaration"),
+        h2({}, tr(docContent.attribute.attributeDeclaration)),
         p(
-          "Declare attributes in the ",
+          tr(docContent.attribute.attributeDeclarationDesc),
           sharedHelpers.inlineCode("config.attributes"),
-          " record. Each key becomes a property on the element instance.",
+          tr(docContent.attribute.attributeDeclarationDescEnd),
         ),
         RikkaLivePlayground.h({
     code: `const MyElement = defineElement('my-element', {
@@ -58,13 +60,13 @@ container.appendChild(div({},
   )
 ));`, height: "240", title: "Attribute Declaration"
 }),
-        h2("Value and Signal Access"),
+        h2({}, tr(docContent.attribute.valueAndSignal)),
         p(
-          "Access the raw value via ",
+          tr(docContent.attribute.valueAndSignalDesc1),
           sharedHelpers.inlineCode("this.name"),
-          " and the backing Signal via ",
+          tr(docContent.attribute.valueAndSignalDesc1Mid),
           sharedHelpers.inlineCode("this.$name"),
-          ":",
+          tr(docContent.attribute.valueAndSignalDesc1End),
         ),
         pre(
           { class: "code-block" },
@@ -77,16 +79,16 @@ container.appendChild(div({},
   });
 }`),
         ),
-        h2("Built-in Transforms"),
-        p("Common transforms for type conversion:"),
+        h2({}, tr(docContent.attribute.builtInTransforms)),
+        p({}, tr(docContent.attribute.builtInTransformsDesc)),
         pre(
           { class: "code-block" },
           code(`StringAttr  // Default, no transformation
 NumberAttr  // Parse as number
 BooleanAttr // Parse as boolean (true if attribute present)`),
         ),
-        h2("Custom Transform Functions"),
-        p("Pass a function to implement custom parsing logic:"),
+        h2({}, tr(docContent.attribute.customTransform)),
+        p({}, tr(docContent.attribute.customTransformDesc)),
         pre(
           { class: "code-block" },
           code(`attributes: {
@@ -97,7 +99,7 @@ BooleanAttr // Parse as boolean (true if attribute present)`),
       ),
       div(
         { class: "playground-section" },
-        h2("Try It"),
+        h2({}, tr(docContent.ui.tryIt)),
         RikkaLivePlayground.h({
     code: `const AttrCounter = defineElement('attr-counter', {
   attributes: { count: NumberAttr },
@@ -149,12 +151,12 @@ container.appendChild(el);`, height: "250", title: "Reactive Attribute"
         { class: "doc-nav" },
         a(
           { href: "#/docs/@takanashi/rikka-elements/adopt-style", class: "prev-link" },
-          "\u2190 adoptStyle",
+          tr(docContent.attribute.prevAdoptStyle),
         ),
         div({ class: "spacer" }),
         a(
           { href: "#/docs/@takanashi/rikka-elements/event", class: "next-link" },
-          "event \u2192",
+          tr(docContent.attribute.nextEvent),
         ),
       ),
     );

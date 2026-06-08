@@ -1,6 +1,7 @@
 import { defineElement, css } from "@takanashi/rikka-elements";
-import { div, nav, a, span, button } from "@takanashi/rikka-dom";
+import { h, div, nav, a, span, button } from "@takanashi/rikka-dom";
 import { signal, effect } from "@takanashi/rikka-signal";
+import { locale, t, type Locale } from "../shared/i18n";
 import {getPathFromHash} from "../shared/helpers";
 import "../components/rikka-lang-switcher";
 
@@ -119,40 +120,49 @@ const navStyles = css`
   .nav-actions {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
     flex-shrink: 0;
   }
   .version-badge {
-    padding: 0.15rem 0.5rem;
-    font-size: 0.65rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    height: 32px;
+    padding: 0 0.7rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--color-primary-light);
     background: var(--color-tag-bg);
     border: 1px solid var(--color-tag-border);
-    border-radius: 9999px;
+    border-radius: var(--radius-md);
     letter-spacing: 0.02em;
-    text-transform: none;
+    line-height: 1;
+    white-space: nowrap;
   }
   .github-link {
-    padding: var(--spacing-sm) var(--spacing-md);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 32px;
+    height: 32px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
-    font-size: 0.875rem;
-    font-weight: 500;
     color: var(--color-text-primary);
     text-decoration: none;
     transition: all var(--transition-fast);
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
   }
   .github-link:hover {
     border-color: var(--color-primary);
-    box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+    color: var(--color-primary);
+    background: var(--color-nav-link-bg);
     transform: translateY(-1px);
   }
   .github-link .github-icon {
-    font-size: 1rem;
+    width: 16px;
+    height: 16px;
+    display: block;
   }
 
   .nav-fab {
@@ -235,14 +245,8 @@ const navStyles = css`
     .main-nav {
       padding: var(--spacing-sm) var(--spacing-md);
     }
-    .github-link .github-text {
-      display: none;
-    }
-    .github-link {
-      padding: var(--spacing-xs) var(--spacing-sm);
-    }
     .nav-actions {
-      gap: 0.5rem;
+      gap: 0.4rem;
     }
   }
 
@@ -340,12 +344,22 @@ const navStyles = css`
   }
 `;
 
+const navTranslations = {
+  home: { en: "Home", zh: "首页" } as Record<Locale, string>,
+  playground: { en: "Playground", zh: "在线试用" } as Record<Locale, string>,
+  docs: { en: "Docs", zh: "文档" } as Record<Locale, string>,
+  examples: { en: "Examples", zh: "示例" } as Record<Locale, string>,
+  agentSkills: { en: "Agent Skills", zh: "Agent 技能" } as Record<Locale, string>,
+  drawerTitle: { en: "Navigation", zh: "导航" } as Record<Locale, string>,
+  ariaToggleMenu: { en: "Toggle navigation menu", zh: "切换导航菜单" } as Record<Locale, string>,
+};
+
 const navRoutes = [
-  { label: "Home", path: "/" },
-  { label: "Playground", path: "/playground" },
-  { label: "Docs", path: "/docs" },
-  { label: "Examples", path: "/examples" },
-  { label: "Agent Skills", path: "skills/index.html", external: true },
+  { label: navTranslations.home, path: "/" },
+  { label: navTranslations.playground, path: "/playground" },
+  { label: navTranslations.docs, path: "/docs" },
+  { label: navTranslations.examples, path: "/examples" },
+  { label: navTranslations.agentSkills, path: "skills/index.html", external: true },
 ];
 
 function isActive(currentPath: string, routePath: string): boolean {
@@ -396,7 +410,7 @@ const RikkaNav = defineElement("rikka-nav", {
       {
         class: "nav-fab",
         onclick: () => toggleMenu(),
-        "aria-label": "Toggle navigation menu",
+        "aria-label": t(navTranslations.ariaToggleMenu),
         "aria-expanded": String(menuOpen.get()),
       },
       "\u2630",  // ☰ hamburger
@@ -412,37 +426,51 @@ const RikkaNav = defineElement("rikka-nav", {
     const actions = div(
       { class: "nav-actions" },
       span({ class: "version-badge" }, "v0.1"),
+      // 语言切换按钮
+      (() => {
+        const langSwitcher = document.createElement("rikka-lang-switcher");
+        return langSwitcher;
+      })(),
+      // 主题切换按钮
+      (() => {
+        const themeSwitcher = document.createElement("rikka-theme-switcher");
+        return themeSwitcher;
+      })(),
+      // GitHub 链接(图标)
       a(
         {
           href: "https://github.com/yw662/rikka/",
           target: "_blank",
           rel: "noopener noreferrer",
           class: "github-link",
+          "aria-label": "GitHub repository",
+          title: "View on GitHub",
           onclick: () => closeMenu(),
         },
-        span({ class: "github-icon" }, "\u2b50"),
-        span({ class: "github-text" }, "GitHub"),
+        h(
+          "svg",
+          {
+            class: "github-icon",
+            viewBox: "0 0 24 24",
+            "aria-hidden": "true",
+            fill: "currentColor",
+          },
+          h("path", {
+            d: "M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12",
+          }),
+        ),
       ),
-      // 主题切换按钮
-      (() => {
-        const themeSwitcher = document.createElement("rikka-theme-switcher");
-        return themeSwitcher;
-      })(),
-      // 语言切换按钮
-      (() => {
-        const langSwitcher = document.createElement("rikka-lang-switcher");
-        return langSwitcher;
-      })(),
     );
 
     effect(() => {
       const path = currentPath.get();
+      locale.get();
 
       brand.className = `nav-brand${isActive(path, "/") ? " active" : ""}`;
 
       const drawerHeader = div(
         { class: "nav-drawer-header" },
-        span({ class: "nav-drawer-title" }, "Navigation"),
+        span({ class: "nav-drawer-title" }, t(navTranslations.drawerTitle)),
         button(
           { class: "nav-drawer-close", onclick: () => closeMenu() },
           "\u2715",
@@ -461,11 +489,12 @@ const RikkaNav = defineElement("rikka-nav", {
         } else {
           linkAttrs.href = `#${route.path}`;
         }
-        return a(linkAttrs as Parameters<typeof a>[0], route.label);
+        return a(linkAttrs as Parameters<typeof a>[0], t(route.label));
       });
       linksContainer.replaceChildren(drawerHeader, ...links);
 
       navFab.setAttribute("aria-expanded", String(menuOpen.get()));
+      navFab.setAttribute("aria-label", t(navTranslations.ariaToggleMenu));
       navFab.textContent = menuOpen.get() ? "\u2715" : "\u2630";
 
       if (menuOpen.get()) {

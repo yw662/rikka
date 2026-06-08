@@ -47,10 +47,6 @@ export default defineConfig({
         ],
         type: "javascript/auto",
       });
-      config.module.rules.push({
-        resourceQuery: /url/,
-        type: "asset/resource",
-      });
       return config;
     },
   },

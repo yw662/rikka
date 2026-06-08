@@ -3,14 +3,15 @@ import { signal, computed, effect } from '@takanashi/rikka-signal';
 import { css, div, button, span } from '@takanashi/rikka-dom';
 import '@takanashi/rikka-web-agent';
 import { getPathFromHash } from './shared/helpers';
+import { highlightCodeBlocks } from './shared/highlight';
 import './components/rikka-nav';
 import './components/rikka-sidebar';
 import './components/rikka-footer';
 import './components/rikka-theme-switcher';
 import './components/rikka-lang-switcher';
 import '@takanashi/rikka-live-playground';
+import { PLAYGROUND_STARTER_CODE } from './pages/playground-data';
 import './pages/home';
-import './pages/playground';
 import './pages/docs-index';
 import './pages/examples-index';
 import './pages/docs/01-getting-started';
@@ -41,11 +42,12 @@ interface RouteConfig {
   tag: string;
   showSidebar: boolean;
   title: string;
+  replaceContent?: boolean;
 }
 
 const routes: Record<string, RouteConfig> = {
   '/': { tag: 'rikka-home', showSidebar: false, title: 'Project Rikka' },
-  '/playground': { tag: 'rikka-playground', showSidebar: false, title: 'Playground — Rikka' },
+  '/playground': { tag: 'rikka-live-playground', showSidebar: false, title: 'Playground — Rikka', replaceContent: true },
   '/docs': { tag: 'rikka-docs-index', showSidebar: true, title: 'Documentation — Rikka' },
   '/docs/@takanashi/rikka-signal/getting-started': { tag: 'rikka-doc-signal-01', showSidebar: true, title: 'Getting Started — Rikka' },
   '/docs/@takanashi/rikka-signal/signal': { tag: 'rikka-doc-signal-02', showSidebar: true, title: 'signal() — Rikka' },
@@ -98,6 +100,10 @@ const appStyles = css`
   margin: 0 auto;
   padding: 0 1rem;
   width: 100%;
+}
+.main-layout--fullbleed {
+  max-width: none;
+  padding: 0;
 }
 .content {
   flex: 1;
@@ -234,9 +240,35 @@ const RikkaApp = defineElement('rikka-app', {
 
       document.title = route.title;
 
-      contentArea.replaceChildren();
       const page = document.createElement(route.tag);
-      contentArea.appendChild(page);
+
+      if (route.replaceContent) {
+        if (route.tag === 'rikka-live-playground') {
+          page.setAttribute('code', PLAYGROUND_STARTER_CODE);
+          page.setAttribute('height', '500');
+          page.setAttribute('title', 'Rikka Playground');
+        }
+        page.setAttribute('bordered', 'false');
+        page.style.flex = '1';
+        page.style.minWidth = '0';
+        page.style.display = 'block';
+        mainLayout.classList.add('main-layout--fullbleed');
+        mainLayout.replaceChild(page, contentArea);
+      } else {
+        if (mainLayout.children[1] !== contentArea) {
+          mainLayout.replaceChild(contentArea, mainLayout.children[1]);
+        }
+        mainLayout.classList.remove('main-layout--fullbleed');
+        contentArea.replaceChildren();
+        contentArea.appendChild(page);
+        // Apply syntax highlighting to any static <pre class="code-block"> /
+        // <pre class="code-snippet"> / <pre class="hero-demo-code"> the page
+        // renders into its own shadow root. defineElement runs render() in
+        // connectedCallback, so the shadow tree is fully populated by the
+        // time appendChild returns. Idempotent: a data-* marker on each
+        // already-highlighted element prevents double-processing.
+        if (page.shadowRoot) highlightCodeBlocks(page.shadowRoot);
+      }
 
       if (route.showSidebar) {
         sidebarEl.style.display = '';

@@ -2,6 +2,8 @@ import { defineElement } from "@takanashi/rikka-elements";
 import { css, div, h1, h2, p, a, pre, code, ul, li } from "@takanashi/rikka-dom";
 import {sharedHelpers} from "../../shared/helpers";
 import {docPageStyles} from "../../shared/page-styles";
+import { docContent } from "../../shared/doc-content";
+import { tr } from "../../shared/i18n";
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
@@ -13,39 +15,36 @@ const DocDom10 = defineElement("rikka-doc-dom-10", {
   render() {
     return div(
       { class: "doc-page" },
-      h1("h``"),
-      sharedHelpers.advancedBadge("h``", "is an advanced alternative to h(). For most use cases, h() with tag helpers is simpler and more type-safe."),
-      p(
-        "Tagged template literal on the h function from rikka-dom. Creates DOM elements from HTML template strings with signal interpolation support.",
-      ),
+      h1({}, tr(docContent.sidebar.htmlTemplate)),
+      sharedHelpers.advancedBadge("h``", docContent.htmlTemplate.advancedNote),
+      p({}, tr(docContent.htmlTemplate.desc)),
       div(
         { class: "doc-content" },
-        h2("Key Concepts"),
+        h2({}, tr(docContent.htmlTemplate.keyConcepts)),
         ul(
+          li(sharedHelpers.inlineCode("h`<div>${signal}</div>`"), tr(docContent.htmlTemplate.bullet1)),
+          li({}, tr(docContent.htmlTemplate.bullet2)),
           li(
-            sharedHelpers.inlineCode("h`<div>${signal}</div>`"),
-            " — Embed signals directly in template strings for fine-grained updates.",
+            tr(docContent.htmlTemplate.bullet3),
+            sharedHelpers.inlineCode("Element[]"),
+            tr(docContent.htmlTemplate.bullet3End),
           ),
-          li("Comment-based slot system for efficient DOM patching."),
-          li("Returns ", sharedHelpers.inlineCode("Element[]"), "."),
-          li("Supports nested templates and mixed content."),
+          li({}, tr(docContent.htmlTemplate.bullet4)),
+          li({}, tr(docContent.htmlTemplate.bullet5)),
+          li({}, tr(docContent.htmlTemplate.bullet6)),
+          li({}, tr(docContent.htmlTemplate.bullet7)),
           li(
-            "Signals in text content update in-place without rebuilding the entire template.",
-          ),
-          li("Signals in attribute values also get reactive bindings."),
-          li("Element values can be interpolated as children."),
-          li(
-            "Fine-grained: ",
+            tr(docContent.htmlTemplate.bullet8),
             sharedHelpers.inlineCode("${signal}"),
-            " creates effect, updates only text node.",
+            tr(docContent.htmlTemplate.bullet8End),
           ),
           li(
-            "Coarse-grained: ",
+            tr(docContent.htmlTemplate.bullet9),
             sharedHelpers.inlineCode("${signal.get()}"),
-            " resolves immediately.",
+            tr(docContent.htmlTemplate.bullet9End),
           ),
         ),
-        h2("API Signature"),
+        h2({}, tr(docContent.htmlTemplate.apiSignature)),
         pre(
           { class: "code-block" },
           code(
@@ -58,7 +57,7 @@ const DocDom10 = defineElement("rikka-doc-dom-10", {
       ),
       div(
         { class: "playground-section" },
-        h2("Try It"),
+        h2({}, tr(docContent.ui.tryIt)),
         RikkaLivePlayground.h({
     code: `import { h } from '@takanashi/rikka-dom';
 
@@ -84,15 +83,12 @@ container.appendChild(TemplateDemo());`, height: "260", title: "h`` Template"
         { class: "doc-nav" },
         a(
           { href: "#/docs/@takanashi/rikka-dom/conditionals", class: "prev-link" },
-          "\u2190 Conditionals",
+          tr(docContent.htmlTemplate.prevConditionals),
         ),
         div({ class: "spacer" }),
         a(
-          {
-            href: "#/docs/@takanashi/rikka-dom/signal-interpolation",
-            class: "next-link",
-          },
-          "Signal Interpolation \u2192",
+          { href: "#/docs/@takanashi/rikka-dom/signal-interpolation", class: "next-link" },
+          tr(docContent.htmlTemplate.nextSignalInterpolation),
         ),
       ),
     );

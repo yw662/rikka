@@ -2,6 +2,8 @@ import { defineElement } from "@takanashi/rikka-elements";
 import { css, div, h1, h2, p, a, pre, code } from "@takanashi/rikka-dom";
 import {sharedHelpers} from "../../shared/helpers";
 import {docPageStyles} from "../../shared/page-styles";
+import { docContent } from "../../shared/doc-content";
+import { tr } from "../../shared/i18n";
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
@@ -13,15 +15,15 @@ const DocDom18 = defineElement("rikka-doc-dom-18", {
   render() {
     return div(
       { class: "doc-page" },
-      h1("css``"),
+      h1({}, tr(docContent.sidebar.cssTemplate)),
       sharedHelpers.advancedBadge(
         "css`...`",
-        "is mainly for Shadow DOM styling via adoptedStyleSheets. For non-Shadow-DOM code, plain <style> blocks or external CSS are simpler.",
+        docContent.cssTemplate.advancedNote,
       ),
       p(
-        "Tag template for creating CSSStyleSheet objects. Exported from ",
+        tr(docContent.cssTemplate.desc1),
         sharedHelpers.inlineCode("@takanashi/rikka-dom"),
-        ".",
+        tr(docContent.cssTemplate.desc1End),
       ),
       div(
         { class: "api-signature" },
@@ -29,13 +31,13 @@ const DocDom18 = defineElement("rikka-doc-dom-18", {
       ),
       div(
         { class: "doc-content" },
-        h2("Basic Usage"),
+        h2({}, tr(docContent.cssTemplate.basicUsage)),
         p(
-          "The ",
+          tr(docContent.cssTemplate.basicUsageDesc1),
           sharedHelpers.inlineCode("css"),
-          " tagged template creates a ",
+          tr(docContent.cssTemplate.basicUsageDesc1End),
           sharedHelpers.inlineCode("CSSStyleSheet"),
-          " object from a template literal:",
+          tr(docContent.cssTemplate.basicUsageDesc1Final),
         ),
         RikkaLivePlayground.h({
     code: `const buttonStyles = css\`
@@ -62,11 +64,11 @@ const StyledButton = defineElement('styled-button', {
 
 container.appendChild(document.createElement('styled-button'));`, height: "200", title: "css Template Basics"
 }),
-        h2("Composition"),
+        h2({}, tr(docContent.cssTemplate.composition)),
         p(
-          "Interpolate existing stylesheets with ",
+          tr(docContent.cssTemplate.compositionDesc1),
           sharedHelpers.inlineCode("${sheet}"),
-          " to compose styles:",
+          tr(docContent.cssTemplate.compositionDesc1End),
         ),
         pre(
           { class: "code-block" },
@@ -79,15 +81,15 @@ const componentStyles = css\`
   .card { padding: 16px; border-radius: 8px; }
 \`;`),
         ),
-        h2("Returns CSSStyleSheet"),
+        h2({}, tr(docContent.cssTemplate.returnsCssStyleSheet)),
         p(
-          "The return value is a native ",
+          tr(docContent.cssTemplate.returnsCssStyleSheetDesc1),
           sharedHelpers.inlineCode("CSSStyleSheet"),
-          " that can be used with ",
+          tr(docContent.cssTemplate.returnsCssStyleSheetDesc1End),
           sharedHelpers.inlineCode("adoptedStyleSheets"),
-          " or the ",
+          tr(docContent.cssTemplate.returnsCssStyleSheetDesc1Final),
           sharedHelpers.inlineCode("config.styles"),
-          " option directly.",
+          tr(docContent.cssTemplate.returnsCssStyleSheetDesc1FinalEnd),
         ),
         pre(
           { class: "code-block" },
@@ -97,7 +99,7 @@ const componentStyles = css\`
       ),
       div(
         { class: "playground-section" },
-        h2("Try It"),
+        h2({}, tr(docContent.ui.tryIt)),
         RikkaLivePlayground.h({
     code: `const profileCardStyle = css\`
   :host {
@@ -175,12 +177,12 @@ container.appendChild(document.createElement('profile-card'));`, height: "250", 
             href: "#/docs/@takanashi/rikka-dom/signal-interpolation",
             class: "prev-link",
           },
-          "\u2190 Signal Interpolation",
+          tr(docContent.cssTemplate.prevSignalInterpolation),
         ),
         div({ class: "spacer" }),
         a(
           { href: "#/docs/@takanashi/rikka-dom/inlineStyle", class: "next-link" },
-          "inlineStyle`` \u2192",
+          tr(docContent.cssTemplate.nextInlineStyle),
         ),
       ),
     );

@@ -8,15 +8,23 @@ import {
 } from "@takanashi/rikka-elements";
 import {
   div,
-  textarea,
   button,
   pre,
   span,
   section,
 } from "@takanashi/rikka-dom";
-import { computed, effect } from "@takanashi/rikka-signal";
-import * as esbuild from "esbuild-wasm";
-import wasmUrl from "esbuild-wasm/esbuild.wasm?url";
+import { computed, effect, type Signal } from "@takanashi/rikka-signal";
+import { transform } from "sucrase";
+import { CodeJar } from "codejar";
+import hljs from "highlight.js/lib/core";
+import typescript from "highlight.js/lib/languages/typescript";
+import { locale, t, tr } from "./i18n";
+import { playgroundContent as P } from "./content";
+
+/** Any read-only signal (state or computed) — what rikka-dom accepts. */
+type ReadableSignal<T> = Signal.State<T> | Signal.Computed<T>;
+
+hljs.registerLanguage("typescript", typescript);
 
 const livePlaygroundStyles = css`
   :host {
@@ -50,6 +58,15 @@ const livePlaygroundStyles = css`
     --pg-handle-grip: #475569;
     --pg-spinner-track: #334155;
     --pg-spinner-active: #6366f1;
+
+    --pg-syntax-comment: #6b7280;
+    --pg-syntax-keyword: #c084fc;
+    --pg-syntax-string: #86efac;
+    --pg-syntax-number: #fbbf24;
+    --pg-syntax-function: #60a5fa;
+    --pg-syntax-property: #f472b6;
+    --pg-syntax-builtin: #7dd3fc;
+    --pg-syntax-meta: #94a3b8;
   }
   :host([data-theme="light"]) {
     --pg-bg: #ffffff;
@@ -76,6 +93,15 @@ const livePlaygroundStyles = css`
     --pg-handle-grip: #94a3b8;
     --pg-spinner-track: #cbd5e1;
     --pg-spinner-active: #6366f1;
+
+    --pg-syntax-comment: #6b7280;
+    --pg-syntax-keyword: #7c3aed;
+    --pg-syntax-string: #16a34a;
+    --pg-syntax-number: #d97706;
+    --pg-syntax-function: #2563eb;
+    --pg-syntax-property: #db2777;
+    --pg-syntax-builtin: #0891b2;
+    --pg-syntax-meta: #475569;
   }
   :host {
     transition:
@@ -96,6 +122,10 @@ const livePlaygroundStyles = css`
   }
   :host([fullscreen]) .preview-handle {
     display: none;
+  }
+  :host([bordered="false"]) .container {
+    border: none;
+    border-radius: 0;
   }
   .container {
     border: 1px solid var(--pg-border);
@@ -132,12 +162,18 @@ const livePlaygroundStyles = css`
     min-width: 0;
     overflow: hidden;
   }
-  /* Vertical split: editor has fixed height, preview fills rest */
+  /* Vertical split: editor takes a fixed share, preview fills the rest.
+     height: 50% sets the default; flex-basis: auto keeps the main-axis
+     size driven by the height property so the user-resize drag's
+     inline editorPane.style.height = ...px still takes effect. */
   .body.layout-vertical .editor-pane {
     flex: 0 0 auto;
+    height: 50%;
+    min-height: 0;
   }
   .body.layout-vertical .preview-pane {
     flex: 1 1 auto;
+    min-height: 0;
   }
   /* When only one pane is visible, it fills the entire split-area */
   .split-area.single-editor > .editor-pane,
@@ -258,10 +294,74 @@ const livePlaygroundStyles = css`
     color: var(--pg-text);
     padding: 1rem;
     border: none;
-    resize: none;
     outline: none;
     flex: 1;
     min-height: 60px;
+    white-space: pre;
+    overflow: auto;
+    tab-size: 2;
+    caret-color: var(--pg-accent);
+    -webkit-text-size-adjust: 100%;
+  }
+  .editor-area:focus {
+    outline: none;
+  }
+  /* Highlight.js token colors, scoped to the editor and themed via
+     --pg-syntax-* tokens so the host page can override them. */
+  .editor-area .hljs-comment,
+  .editor-area .hljs-quote {
+    color: var(--pg-syntax-comment);
+    font-style: italic;
+  }
+  .editor-area .hljs-keyword,
+  .editor-area .hljs-selector-tag,
+  .editor-area .hljs-literal,
+  .editor-area .hljs-section,
+  .editor-area .hljs-link {
+    color: var(--pg-syntax-keyword);
+  }
+  .editor-area .hljs-string,
+  .editor-area .hljs-regexp,
+  .editor-area .hljs-template-tag,
+  .editor-area .hljs-meta-string {
+    color: var(--pg-syntax-string);
+  }
+  .editor-area .hljs-number,
+  .editor-area .hljs-symbol,
+  .editor-area .hljs-bullet {
+    color: var(--pg-syntax-number);
+  }
+  .editor-area .hljs-title,
+  .editor-area .hljs-title.function_,
+  .editor-area .hljs-title.class_ {
+    color: var(--pg-syntax-function);
+  }
+  .editor-area .hljs-attr,
+  .editor-area .hljs-attribute,
+  .editor-area .hljs-property,
+  .editor-area .hljs-variable.language_ {
+    color: var(--pg-syntax-property);
+  }
+  .editor-area .hljs-built_in,
+  .editor-area .hljs-type,
+  .editor-area .hljs-class .hljs-title {
+    color: var(--pg-syntax-builtin);
+  }
+  .editor-area .hljs-meta,
+  .editor-area .hljs-doctag {
+    color: var(--pg-syntax-meta);
+  }
+  .editor-area .hljs-deletion {
+    color: var(--pg-error);
+  }
+  .editor-area .hljs-addition {
+    color: var(--pg-success);
+  }
+  .editor-area .hljs-emphasis {
+    font-style: italic;
+  }
+  .editor-area .hljs-strong {
+    font-weight: 700;
   }
   .body.layout-horizontal .editor-area {
     min-width: 120px;
@@ -490,6 +590,46 @@ const PAGE_THEME_WATCHER_KEY = Symbol.for(
 );
 const THEME_MESSAGE_TYPE = "__rikka_playground_theme";
 const RESOLVED_THEME_KEY = Symbol.for("rikka.livePlayground.resolvedTheme");
+const EDITOR_JAR_KEY = Symbol.for("rikka.livePlayground.editorJar");
+
+type EditorJar = ReturnType<typeof CodeJar>;
+
+function getEditorJar(self: HTMLElement): EditorJar | undefined {
+  return (self as unknown as { [EDITOR_JAR_KEY]?: EditorJar })[EDITOR_JAR_KEY];
+}
+
+function setEditorJar(self: HTMLElement, jar: EditorJar | undefined): void {
+  (self as unknown as { [EDITOR_JAR_KEY]?: EditorJar })[EDITOR_JAR_KEY] = jar;
+}
+
+function highlightEditor(el: HTMLElement): void {
+  const text = el.textContent ?? "";
+  el.innerHTML = hljs.highlight(text, {
+    language: "typescript",
+    ignoreIllegals: true,
+  }).value;
+}
+
+function readEditorCode(self: HTMLElement): string {
+  const jar = getEditorJar(self);
+  if (jar) return jar.toString();
+  const editorEl = self.shadowRoot?.querySelector(
+    ".editor-area",
+  ) as HTMLElement | null;
+  return editorEl?.textContent ?? "";
+}
+
+function writeEditorCode(self: HTMLElement, code: string): void {
+  const jar = getEditorJar(self);
+  if (jar) {
+    jar.updateCode(code);
+    return;
+  }
+  const editorEl = self.shadowRoot?.querySelector(
+    ".editor-area",
+  ) as HTMLElement | null;
+  if (editorEl) editorEl.textContent = code;
+}
 
 function watchPrefersColorScheme(callback: () => void): () => void {
   if (
@@ -578,25 +718,10 @@ function watchPageTheme(callback: () => void): () => void {
   return () => observer.disconnect();
 }
 
-let esbuildInitPromise: Promise<void> | null = null;
-
-async function ensureEsbuild() {
-  if (!esbuildInitPromise) {
-    esbuildInitPromise = esbuild.initialize({ wasmURL: wasmUrl }).catch((e) => {
-      esbuildInitPromise = null;
-      throw e;
-    });
-  }
-  await esbuildInitPromise;
-}
-
-async function transformCode(code: string): Promise<string> {
-  await ensureEsbuild();
-  const result = await esbuild.transform(code, {
-    target: "es2022",
-    loader: "ts",
-    keepNames: true,
-    legalComments: "none",
+function transformCode(code: string): string {
+  const result = transform(code, {
+    transforms: ["typescript"],
+    keepUnusedImports: true,
   });
   return result.code;
 }
@@ -883,7 +1008,7 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
       toAttribute: (v?: string) => v,
     },
     title: {
-      toProp: (v?: string) => v ?? "Example",
+      toProp: (v?: string) => v ?? t(P.defaultTitle),
       toAttribute: (v?: string) => v,
     },
     layout: {
@@ -908,14 +1033,8 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
       return runPlayground(this);
     },
     reset(this: LivePlaygroundElement) {
-      const textareaEl = this.shadowRoot?.querySelector(
-        ".editor-area",
-      ) as HTMLTextAreaElement | null;
-      if (textareaEl) {
-        const originalCode = this.textContent?.trim() || this.code;
-        textareaEl.defaultValue = originalCode;
-        textareaEl.value = originalCode;
-      }
+      const originalCode = this.textContent?.trim() || this.code;
+      writeEditorCode(this, originalCode);
       return runPlayground(this);
     },
     toggleLayout(this: LivePlaygroundElement) {
@@ -952,26 +1071,24 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
     const self = this as LivePlaygroundElement;
     const initialCode = this.textContent?.trim() || this.code;
 
-    const editorPane = div(
-      { class: "editor-pane" },
-      textarea({
-        class: "editor-area",
-        spellcheck: false,
-        defaultValue: initialCode,
-      }),
-    );
+    const editorEl = div({
+      class: "editor-area language-typescript",
+      spellcheck: false,
+    });
+    editorEl.textContent = initialCode;
+    const editorPane = div({ class: "editor-pane" }, editorEl);
 
     const previewPane = div(
       { class: "preview-pane" },
       section(
         { class: "preview-section" },
-        div({ class: "preview-label" }, "Preview"),
+        div({ class: "preview-label" }, tr(P.preview)),
         div(
           { class: "preview-area" },
           div(
             { class: "loading-indicator" },
             div({ class: "loading-spinner" }),
-            span({ class: "loading-text" }, "Loading..."),
+            span({ class: "loading-text" }, tr(P.loading)),
           ),
         ),
       ),
@@ -1014,7 +1131,7 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
 
     const iconBtn = (
       action: Action,
-      label: string,
+      label: string | ReadableSignal<string>,
       iconName: string,
     ): HTMLElement =>
       button(
@@ -1036,31 +1153,31 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
         { class: "actions" },
         div(
           { class: "btn-group" },
-          iconBtn("layout-vertical", "Vertical layout", "layout-vertical"),
+          iconBtn("layout-vertical", tr(P.layoutVertical), "layout-vertical"),
           div({ class: "btn-divider" }),
           iconBtn(
             "layout-horizontal",
-            "Horizontal layout",
+            tr(P.layoutHorizontal),
             "layout-horizontal",
           ),
         ),
         div(
           { class: "btn-group" },
-          iconBtn("panel-both", "Show both panels", "layout-vertical"),
+          iconBtn("panel-both", tr(P.panelBoth), "layout-vertical"),
           div({ class: "btn-divider" }),
-          iconBtn("panel-editor", "Show editor only", "code"),
+          iconBtn("panel-editor", tr(P.panelEditor), "code"),
           div({ class: "btn-divider" }),
-          iconBtn("panel-preview", "Show preview only", "eye"),
+          iconBtn("panel-preview", tr(P.panelPreview), "eye"),
         ),
-        iconBtn("fullscreen", "Enter fullscreen", "expand"),
+        iconBtn("fullscreen", tr(P.fullscreenEnter), "expand"),
         div({ class: "btn-divider" }),
         button(
           { class: "run-btn", "data-action": "run", onclick: handleAction },
-          "\u25B6 Run",
+          tr(P.run),
         ),
         button(
           { class: "reset-btn", "data-action": "reset", onclick: handleAction },
-          "Reset",
+          tr(P.reset),
         ),
       ),
     );
@@ -1077,6 +1194,7 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
     // leaks outside the element — every listener is tied to `self`. ===
     wirePostMount(self, {
       body,
+      editorEl,
       editorPane,
       previewPane,
       editorHandle,
@@ -1111,16 +1229,16 @@ function applyFullscreenState(self: LivePlaygroundElement, isFs: boolean) {
     if (btn) {
       btn.replaceChildren();
       btn.appendChild(iconFor("shrink"));
-      btn.setAttribute("aria-label", "Exit fullscreen");
-      btn.setAttribute("title", "Exit fullscreen");
+      btn.setAttribute("aria-label", t(P.fullscreenExit));
+      btn.setAttribute("title", t(P.fullscreenExit));
     }
   } else {
     self.removeAttribute("fullscreen");
     if (btn) {
       btn.replaceChildren();
       btn.appendChild(iconFor("expand"));
-      btn.setAttribute("aria-label", "Enter fullscreen");
-      btn.setAttribute("title", "Enter fullscreen");
+      btn.setAttribute("aria-label", t(P.fullscreenEnter));
+      btn.setAttribute("title", t(P.fullscreenEnter));
     }
   }
 }
@@ -1156,6 +1274,7 @@ function dispatchAction(self: LivePlaygroundElement, action: Action): void {
 
 interface PostMountRefs {
   body: HTMLElement;
+  editorEl: HTMLElement;
   editorPane: HTMLElement;
   previewPane: HTMLElement;
   editorHandle: HTMLElement;
@@ -1187,6 +1306,27 @@ function applyButtonStates(
 }
 
 function wirePostMount(self: LivePlaygroundElement, refs: PostMountRefs): void {
+  // === Editor: attach CodeJar with highlight.js for syntax highlighting.
+  // The contenteditable div is created in render(); CodeJar replaces our
+  // textContent with a highlighted innerHTML on every edit. We expose the
+  // jar via a Symbol so reset()/run() and external callers can read/write
+  // the editor content without poking the DOM. ===
+  const jar = CodeJar(refs.editorEl, highlightEditor, {
+    tab: "  ",
+    indentOn: /[(\[{]$/,
+  });
+  setEditorJar(self, jar);
+  registerElementDisposable(self, () => {
+    jar.destroy();
+    setEditorJar(self, undefined);
+  });
+
+  // CodeJar does not call the highlight callback on init; force an
+  // initial highlight so the starter code isn't plain text.
+  if (refs.initialCode) {
+    jar.updateCode(refs.initialCode);
+  }
+
   // === Resize handles: drag the editor ↔ preview divider (editor) or the
   // bottom edge (preview). State is captured per-pointerdown and torn down
   // on pointerup. Listeners are removed when the element disposes. ===
@@ -1270,11 +1410,11 @@ function wirePostMount(self: LivePlaygroundElement, refs: PostMountRefs): void {
     body.classList.toggle("layout-vertical", layout === "vertical");
     body.classList.toggle("layout-horizontal", layout === "horizontal");
     if (layout === "horizontal") {
-      editorPane.style.removeProperty("width");
+      editorPane.style.setProperty("width", "50%");
       editorPane.style.setProperty("height", "100%");
     } else {
       editorPane.style.removeProperty("height");
-      editorPane.style.setProperty("width", "100%");
+      editorPane.style.removeProperty("width");
     }
     applyButtonStates(self, layout, self.panel);
   };
@@ -1359,11 +1499,16 @@ function wirePostMount(self: LivePlaygroundElement, refs: PostMountRefs): void {
   });
 
   // === Fullscreen: keep the icon and host attribute in sync with the
-  // browser fullscreen element. ===
+  // browser fullscreen element. Re-apply on locale change so the
+  // Enter/Exit tooltip stays in sync. ===
   const fsHandler = () => {
     applyFullscreenState(self, document.fullscreenElement === self);
   };
   document.addEventListener("fullscreenchange", fsHandler);
+  effect(() => {
+    locale.get();
+    applyFullscreenState(self, document.fullscreenElement === self);
+  });
 
   // === Initial run if there's starter code. ===
   if (refs.initialCode) {
@@ -1389,9 +1534,9 @@ function wirePostMount(self: LivePlaygroundElement, refs: PostMountRefs): void {
 }
 
 async function runPlayground(self: LivePlaygroundElement): Promise<void> {
-  const textareaEl = self.shadowRoot?.querySelector(
+  const editorEl = self.shadowRoot?.querySelector(
     ".editor-area",
-  ) as HTMLTextAreaElement | null;
+  ) as HTMLElement | null;
   const previewEl = self.shadowRoot?.querySelector(
     ".preview-area",
   ) as HTMLElement | null;
@@ -1402,9 +1547,10 @@ async function runPlayground(self: LivePlaygroundElement): Promise<void> {
     ".preview-iframe",
   ) as HTMLIFrameElement | null;
 
-  if (!textareaEl || !previewEl || !errorEl) return;
+  if (!editorEl || !previewEl || !errorEl) return;
 
-  const currentCode = textareaEl.value || self.textContent?.trim() || self.code;
+  const currentCode =
+    readEditorCode(self) || self.textContent?.trim() || self.code;
 
   errorEl.classList.remove("has-error");
   errorEl.textContent = "";
@@ -1420,17 +1566,21 @@ async function runPlayground(self: LivePlaygroundElement): Promise<void> {
   previewEl.innerHTML = "";
   const loadingEl = document.createElement("div");
   loadingEl.className = "loading-indicator";
-  loadingEl.innerHTML =
-    '<div class="loading-spinner"></div><span class="loading-text">Loading...</span>';
+  const loadingSpinner = document.createElement("div");
+  loadingSpinner.className = "loading-spinner";
+  const loadingText = document.createElement("span");
+  loadingText.className = "loading-text";
+  loadingText.textContent = t(P.loading);
+  loadingEl.append(loadingSpinner, loadingText);
   previewEl.appendChild(loadingEl);
 
   let compiledCode: string;
   try {
-    compiledCode = await transformCode(currentCode);
+    compiledCode = transformCode(currentCode);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     loadingEl.remove();
-    errorEl.textContent = `Compile Error: ${msg}`;
+    errorEl.textContent = `${t(P.compileErrorPrefix)}${msg}`;
     errorEl.classList.add("has-error");
     self.dispatchError(msg);
     return;
@@ -1508,14 +1658,8 @@ async function runPlayground(self: LivePlaygroundElement): Promise<void> {
 }
 
 function resetPlayground(self: LivePlaygroundElement): void {
-  const textareaEl = self.shadowRoot?.querySelector(
-    ".editor-area",
-  ) as HTMLTextAreaElement | null;
-  if (textareaEl) {
-    const originalCode = self.textContent?.trim() || self.code;
-    textareaEl.defaultValue = originalCode;
-    textareaEl.value = originalCode;
-  }
+  const originalCode = self.textContent?.trim() || self.code;
+  writeEditorCode(self, originalCode);
   void runPlayground(self);
 }
 

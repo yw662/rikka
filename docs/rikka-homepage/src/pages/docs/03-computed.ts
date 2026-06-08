@@ -2,6 +2,8 @@ import { defineElement } from '@takanashi/rikka-elements';
 import { css, div, h1, h2, p, pre, a } from '@takanashi/rikka-dom';
 import {sharedHelpers} from '../../shared/helpers';
 import {docPageStyles} from '../../shared/page-styles';
+import { docContent } from '../../shared/doc-content';
+import { tr } from '../../shared/i18n';
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
@@ -13,15 +15,15 @@ export const RikkaDocSignal03 = defineElement('rikka-doc-signal-03', {
   render() {
     return div({ class: 'doc-page' },
       div({ class: 'doc-header' },
-        h1({ class: 'doc-title' }, 'computed()'),
-        p({ class: 'doc-subtitle' }, 'Computed signals derive their value from other signals.'),
+        h1({ class: 'doc-title' }, tr(docContent.sidebar.computed)),
+        p({ class: 'doc-subtitle' }, tr(docContent.computed.subtitle)),
       ),
       div({ class: 'doc-section' },
-        h2({ class: 'section-title' }, 'Creating a Computed Signal'),
-        p({},
-          'Use ',
+        h2({ class: 'section-title' }, tr(docContent.computed.creating)),
+        p(
+          tr(docContent.computed.creatingDesc1),
           sharedHelpers.inlineCode('computed(fn)'),
-          ' to create a signal that derives its value from other signals. The function re-runs whenever a dependency changes.',
+          tr(docContent.computed.creatingDesc2),
         ),
         RikkaLivePlayground.h({
     code: `const firstName = signal('Rikka');
@@ -41,38 +43,36 @@ container.appendChild(div({},
 }),
       ),
       div({ class: 'doc-section' },
-        h2({ class: 'section-title' }, 'Auto-Tracking'),
-        p({},
-          'Dependencies are tracked automatically. Any ',
+        h2({ class: 'section-title' }, tr(docContent.computed.autoTracking)),
+        p(
+          tr(docContent.computed.autoTrackingDesc1),
           sharedHelpers.inlineCode('.get()'),
-          ' call inside the computed function registers a dependency.',
+          tr(docContent.computed.autoTrackingDesc2),
         ),
-        p({},
-          'No explicit dependency arrays or watchers needed — just read signals and the rest is handled for you.',
+        p({}, tr(docContent.computed.autoTrackingNoArrays)),
+      ),
+      div({ class: 'doc-section' },
+        h2({ class: 'section-title' }, tr(docContent.computed.lazyEvaluation)),
+        p(
+          tr(docContent.computed.lazyEvaluationDesc),
+          sharedHelpers.inlineCode('.get()'),
+          tr(docContent.computed.lazyEvaluationDescMid),
         ),
       ),
       div({ class: 'doc-section' },
-        h2({ class: 'section-title' }, 'Lazy Evaluation'),
-        p({},
-          'Computed signals are lazy. The derivation function only runs when ',
-          sharedHelpers.inlineCode('.get()'),
-          ' is called, and only re-evaluates if a dependency has changed since the last read.',
-        ),
-      ),
-      div({ class: 'doc-section' },
-        h2({ class: 'section-title' }, 'Slicing a Complex Signal'),
-        p({},
-          'When the source of truth is one large object — e.g. a record loaded from the server — wrap each reader in a ',
+        h2({ class: 'section-title' }, tr(docContent.computed.slicingTitle)),
+        p(
+          tr(docContent.computed.slicingDesc1),
           sharedHelpers.inlineCode('computed'),
-          ' that pulls out only the slice it needs. The ',
+          tr(docContent.computed.slicingDesc1Mid),
           sharedHelpers.inlineCode('computed'),
-          ' then depends precisely on that slice, not on the whole object.',
+          tr(docContent.computed.slicingDesc1End),
         ),
-        p({},
+        p(
           sharedHelpers.inlineCode('Computed'),
-          ' uses reference equality by default. If the slice value is unchanged, downstream readers do not re-run — even though the parent ',
+          tr(docContent.computed.slicingDesc2),
           sharedHelpers.inlineCode('signal'),
-          ' was reassigned to a brand-new object.',
+          tr(docContent.computed.slicingDesc2End),
         ),
         RikkaLivePlayground.h({
     code: `const user = signal({
@@ -111,7 +111,7 @@ container.appendChild(div({},
 }),
       ),
       div({ class: 'doc-section' },
-        h2({ class: 'section-title' }, 'Try It'),
+        h2({ class: 'section-title' }, tr(docContent.ui.tryIt)),
         RikkaLivePlayground.h({
     code: `import { signal, computed } from '@takanashi/rikka-signal';
 
@@ -128,8 +128,12 @@ firstName.set('Hello');
 }),
       ),
       div({ class: 'doc-nav' },
-        a({ class: 'nav-link prev', href: '#/docs/@takanashi/rikka-signal/signal' }, '← signal()'),
-        a({ class: 'nav-link next', href: '#/docs/@takanashi/rikka-signal/effect' }, 'effect() →'),
+        a({ class: 'nav-link prev', href: '#/docs/@takanashi/rikka-signal/signal' },
+          tr(docContent.computed.prevSignal),
+        ),
+        a({ class: 'nav-link next', href: '#/docs/@takanashi/rikka-signal/effect' },
+          tr(docContent.computed.nextEffect),
+        ),
       ),
     );
   }

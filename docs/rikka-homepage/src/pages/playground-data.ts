@@ -1,9 +1,4 @@
-import { defineElement, css } from "@takanashi/rikka-elements";
-import { div } from "@takanashi/rikka-dom";
-import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
-import {sharedHelpers} from "../shared/helpers";
-
-const starterCode = `const count = signal(0);
+export const PLAYGROUND_STARTER_CODE = `const count = signal(0);
 const doubled = computed(() => count.get() * 2);
 const running = signal(false);
 let interval;
@@ -63,35 +58,3 @@ const app = div(
 );
 
 container.appendChild(app);`;
-
-const styles = css`
-  :host {
-    display: block;
-  }
-  .playground-page {
-    width: 100%;
-    height: calc(100vh - var(--nav-height, 56px));
-    display: flex;
-    flex-direction: column;
-  }
-  .playground-page rikka-live-playground {
-    flex: 1;
-    display: block;
-  }
-`;
-
-const PlaygroundPage = defineElement("rikka-playground", {
-  styles,
-  render() {
-    const playground = RikkaLivePlayground.h({
-    code: starterCode, height: "500", title: "Rikka Playground"
-});
-
-    return div(
-      { class: "playground-page" },
-      playground,
-    );
-  },
-});
-
-export { PlaygroundPage };

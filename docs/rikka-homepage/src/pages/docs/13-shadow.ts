@@ -2,6 +2,8 @@ import { defineElement } from "@takanashi/rikka-elements";
 import { css, div, h1, h2, p, a, pre, code } from "@takanashi/rikka-dom";
 import {sharedHelpers} from "../../shared/helpers";
 import {docPageStyles} from "../../shared/page-styles";
+import { docContent } from "../../shared/doc-content";
+import { tr } from "../../shared/i18n";
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
@@ -13,21 +15,21 @@ const DocElements13 = defineElement("rikka-doc-elements-13", {
   render() {
     return div(
       { class: "doc-page" },
-      h1("Shadow DOM"),
-      sharedHelpers.advancedBadge("Shadow DOM", "is part of @takanashi/rikka-elements, an advanced feature. Simple apps don't need custom elements or Shadow DOM."),
-      p("Style encapsulation with Shadow DOM for custom elements."),
+      h1({}, tr(docContent.sidebar.shadowDom)),
+      sharedHelpers.advancedBadge("Shadow DOM", docContent.shadow.advancedNote),
+      p({}, tr(docContent.shadow.desc)),
       div(
         { class: "api-signature" },
         `config.shadow?: ShadowRootInit | false  // default: { mode: 'open' }`,
       ),
       div(
         { class: "doc-content" },
-        h2("Default Behavior"),
+        h2({}, tr(docContent.shadow.defaultBehavior)),
         p(
           sharedHelpers.inlineCode("defineElement"),
-          " creates an open shadow root by default. Access it via ",
+          tr(docContent.shadow.defaultBehaviorDesc1),
           sharedHelpers.inlineCode("this.shadowRoot"),
-          " in the setup function.",
+          tr(docContent.shadow.defaultBehaviorDesc1End),
         ),
         RikkaLivePlayground.h({
     code: `const MyElement = defineElement('my-element', {
@@ -43,11 +45,11 @@ container.appendChild(div({},
   p({ style: { marginTop: '8px', color: '#94a3b8' } }, 'This element has encapsulated styles.')
 ));`, height: "180", title: "Shadow DOM Basics"
 }),
-        h2("Shadow Options"),
+        h2({}, tr(docContent.shadow.shadowOptions)),
         p(
-          "Configure or disable shadow DOM with the ",
+          tr(docContent.shadow.shadowOptionsDesc1),
           sharedHelpers.inlineCode("shadow"),
-          " option:",
+          tr(docContent.shadow.shadowOptionsDesc1End),
         ),
         pre(
           { class: "code-block" },
@@ -55,14 +57,12 @@ container.appendChild(div({},
 defineElement('my-element', { shadow: { mode: 'closed' } });
 defineElement('my-element', { shadow: false });               // no shadow DOM`),
         ),
-        h2("Encapsulation"),
-        p(
-          "Styles defined inside Shadow DOM do not leak out, and external styles do not penetrate in. This provides true component isolation.",
-        ),
+        h2({}, tr(docContent.shadow.encapsulation)),
+        p({}, tr(docContent.shadow.encapsulationDesc)),
       ),
       div(
         { class: "playground-section" },
-        h2("Try It"),
+        h2({}, tr(docContent.ui.tryIt)),
         RikkaLivePlayground.h({
     code: `const ShadowDemo = defineElement('shadow-demo', {
   styles: css\`
@@ -89,12 +89,12 @@ container.appendChild(div({ style: { marginTop: '16px', color: '#94a3b8' } },
         { class: "doc-nav" },
         a(
           { href: "#/docs/@takanashi/rikka-elements/define-element", class: "prev-link" },
-          "\u2190 defineElement",
+          tr(docContent.shadow.prevDefineElement),
         ),
         div({ class: "spacer" }),
         a(
           { href: "#/docs/@takanashi/rikka-elements/adopt-style", class: "next-link" },
-          "adoptStyle \u2192",
+          tr(docContent.shadow.nextAdoptStyle),
         ),
       ),
     );

@@ -17,11 +17,6 @@ export default defineConfig({
     entry: { index: './src/index.ts' },
     exclude: ['./src/**/*.test.ts'],
   },
-  output: {
-    externals: {
-      'esbuild-wasm/esbuild.wasm?url': 'esbuild-wasm/esbuild.wasm?url',
-    },
-  },
   tools: {
     swc: (config) => {
       config.jsc ||= {};

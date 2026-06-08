@@ -1,7 +1,7 @@
 {
   "name": "@takanashi/rikka-live-playground",
   "version": "0.1.1",
-  "description": "Live code editor component powered by esbuild-wasm",
+  "description": "Live code editor component with syntax highlighting (CodeJar + highlight.js) and TypeScript transpilation (Sucrase)",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -27,7 +27,9 @@
     "test:watch": "rstest -w"
   },
   "dependencies": {
-    "esbuild-wasm": "catalog:",
+    "codejar": "catalog:",
+    "highlight.js": "catalog:",
+    "sucrase": "catalog:",
     "@takanashi/rikka-dom": "workspace:*",
     "@takanashi/rikka-elements": "workspace:*",
     "@takanashi/rikka-signal": "workspace:*"

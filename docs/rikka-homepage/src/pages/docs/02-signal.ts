@@ -2,6 +2,8 @@ import { defineElement } from '@takanashi/rikka-elements';
 import { css, div, h1, h2, p, pre, a } from '@takanashi/rikka-dom';
 import {sharedHelpers} from '../../shared/helpers';
 import {docPageStyles} from '../../shared/page-styles';
+import { docContent } from '../../shared/doc-content';
+import { tr } from '../../shared/i18n';
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
@@ -13,19 +15,19 @@ export const RikkaDocSignal02 = defineElement('rikka-doc-signal-02', {
   render() {
     return div({ class: 'doc-page' },
       div({ class: 'doc-header' },
-        h1({ class: 'doc-title' }, 'signal()'),
-        p({ class: 'doc-subtitle' }, 'Signals are the foundation of reactivity in Rikka.'),
+        h1({ class: 'doc-title' }, tr(docContent.sidebar.signal)),
+        p({ class: 'doc-subtitle' }, tr(docContent.signal.subtitle)),
       ),
       div({ class: 'doc-section' },
-        h2({ class: 'section-title' }, 'Creating a Signal'),
-        p({},
-          'Use ',
+        h2({ class: 'section-title' }, tr(docContent.signal.creating)),
+        p(
+          tr(docContent.signal.creatingDesc),
           sharedHelpers.inlineCode('signal(initialValue)'),
-          ' to create a reactive value. The returned object has ',
+          tr(docContent.signal.creatingDescMethods),
           sharedHelpers.inlineCode('.get()'),
-          ' and ',
+          tr(docContent.signal.creatingDescMethods),
           sharedHelpers.inlineCode('.set()'),
-          ' methods.',
+          tr(docContent.signal.creatingDescMethodsEnd),
         ),
         RikkaLivePlayground.h({
     code: `const count = signal(0);
@@ -39,10 +41,8 @@ container.appendChild(div({},
 }),
       ),
       div({ class: 'doc-section' },
-        h2({ class: 'section-title' }, 'Passing Signals to DOM Helpers'),
-        p({},
-          'Signals can be passed directly to DOM helpers. The DOM updates automatically when the signal changes.',
-        ),
+        h2({ class: 'section-title' }, tr(docContent.signal.passingToDom)),
+        p({}, tr(docContent.signal.passingToDomDesc)),
         RikkaLivePlayground.h({
     code: `const name = signal('Rikka');
 const el = h('p', name); // auto-updates
@@ -56,7 +56,7 @@ container.appendChild(div({},
 }),
       ),
       div({ class: 'doc-section' },
-        h2({ class: 'section-title' }, 'Try It'),
+        h2({ class: 'section-title' }, tr(docContent.ui.tryIt)),
         RikkaLivePlayground.h({
     code: `import { signal } from '@takanashi/rikka-signal';
 
@@ -76,7 +76,7 @@ container.appendChild(app);`, height: "320", title: 'Counter Demo'
 }),
       ),
       div({ class: 'doc-section' },
-        h2({ class: 'section-title' }, 'API'),
+        h2({ class: 'section-title' }, tr(docContent.ui.api)),
         pre({ class: 'code-block' }, `function signal<T>(initialValue: T): Signal.State<T>
 
 interface Signal.State<T> {
@@ -85,8 +85,12 @@ interface Signal.State<T> {
 }`),
       ),
       div({ class: 'doc-nav' },
-        a({ class: 'nav-link prev', href: '#/docs/@takanashi/rikka-signal/getting-started' }, '← Getting Started'),
-        a({ class: 'nav-link next', href: '#/docs/@takanashi/rikka-signal/computed' }, 'computed() →'),
+        a({ class: 'nav-link prev', href: '#/docs/@takanashi/rikka-signal/getting-started' },
+          tr(docContent.signal.prevGettingStarted),
+        ),
+        a({ class: 'nav-link next', href: '#/docs/@takanashi/rikka-signal/computed' },
+          tr(docContent.signal.nextComputed),
+        ),
       ),
     );
   }

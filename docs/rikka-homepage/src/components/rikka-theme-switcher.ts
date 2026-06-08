@@ -15,82 +15,115 @@ function resolveSystemTheme(): "dark" | "light" {
 const themeSwitcherStyles = css`
   :host {
     display: inline-flex;
-    align-items: center;
   }
 
-  .theme-toggle {
+  .theme-switcher {
+    position: relative;
+    display: inline-flex;
+    align-items: stretch;
+    box-sizing: border-box;
+    height: 32px;
+    padding: 3px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: transparent;
+    isolation: isolate;
+    transition: border-color var(--transition-fast);
+  }
+
+  .theme-switcher:hover {
+    border-color: var(--color-border-hover);
+  }
+
+  .theme-btn {
+    position: relative;
+    z-index: 1;
+    flex: 0 0 auto;
+    width: 28px;
+    height: 100%;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    font-size: 0.9rem;
+    line-height: 1;
+    border-radius: calc(var(--radius-md) - 3px);
+    transition: color 0.2s ease;
+    font-family: inherit;
     padding: 0;
-    background: transparent;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    color: var(--color-text-secondary);
-    font-size: 1.125rem;
-    transition: all var(--transition-fast);
-    position: relative;
-    overflow: hidden;
   }
 
-  .theme-toggle:hover {
+  .theme-btn:hover {
+    color: var(--color-text-primary);
+  }
+
+  .theme-btn[aria-checked="true"] {
     color: var(--color-primary);
-    border-color: var(--color-primary);
-    background: rgba(99, 102, 241, 0.1);
-    transform: rotate(15deg) scale(1.05);
   }
 
-  .theme-toggle:focus-visible {
+  .theme-btn:focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
 
-  /* Auto icon (system) */
-  .auto-icon {
-    display: none;
+  .theme-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 28px;
+    height: calc(100% - 6px);
+    background: var(--color-nav-link-active-bg);
+    border-radius: calc(var(--radius-md) - 3px);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 0;
+    pointer-events: none;
   }
 
-  /* Sun icon (light mode) */
-  .sun-icon {
-    display: none;
+  :host([data-theme="light"]) .theme-thumb {
+    transform: translateX(0);
   }
-
-  /* Moon icon (dark mode) — default visible */
-  .moon-icon {
-    display: inline-block;
+  :host([data-theme="auto"]) .theme-thumb {
+    transform: translateX(28px);
   }
-
-  :host([data-theme="auto"]) .auto-icon {
-    display: inline-block;
-  }
-  :host([data-theme="auto"]) .moon-icon,
-  :host([data-theme="auto"]) .sun-icon {
-    display: none;
-  }
-
-  :host([data-theme="light"]) .sun-icon {
-    display: inline-block;
-  }
-  :host([data-theme="light"]) .moon-icon,
-  :host([data-theme="light"]) .auto-icon {
-    display: none;
-  }
-
-  :host([data-theme="dark"]) .moon-icon {
-    display: inline-block;
-  }
-  :host([data-theme="dark"]) .sun-icon,
-  :host([data-theme="dark"]) .auto-icon {
-    display: none;
+  :host([data-theme="dark"]) .theme-thumb {
+    transform: translateX(56px);
   }
 `;
+
+const ORDER: ThemeMode[] = ["light", "auto", "dark"];
+const ICONS: Record<ThemeMode, string> = {
+  auto: "💻",
+  light: "☀️",
+  dark: "🌙",
+};
+const LABELS: Record<ThemeMode, string> = {
+  auto: "System theme",
+  light: "Light theme",
+  dark: "Dark theme",
+};
 
 export const ThemeSwitcher = defineElement("rikka-theme-switcher", {
   styles: themeSwitcherStyles,
   render() {
+    // Read saved mode synchronously so the initial render can mark the
+    // right button as checked.
+    let savedMode: ThemeMode | null = null;
+    try {
+      const stored = localStorage.getItem("theme");
+      if (stored === "auto" || stored === "light" || stored === "dark") {
+        savedMode = stored;
+      }
+    } catch {
+      // localStorage unavailable
+    }
+    const initialMode: ThemeMode = savedMode ?? "auto";
+
+    // Build buttons first so applyMode can update their aria-checked.
+    const buttons: ReturnType<typeof button>[] = [];
+
     const applyMode = (mode: ThemeMode) => {
       document.documentElement.setAttribute("data-theme", mode);
       this.setAttribute("data-theme", mode);
@@ -99,6 +132,11 @@ export const ThemeSwitcher = defineElement("rikka-theme-switcher", {
         localStorage.setItem("theme", mode);
       } catch {
         // localStorage unavailable
+      }
+
+      for (const btn of buttons) {
+        const m = btn.getAttribute("data-mode") as ThemeMode;
+        btn.setAttribute("aria-checked", String(m === mode));
       }
 
       this.dispatchEvent(
@@ -110,27 +148,25 @@ export const ThemeSwitcher = defineElement("rikka-theme-switcher", {
       );
     };
 
-    const cycleTheme = () => {
-      const current =
-        (document.documentElement.getAttribute("data-theme") as ThemeMode) ||
-        "auto";
-      const next: ThemeMode =
-        current === "dark" ? "light" : current === "light" ? "auto" : "dark";
-      applyMode(next);
-    };
-
-    // Initialize: read from localStorage, default to auto
-    let savedMode: ThemeMode | null = null;
-    try {
-      const stored = localStorage.getItem("theme");
-      if (stored === "auto" || stored === "light" || stored === "dark") {
-        savedMode = stored;
-      }
-    } catch {
-      // localStorage unavailable
+    for (const mode of ORDER) {
+      const btn = button(
+        {
+          class: "theme-btn",
+          type: "button",
+          role: "radio",
+          "data-mode": mode,
+          "aria-label": LABELS[mode],
+          "aria-checked": String(initialMode === mode),
+          title: LABELS[mode],
+          onclick: () => applyMode(mode),
+        },
+        span({ "aria-hidden": "true" }, ICONS[mode]),
+      );
+      buttons.push(btn);
     }
 
-    const initialMode: ThemeMode = savedMode ?? "auto";
+    // Apply initial mode (also persists to localStorage and dispatches the
+    // initial theme-changed event so any listeners can react).
     applyMode(initialMode);
 
     // Listen for system theme changes — no DOM change needed since CSS
@@ -154,30 +190,16 @@ export const ThemeSwitcher = defineElement("rikka-theme-switcher", {
         });
     }
 
-    const nextLabel = () => {
-      const current =
-        (document.documentElement.getAttribute("data-theme") as ThemeMode) ||
-        "auto";
-      const next: ThemeMode =
-        current === "dark" ? "light" : current === "light" ? "auto" : "dark";
-      const labels: Record<ThemeMode, string> = {
-        dark: "dark",
-        light: "light",
-        auto: "system",
-      };
-      return labels[next];
-    };
+    const thumb = span({ class: "theme-thumb", "aria-hidden": "true" });
 
-    return button(
+    return span(
       {
-        class: "theme-toggle",
-        onclick: () => cycleTheme(),
-        title: "Toggle theme",
-        "aria-label": `Switch to ${nextLabel()} mode`,
+        class: "theme-switcher",
+        role: "radiogroup",
+        "aria-label": "Theme mode",
       },
-      span({ class: "auto-icon" }, "💻"),
-      span({ class: "sun-icon" }, "☀️"),
-      span({ class: "moon-icon" }, "🌙"),
+      thumb,
+      ...buttons,
     );
   },
 });

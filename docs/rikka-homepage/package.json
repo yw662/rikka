@@ -16,7 +16,8 @@
     "@takanashi/rikka-elements": "workspace:*",
     "@takanashi/rikka-live-playground": "workspace:*",
     "@takanashi/rikka-signal": "workspace:*",
-    "@takanashi/rikka-web-agent": "workspace:*"
+    "@takanashi/rikka-web-agent": "workspace:*",
+    "highlight.js": "catalog:"
   },
   "devDependencies": {
     "@rsbuild/core": "catalog:",

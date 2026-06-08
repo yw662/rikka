@@ -2,6 +2,8 @@ import { defineElement } from '@takanashi/rikka-elements';
 import { css, div, h1, h2, p, pre, a } from '@takanashi/rikka-dom';
 import {sharedHelpers} from '../../shared/helpers';
 import {docPageStyles} from '../../shared/page-styles';
+import { docContent } from '../../shared/doc-content';
+import { tr } from '../../shared/i18n';
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 
 const styles = css`
@@ -13,15 +15,15 @@ export const RikkaDocSignal04 = defineElement('rikka-doc-signal-04', {
   render() {
     return div({ class: 'doc-page' },
       div({ class: 'doc-header' },
-        h1({ class: 'doc-title' }, 'effect()'),
-        p({ class: 'doc-subtitle' }, 'Effects run side effects when signals change.'),
+        h1({ class: 'doc-title' }, tr(docContent.sidebar.effect)),
+        p({ class: 'doc-subtitle' }, tr(docContent.effect.subtitle)),
       ),
       div({ class: 'doc-section' },
-        h2({ class: 'section-title' }, 'Creating an Effect'),
-        p({},
-          'Use ',
+        h2({ class: 'section-title' }, tr(docContent.effect.creating)),
+        p(
+          tr(docContent.effect.creatingDesc1),
           sharedHelpers.inlineCode('effect(fn)'),
-          ' to run a function whenever its signal dependencies change. Effects are the primary way to perform side effects in Rikka.',
+          tr(docContent.effect.creatingDesc2),
         ),
         RikkaLivePlayground.h({
     code: `const count = signal(0);
@@ -42,21 +44,19 @@ container.appendChild(div({},
 }),
       ),
       div({ class: 'doc-section' },
-        h2({ class: 'section-title' }, 'Cleanup Function'),
-        p({},
-          'An effect callback can return a function — the ',
+        h2({ class: 'section-title' }, tr(docContent.effect.cleanup)),
+        p(
+          tr(docContent.effect.cleanupDesc1),
           sharedHelpers.inlineCode('cleanup function'),
-          '. It runs in two cases:',
+          tr(docContent.effect.cleanupDesc2),
         ),
         p({ style: { paddingLeft: '16px', margin: '8px 0' } },
-          '1. Before the next re-execution (when dependencies change)',
+          tr(docContent.effect.cleanupCase1),
         ),
         p({ style: { paddingLeft: '16px', margin: '8px 0' } },
-          '2. When the effect is disposed',
+          tr(docContent.effect.cleanupCase2),
         ),
-        p({},
-          'The cleanup always runs before the new effect body. This is useful for removing event listeners, clearing timers, or aborting fetch requests.',
-        ),
+        p({}, tr(docContent.effect.cleanupDesc3)),
         RikkaLivePlayground.h({
     code: `const count = signal(0);
 const logs = signal<string[]>([]);
@@ -79,10 +79,10 @@ container.appendChild(div({},
 }),
       ),
       div({ class: 'doc-section' },
-        h2({ class: 'section-title' }, 'Disposing Effects'),
-        p({},
+        h2({ class: 'section-title' }, tr(docContent.effect.disposing)),
+        p(
           sharedHelpers.inlineCode('effect()'),
-          ' returns a dispose function. Call it to permanently stop the effect and run its cleanup.',
+          tr(docContent.effect.disposingDesc1),
         ),
         RikkaLivePlayground.h({
     code: `const count = signal(0);
@@ -105,7 +105,7 @@ container.appendChild(div({},
 }),
       ),
       div({ class: 'doc-section' },
-        h2({ class: 'section-title' }, 'Try It'),
+        h2({ class: 'section-title' }, tr(docContent.ui.tryIt)),
         RikkaLivePlayground.h({
     code: `import { signal, effect } from '@takanashi/rikka-signal';
 
@@ -131,8 +131,12 @@ dispose();`, height: "340", title: 'Effect Logging Demo'
 }),
       ),
       div({ class: 'doc-nav' },
-        a({ class: 'nav-link prev', href: '#/docs/@takanashi/rikka-signal/computed' }, '← computed()'),
-        a({ class: 'nav-link next', href: '#/docs/@takanashi/rikka-dom/h' }, 'h() →'),
+        a({ class: 'nav-link prev', href: '#/docs/@takanashi/rikka-signal/computed' },
+          tr(docContent.effect.prevComputed),
+        ),
+        a({ class: 'nav-link next', href: '#/docs/@takanashi/rikka-dom/h' },
+          tr(docContent.effect.nextH),
+        ),
       ),
     );
   }

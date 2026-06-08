@@ -24,6 +24,8 @@ import {
 } from "@takanashi/rikka-dom";
 import {sharedHelpers} from "../../shared/helpers";
 import {docPageStyles} from "../../shared/page-styles";
+import { docContent } from "../../shared/doc-content";
+import { tr as t_ } from "../../shared/i18n";
 
 const styles = css`
   ${docPageStyles}
@@ -32,26 +34,27 @@ const styles = css`
 const DocApiReference = defineElement("rikka-doc-api-ref", {
   styles,
   render() {
+    const C = docContent.apiReference;
     return div(
       { class: "doc-page" },
-      h1("API Reference"),
-      p("Complete API reference for all Rikka packages."),
+      h1({}, t_(C.title)),
+      p({}, t_(C.desc)),
 
       div(
         { class: "doc-content" },
 
-        h2("@takanashi/rikka-signal"),
-        p("Reactive primitives built on the TC39 Signals proposal."),
+        h2({}, t_(C.signalPackage)),
+        p({}, t_(C.signalPackageDesc)),
         p(
-          "Re-exports ",
+          t_(C.signalPackageReExport1),
           sharedHelpers.inlineCode("Signal"),
-          " from ",
+          t_(C.signalPackageReExport2),
           sharedHelpers.inlineCode("signal-polyfill"),
-          ".",
+          t_(C.signalPackageReExport3),
         ),
 
-        h3("signal<T>(initialValue)"),
-        p("Creates a reactive state container."),
+        h3({}, t_(C.signalFn)),
+        p({}, t_(C.signalFnDesc)),
         pre(
           { class: "code-block" },
           code(
@@ -63,10 +66,8 @@ count.set(5);  // triggers subscribers`,
           ),
         ),
 
-        h3("computed<T>(fn)"),
-        p(
-          "Creates a derived signal that auto-tracks dependencies. Lazy and cached.",
-        ),
+        h3({}, t_(C.computedFn)),
+        p({}, t_(C.computedFnDesc)),
         pre(
           { class: "code-block" },
           code(
@@ -79,10 +80,8 @@ sum.get();  // 5 — cached until a or b changes`,
           ),
         ),
 
-        h3("effect(fn)"),
-        p(
-          "Runs a function reactively. Re-runs when tracked signals change. Returns a dispose function.",
-        ),
+        h3({}, t_(C.effectFn)),
+        p({}, t_(C.effectFnDesc)),
         pre(
           { class: "code-block" },
           code(
@@ -102,8 +101,8 @@ effect(() => {
           ),
         ),
 
-        h3("Signal (re-export)"),
-        p("The full Signal namespace from signal-polyfill, including:"),
+        h3({}, t_(C.signalNamespace)),
+        p({}, t_(C.signalNamespaceDesc)),
         pre(
           { class: "code-block" },
           code(
@@ -115,11 +114,11 @@ Signal.subtle.Watcher  — low-level dependency watcher`,
           ),
         ),
 
-        h2("@takanashi/rikka-dom"),
-        p("DOM creation utilities: h(), tag helpers, control flow, templates."),
+        h2({}, t_(C.domPackage)),
+        p({}, t_(C.domPackageDesc)),
 
-        h3("h(tag, attrs?, ...children)"),
-        p("Creates a DOM element directly."),
+        h3({}, t_(C.hFn)),
+        p({}, t_(C.hFnDesc)),
         pre(
           { class: "code-block" },
           code(
@@ -136,17 +135,17 @@ const el = div({ class: 'card' }, 'Hello');  // HTMLDivElement
           ),
         ),
 
-        h3("h`...` (tagged template)"),
+        h3({}, t_(C.hTemplateFn)),
         sharedHelpers.advancedBadge(
           "h`...`",
-          "is an alternative to h() / tag helpers. Reach for it when you have static HTML-like structures with signal interpolation.",
+          C.hTemplateFnAdvanced,
         ),
         p(
-          "HTML template literal returning Element[]. Use ",
+          t_(C.hTemplateFnDesc1),
           sharedHelpers.inlineCode("[0]"),
-          " for single element, or ",
+          t_(C.hTemplateFnDesc1End),
           sharedHelpers.inlineCode("h\\`<template>\\`[0]"),
-          " for template elements.",
+          t_(C.hTemplateFnDesc1Final),
         ),
         pre(
           { class: "code-block" },
@@ -161,11 +160,11 @@ const nodes = h\`<span>Hello \${name}!</span>\`;
           ),
         ),
 
-        h3("Tag Helpers"),
+        h3({}, t_(C.tagHelpersHeading)),
         p(
-          "40 pre-bound helpers with the same signature as ",
+          t_(C.tagHelpersDesc1),
           sharedHelpers.inlineCode("h()"),
-          ":",
+          t_(C.tagHelpersDesc1End),
         ),
         pre(
           { class: "code-block" },
@@ -182,10 +181,8 @@ div({ id: 'app' }, h1({}, 'Title'))  // → HTMLElement`,
           ),
         ),
 
-        h3("For(source, render, keyFn?)"),
-        p(
-          "Reactive list rendering. Only adds/removes changed items when keyFn is provided.",
-        ),
+        h3({}, t_(C.forFn)),
+        p({}, t_(C.forFnDesc)),
         pre(
           { class: "code-block" },
           code(
@@ -201,8 +198,8 @@ items.set(['A', 'B', 'D']);  // only 'D' is appended`,
           ),
         ),
 
-        h3("Show(condition, render)"),
-        p("Conditionally show/hide an element."),
+        h3({}, t_(C.showFn)),
+        p({}, t_(C.showFnDesc)),
         pre(
           { class: "code-block" },
           code(
@@ -217,8 +214,8 @@ visible.set(false);  // element removed from DOM`,
           ),
         ),
 
-        h3("When(condition, trueRender, falseRender)"),
-        p("Conditional branching — renders one of two branches."),
+        h3({}, t_(C.whenFn)),
+        p({}, t_(C.whenFnDesc)),
         pre(
           { class: "code-block" },
           code(
@@ -230,12 +227,12 @@ visible.set(false);  // element removed from DOM`,
           ),
         ),
 
-        h3("Switch(value, ...cases, fallback?)"),
+        h3({}, t_(C.switchFn)),
         sharedHelpers.advancedBadge(
           "Switch()",
-          "is for multi-way branching (3+ branches). For single/binary conditions, Show() / When() is simpler.",
+          C.switchFnAdvanced,
         ),
-        p("Multi-way conditional branching."),
+        p({}, t_(C.switchFnDesc)),
         pre(
           { class: "code-block" },
           code(
@@ -253,12 +250,12 @@ Switch(tab,
           ),
         ),
 
-        h3("Match(match, render)"),
+        h3({}, t_(C.matchFn)),
         sharedHelpers.advancedBadge(
           "Match()",
-          "is the companion to Switch() for defining each branch.",
+          C.matchFnAdvanced,
         ),
-        p("Defines a case for Switch."),
+        p({}, t_(C.matchFnDesc)),
         pre(
           { class: "code-block" },
           code(
@@ -269,12 +266,12 @@ Switch(tab,
           ),
         ),
 
-        h3("css`...`"),
+        h3({}, t_(C.cssFn)),
         sharedHelpers.advancedBadge(
           "css`...`",
-          "is mainly for Shadow DOM styling via adoptedStyleSheets. For non-Shadow-DOM code, plain <style> blocks are simpler.",
+          C.cssFnAdvanced,
         ),
-        p("Creates a CSSStyleSheet from tagged template literal."),
+        p({}, t_(C.cssFnDesc)),
         pre(
           { class: "code-block" },
           code(
@@ -289,12 +286,12 @@ defineElement('my-el', { styles });`,
           ),
         ),
 
-        h3("inlineStyle`...`"),
+        h3({}, t_(C.inlineStyleFn)),
         sharedHelpers.advancedBadge(
           "inlineStyle`...`",
-          "is a niche helper that returns a camelCase style object. Most code uses style strings or external CSS.",
+          C.inlineStyleFnAdvanced,
         ),
-        p("Parses CSS into a style record object for inline styles."),
+        p({}, t_(C.inlineStyleFnDesc)),
         pre(
           { class: "code-block" },
           code(
@@ -307,19 +304,15 @@ div({ style: s }, 'Hello')`,
           ),
         ),
 
-        h2("@takanashi/rikka-elements"),
+        h2({}, t_(C.elementsPackage)),
         sharedHelpers.advancedBadge(
           "@takanashi/rikka-elements",
-          "is an advanced feature. You can build complete apps using only h() and tag helpers — reach for defineElement only when you need reusable, encapsulated components with reactive attributes, custom events, Shadow DOM, and declarative lifecycle.",
+          C.elementsPackageAdvanced,
         ),
-        p(
-          "Declarative custom elements with reactive attributes, events, shadow DOM, styles, and render function.",
-        ),
+        p({}, t_(C.elementsPackageDesc)),
 
-        h3("defineElement(tagName, config?)"),
-        p(
-          "Defines a Web Component with typed attributes, events, shadow DOM, and render function.",
-        ),
+        h3({}, t_(C.defineElementFn)),
+        p({}, t_(C.defineElementFnDesc)),
         pre(
           { class: "code-block" },
           code(
@@ -350,10 +343,8 @@ const MyCounter = defineElement('my-counter', {
           ),
         ),
 
-        h3("event<T>()"),
-        p(
-          "Type marker for events that carry a detail payload via a transform function.",
-        ),
+        h3({}, t_(C.eventTypeHelper)),
+        p({}, t_(C.eventTypeHelperDesc)),
         pre(
           { class: "code-block" },
           code(
@@ -366,7 +357,7 @@ events: {
           ),
         ),
 
-        h3("ElementConfig"),
+        h3({}, t_(C.elementConfig)),
         pre(
           { class: "code-block" },
           code(
@@ -385,7 +376,7 @@ type ElementConfig =
           ),
         ),
 
-        h3("AttributeSpec<T>"),
+        h3({}, t_(C.attributeSpec)),
         pre(
           { class: "code-block" },
           code(
@@ -405,7 +396,7 @@ BooleanAttr   // attr present → true, absent → false
           ),
         ),
 
-        h3("EventSpec"),
+        h3({}, t_(C.eventSpec)),
         pre(
           { class: "code-block" },
           code(
@@ -418,158 +409,158 @@ undefined  // no detail (void)
           ),
         ),
 
-        h3("Generated Instance Members"),
+        h3({}, t_(C.generatedMembers)),
         p(
-          "For each attribute ",
+          t_(C.generatedMembersDesc1),
           sharedHelpers.inlineCode("name"),
-          " of type ",
+          t_(C.generatedMembersDesc1Mid),
           sharedHelpers.inlineCode("T"),
-          ":",
+          t_(C.generatedMembersDesc1End),
         ),
         table(
           { class: "api-table" },
-          thead(tr(th("Member"), th("Type"), th("Description"))),
+          thead(tr(th({}, t_(C.thMember)), th({}, t_(C.thType)), th({}, t_(C.thDescription)))),
           tbody(
             tr(
               td(code("el.name")),
               td(code("T")),
-              td("Get/set raw value. Triggers attributeChangedCallback."),
+              td({}, t_(C.tdGetSetValue)),
             ),
             tr(
               td(code("el.$name")),
               td(code("Signal.State<T>")),
-              td("Underlying signal. Use for reactive bindings."),
+              td({}, t_(C.tdUnderlyingSignal)),
             ),
           ),
         ),
         p(
-          "For each event ",
+          t_(C.generatedMembersEventDesc1),
           sharedHelpers.inlineCode("name"),
-          " with detail ",
+          t_(C.generatedMembersEventDesc1Mid),
           sharedHelpers.inlineCode("D"),
-          ":",
+          t_(C.generatedMembersEventDesc1End),
         ),
         table(
           { class: "api-table" },
-          thead(tr(th("Member"), th("Type"), th("Description"))),
+          thead(tr(th({}, t_(C.thMember)), th({}, t_(C.thType)), th({}, t_(C.thDescription)))),
           tbody(
             tr(
               td(code("el.dispatchName(detail?)")),
               td(code("() => boolean")),
-              td("Dispatch CustomEvent with optional detail."),
+              td({}, t_(C.tdDispatchCustomEvent)),
             ),
             tr(
               td(code("el.onName")),
               td(code("(ev) => void | null")),
-              td(
-                "Get/set event handler. Auto-wrapped to prevent infinite loops.",
-              ),
+              td({}, t_(C.tdGetSetHandler)),
             ),
           ),
         ),
-        p("Additional instance members:"),
+        p({}, t_(C.additionalMembers)),
         table(
           { class: "api-table" },
-          thead(tr(th("Member"), th("Type"), th("Condition"))),
+          thead(tr(th({}, t_(C.thMember)), th({}, t_(C.thType)), th({}, t_(C.thCondition)))),
           tbody(
             tr(
               td(code("el.shadowRoot")),
               td(code("ShadowRoot")),
-              td("When shadow !== false"),
+              td({}, t_(C.tdShadowRootCondition)),
             ),
             tr(
               td(code("el.methodName()")),
-              td("From methods config"),
-              td("When methods is provided"),
+              td({}, t_(C.tdFromMethodsConfig)),
+              td({}, t_(C.tdWhenMethodsProvided)),
             ),
           ),
         ),
 
-        h3("Template Binding Syntax"),
-        p("When ", sharedHelpers.inlineCode("config.template"), " is provided:"),
+        h3({}, t_(C.templateBindingSyntax)),
+        p(
+          t_(C.templateBindingSyntaxDesc1),
+          sharedHelpers.inlineCode("config.template"),
+          t_(C.templateBindingSyntaxDesc1End),
+        ),
         table(
           { class: "api-table" },
-          thead(tr(th("Syntax"), th("Binding Type"), th("Behavior"))),
+          thead(tr(th({}, t_(C.thSyntax)), th({}, t_(C.thBindingType)), th({}, t_(C.thBehavior)))),
           tbody(
             tr(
               td(code("{{name}}")),
-              td("Text"),
-              td("textContent, prefers $name signal"),
+              td({}, t_(C.tdText)),
+              td({}, t_(C.tdTextContent)),
             ),
             tr(
               td(code('attr="{{name}}"')),
-              td("Attribute"),
-              td("setAttribute, reactive if signal"),
+              td({}, t_(C.tdAttribute)),
+              td({}, t_(C.tdSetAttribute)),
             ),
             tr(
               td(code('onclick="{{@action}}"')),
-              td("Event dispatch"),
-              td("DOM event → transform(el.dispatchAction(detail))"),
+              td({}, t_(C.tdEventDispatch)),
+              td({}, t_(C.tdEventDispatchBehavior)),
             ),
           ),
         ),
 
-        h2("Type Exports"),
+        h2({}, t_(C.typeExports)),
         table(
           { class: "api-table" },
-          thead(tr(th("Type"), th("Package"), th("Description"))),
+          thead(tr(th({}, t_(C.thType)), th({}, t_(C.thPackage)), th({}, t_(C.thDescription)))),
           tbody(
             tr(
               td(code("Signal.State<T>")),
               td("@takanashi/rikka-signal"),
-              td("Writable reactive state container"),
+              td({}, t_(C.typeSignalState)),
             ),
             tr(
               td(code("Signal.Computed<T>")),
               td("@takanashi/rikka-signal"),
-              td("Read-only derived signal with caching"),
+              td({}, t_(C.typeSignalComputed)),
             ),
             tr(
               td(code("Child")),
               td("@takanashi/rikka-dom"),
-              td(
-                "string | number | Node | Signal | ReactiveRange | null | false",
-              ),
+              td({}, t_(C.typeChild)),
             ),
             tr(
               td(code("Attributes<K>")),
               td("@takanashi/rikka-dom"),
-              td("Typed attribute map for element K"),
+              td({}, t_(C.typeAttributes)),
             ),
             tr(
               td(code("ReactiveRange")),
               td("@takanashi/rikka-dom"),
-              td("For/Show/When/Switch output — managed node range"),
+              td({}, t_(C.typeReactiveRange)),
             ),
             tr(
               td(code("Case<T>")),
               td("@takanashi/rikka-dom"),
-              td("Single case definition for Switch"),
+              td({}, t_(C.typeCase)),
             ),
             tr(
               td(code("AttributeSpec<T>")),
               td("@takanashi/rikka-elements"),
-              td("Attribute parser/serializer spec"),
+              td({}, t_(C.typeAttributeSpec)),
             ),
             tr(
               td(code("EventSpec")),
               td("@takanashi/rikka-elements"),
-              td("(DOM Event → detail) transform | undefined"),
+              td({}, t_(C.typeEventSpec)),
             ),
             tr(
               td(code("ElementConfig")),
               td("@takanashi/rikka-elements"),
-              td("Full configuration for defineElement"),
+              td({}, t_(C.typeElementConfig)),
             ),
             tr(
               td(code("ElementInstance<C>")),
               td("@takanashi/rikka-elements"),
-              td("HTMLElement & props & signals & events & shadow & methods"),
+              td({}, t_(C.typeElementInstance)),
             ),
             tr(
               td(code("ElementConstructor<C>")),
               td("@takanashi/rikka-elements"),
-              td("Typed constructor + observedAttributes"),
+              td({}, t_(C.typeElementConstructor)),
             ),
           ),
         ),

@@ -260,14 +260,14 @@ function getDeepDiveSection(slug: string): HTMLElement {
         h2({}, "State Management Deep Dive"),
         p({}, "The reactive store centralizes all time and session tracking with clean separation of concerns:"),
         div({ class: "arch-section" },
-          pre({}, code({}, pomodoroStoreCode))
+          pre({ class: "code-block" }, code({}, pomodoroStoreCode))
         )
       ),
       div({ class: "explanation" },
         h2({}, "Component Architecture"),
         p({}, "The UI is built with composable, reactive Web Components:"),
         div({ class: "arch-section" },
-          pre({}, code({}, pomodoroComponentCode))
+          pre({ class: "code-block" }, code({}, pomodoroComponentCode))
         )
       ),
     ),
@@ -276,14 +276,14 @@ function getDeepDiveSection(slug: string): HTMLElement {
         h2({}, "Reactive State Architecture"),
         p({}, "The store manages bookmarks, filters, and computed derived state:"),
         div({ class: "arch-section" },
-          pre({}, code({}, bookmarkStoreCode))
+          pre({ class: "code-block" }, code({}, bookmarkStoreCode))
         )
       ),
       div({ class: "explanation" },
         h2({}, "Search Component Implementation"),
         p({}, "The search bar demonstrates debounced input and reactive filtering:"),
         div({ class: "arch-section" },
-          pre({}, code({}, bookmarkSearchCode))
+          pre({ class: "code-block" }, code({}, bookmarkSearchCode))
         )
       ),
     ),
@@ -292,14 +292,14 @@ function getDeepDiveSection(slug: string): HTMLElement {
         h2({}, "Editor State Architecture"),
         p({}, "The central store manages files, tabs, and preview state with comprehensive reactive system:"),
         div({ class: "arch-section" },
-          pre({}, code({}, editorStoreCode))
+          pre({ class: "code-block" }, code({}, editorStoreCode))
         )
       ),
       div({ class: "explanation" },
         h2({}, "Preview & Console Integration"),
         p({}, "The iframe preview system demonstrates inter-process communication between components:"),
         div({ class: "arch-section" },
-          pre({}, code({}, editorPreviewCode))
+          pre({ class: "code-block" }, code({}, editorPreviewCode))
         )
       ),
     ),
@@ -308,14 +308,14 @@ function getDeepDiveSection(slug: string): HTMLElement {
         h2({}, "Finance Store Architecture"),
         p({}, "The reactive store manages transactions and computes sophisticated analytics:"),
         div({ class: "arch-section" },
-          pre({}, code({}, financeStoreCode))
+          pre({ class: "code-block" }, code({}, financeStoreCode))
         )
       ),
       div({ class: "explanation" },
         h2({}, "CSS Chart Implementation"),
         p({}, "The category chart demonstrates reactive CSS with computed values:"),
         div({ class: "arch-section" },
-          pre({}, code({}, financeChartCode))
+          pre({ class: "code-block" }, code({}, financeChartCode))
         )
       ),
     ),
