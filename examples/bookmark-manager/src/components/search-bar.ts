@@ -2,6 +2,8 @@ import { defineElement } from '@takanashi/rikka-elements';
 import { div, input, button, span, svg, path, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
 import { searchQuery, clearFilters, showForm, selectedTags } from '../store.js';
+import { t } from '../i18n.js';
+import { content } from '../content.js';
 
 export const searchBar = defineElement('search-bar', {
   attributes: {},
@@ -161,7 +163,7 @@ export const searchBar = defineElement('search-bar', {
         if (query) {
           const tag = div(
             { class: 'tag-filter-item' },
-            span({}, `搜索: "${query}"`)
+            span({}, `${t(content.search)}: "${query}"`)
           );
           filtersEl.appendChild(tag);
         }
@@ -186,7 +188,7 @@ export const searchBar = defineElement('search-bar', {
         { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2' },
         path({ d: 'M12 5v14M5 12h14' })
       ),
-      span({}, '添加')
+      span({}, t(content.add))
     );
 
     addBtn.addEventListener('click', () => showForm.set(true));

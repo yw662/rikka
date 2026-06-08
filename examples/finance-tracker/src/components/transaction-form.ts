@@ -16,6 +16,18 @@ import {
   TransactionType,
   TransactionCategory,
 } from '../finance-store';
+import { t } from '../i18n.js';
+import { content } from '../content.js';
+
+const CATEGORY_CONTENT: Record<TransactionCategory, { en: string; zh: string }> = {
+  Food: content.catFood,
+  Transport: content.catTransport,
+  Entertainment: content.catEntertainment,
+  Shopping: content.catShopping,
+  Bills: content.catBills,
+  Salary: content.catSalary,
+  Other: content.catOther,
+};
 
 export function TransactionForm() {
   const amount = signal('');
@@ -32,7 +44,7 @@ export function TransactionForm() {
   const incomeBtnClass = computed(() => `type-btn ${type.get() === 'income' ? 'active income' : ''}`);
   const expenseBtnClass = computed(() => `type-btn ${type.get() === 'expense' ? 'active expense' : ''}`);
   const addBtnClass = computed(() => `add-btn ${type.get()}`);
-  const addBtnText = computed(() => `+ Add ${type.get() === 'income' ? 'Income' : 'Expense'}`);
+  const addBtnText = computed(() => type.get() === 'income' ? t(content.addIncome) : t(content.addExpense));
 
   function handleSubmit() {
     if (!isValid.get()) return;
@@ -61,7 +73,7 @@ export function TransactionForm() {
     ...CATEGORIES.map(cat =>
       option({
         value: cat,
-      }, `${CATEGORY_ICONS[cat]} ${cat}`)
+      }, `${CATEGORY_ICONS[cat]} ${t(CATEGORY_CONTENT[cat])}`)
     )
   );
 
@@ -76,7 +88,7 @@ export function TransactionForm() {
     }},
     div({ class: 'form-row' },
       div({ class: 'form-group amount-group' },
-        label({ for: 'amount' }, 'Amount'),
+        label({ for: 'amount' }, () => t(content.amount)),
         input({
           id: 'amount',
           type: 'number',
@@ -89,28 +101,28 @@ export function TransactionForm() {
         })
       ),
       div({ class: 'form-group type-group' },
-        label({ for: 'type' }, 'Type'),
+        label({ for: 'type' }, () => t(content.type)),
         div({ class: 'type-toggle' },
           button({
             type: 'button',
             class: incomeBtnClass,
             onclick: () => type.set('income'),
-          }, 'Income'),
+          }, () => t(content.income)),
           button({
             type: 'button',
             class: expenseBtnClass,
             onclick: () => type.set('expense'),
-          }, 'Expense')
+          }, () => t(content.expense))
         )
       )
     ),
     div({ class: 'form-row' },
       div({ class: 'form-group category-group' },
-        label({ for: 'category' }, 'Category'),
+        label({ for: 'category' }, () => t(content.category)),
         selectEl
       ),
       div({ class: 'form-group date-group' },
-        label({ for: 'date' }, 'Date'),
+        label({ for: 'date' }, () => t(content.date)),
         input({
           id: 'date',
           type: 'date',
@@ -122,11 +134,11 @@ export function TransactionForm() {
       )
     ),
     div({ class: 'form-group description-group' },
-      label({ for: 'description' }, 'Description'),
+      label({ for: 'description' }, () => t(content.description)),
       input({
         id: 'description',
         type: 'text',
-        placeholder: 'What was this for?',
+        placeholder: t(content.descPlaceholder),
         class: 'description-input',
         value: description,
       })

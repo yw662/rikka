@@ -3,6 +3,8 @@ import { div, span, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
 import { filteredBookmarks } from '../store.js';
 import { bookmarkItem } from './bookmark-item.js';
+import { t } from '../i18n.js';
+import { content } from '../content.js';
 
 export const bookmarkList = defineElement('bookmark-list', {
   attributes: {},
@@ -44,7 +46,7 @@ export const bookmarkList = defineElement('bookmark-list', {
         const empty = div(
           { class: 'empty-state' },
           div({ class: 'empty-icon' }, '📑'),
-          div({ class: 'empty-text' }, '暂无书签，点击上方添加按钮开始吧')
+          div({ class: 'empty-text' }, t(content.noBookmarks))
         );
         container.appendChild(empty);
         return;

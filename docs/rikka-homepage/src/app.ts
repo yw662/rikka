@@ -1,11 +1,13 @@
 import { defineElement } from '@takanashi/rikka-elements';
 import { signal, computed, effect } from '@takanashi/rikka-signal';
-import { css, div } from '@takanashi/rikka-dom';
+import { css, div, button, span } from '@takanashi/rikka-dom';
+import '@takanashi/rikka-web-agent';
 import { getPathFromHash } from './shared/helpers';
 import './components/rikka-nav';
 import './components/rikka-sidebar';
 import './components/rikka-footer';
 import './components/rikka-theme-switcher';
+import './components/rikka-lang-switcher';
 import '@takanashi/rikka-live-playground';
 import './pages/home';
 import './pages/playground';
@@ -103,13 +105,41 @@ const appStyles = css`
   overflow-y: auto;
   min-width: 0;
 }
-@media (max-width: 768px) {
-  .main-layout {
-    flex-direction: column;
-  }
+@media (max-width: 800px) {
   .content {
     padding: 1rem;
   }
+}
+
+/* Agent FAB */
+.agent-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  z-index: 999998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.agent-fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+}
+.agent-fab--open {
+  background: var(--color-error, #f85149);
+}
+.agent-fab--open:hover {
+  background: #e5443d;
 }
 `;
 
@@ -129,6 +159,68 @@ const RikkaApp = defineElement('rikka-app', {
     const navEl = document.createElement('rikka-nav');
     const footerEl = document.createElement('rikka-footer');
     const appEl = div({ class: 'app' }, navEl, mainLayout, footerEl);
+
+    // --- Agent FAB + floating panel ---
+    const agentOpen = signal(false);
+
+    const agentEl = document.createElement('rikka-web-agent');
+    agentEl.setAttribute('layout', 'floating');
+    agentEl.setAttribute('display', 'full');
+    agentEl.style.display = 'none';
+
+    // Register homepage-specific tools to WebMCP context
+    const mc = (document as any).modelContext;
+    if (mc) {
+      mc.registerTool({
+        name: 'navigate',
+        description: 'Navigate to a page within the Rikka site',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            path: { type: 'string', description: 'Hash path, e.g. /docs, /playground, /examples' }
+          },
+          required: ['path']
+        },
+        execute: async (input: { path: string }) => {
+          window.location.hash = input.path;
+          return `Navigated to ${input.path}`;
+        },
+      });
+
+      mc.registerTool({
+        name: 'getCurrentPage',
+        description: 'Get the current page path and title',
+        inputSchema: { type: 'object', properties: {} },
+        execute: async () => {
+          const route = currentRoute.get();
+          return { path: currentPath.get(), title: route.title };
+        },
+      });
+
+      mc.registerTool({
+        name: 'listPages',
+        description: 'List all available pages on the Rikka site',
+        inputSchema: { type: 'object', properties: {} },
+        execute: async () => {
+          return Object.keys(routes).map(p => ({ path: p, title: routes[p].title }));
+        },
+      });
+    }
+
+    const fabEl = button(
+      { class: 'agent-fab', onclick: () => agentOpen.set(!agentOpen.get()) },
+      '\u2728'  // sparkles emoji
+    );
+
+    effect(() => {
+      const open = agentOpen.get();
+      agentEl.style.display = open ? '' : 'none';
+      fabEl.className = open ? 'agent-fab agent-fab--open' : 'agent-fab';
+      fabEl.textContent = open ? '\u2715' : '\u2728';  // ✕ or sparkles
+    });
+
+    // Close agent when the component dispatches "close" event
+    agentEl.addEventListener('close', () => agentOpen.set(false));
 
     // Guard: only re-render when the path actually changes. The effect
     // re-fires on initial subscribe even though the path is unchanged,
@@ -159,7 +251,7 @@ const RikkaApp = defineElement('rikka-app', {
       renderRoute();
     });
 
-    return appEl;
+    return div({}, appEl, agentEl, fabEl);
   }
 });
 

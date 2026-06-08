@@ -9,6 +9,8 @@ import {
   updateBookmark,
   type Bookmark,
 } from '../store.js';
+import { t } from '../i18n.js';
+import { content } from '../content.js';
 
 export const bookmarkForm = defineElement('bookmark-form', {
   attributes: {},
@@ -242,7 +244,7 @@ export const bookmarkForm = defineElement('bookmark-form', {
       if (isVisible) {
         host.classList.remove('hidden');
         if (edit) {
-          titleEl.textContent = '编辑书签';
+          titleEl.textContent = t(content.editBookmark);
           titleInput.value = edit.title;
           urlInput.value = edit.url;
           descInput.value = edit.description;
@@ -298,22 +300,22 @@ export const bookmarkForm = defineElement('bookmark-form', {
       ),
       div(
         { class: 'form-group' },
-        label({}, '标题'),
+        label({}, t(content.titleLabel)),
         titleInput
       ),
       div(
         { class: 'form-group' },
-        label({}, '链接'),
+        label({}, t(content.urlLabel)),
         urlInput
       ),
       div(
         { class: 'form-group' },
-        label({}, '描述'),
+        label({}, t(content.descLabel)),
         descInput
       ),
       div(
         { class: 'form-group' },
-        label({}, '标签'),
+        label({}, t(content.tagsLabel)),
         tagsInput
       ),
       div(

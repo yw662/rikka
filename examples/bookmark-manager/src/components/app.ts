@@ -1,5 +1,8 @@
 import { defineElement } from '@takanashi/rikka-elements';
 import { div, h1, p, svg, path, css } from '@takanashi/rikka-dom';
+import { effect } from '@takanashi/rikka-signal';
+import { t } from '../i18n.js';
+import { content } from '../content.js';
 import { statsCard } from './stats-card.js';
 import { searchBar } from './search-bar.js';
 import { tagFilter } from './tag-filter.js';
@@ -48,19 +51,27 @@ export const app = defineElement('bookmark-app', {
     }
   `,
   render() {
+    const titleEl = h1(
+      { class: 'app-title' },
+      svg(
+        { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 24 24', fill: 'currentColor' },
+        path({ d: 'M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z' })
+      ),
+      t(content.appTitle)
+    );
+    const subtitleEl = p({ class: 'app-subtitle' }, t(content.appSubtitle));
+
+    effect(() => {
+      titleEl.lastChild!.textContent = t(content.appTitle);
+      subtitleEl.textContent = t(content.appSubtitle);
+    });
+
     return div(
       { class: 'app-container' },
       div(
         { class: 'app-header' },
-        h1(
-          { class: 'app-title' },
-          svg(
-            { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 24 24', fill: 'currentColor' },
-            path({ d: 'M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z' })
-          ),
-          '书签管理器'
-        ),
-        p({ class: 'app-subtitle' }, '保存你的灵感，随时查看')
+        titleEl,
+        subtitleEl
       ),
       statsCard.h({}),
       searchBar.h({}),

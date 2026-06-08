@@ -2,6 +2,7 @@ import { defineElement } from '@takanashi/rikka-elements';
 import { div, button, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
 import { mode, setMode, modeLabel, modeColors, type TimerMode } from '../store.js';
+import { t } from '../i18n.js';
 
 export const modeSelector = defineElement('mode-selector', {
   attributes: {},
@@ -49,13 +50,14 @@ export const modeSelector = defineElement('mode-selector', {
       button({ 
         class: mode.get() === m ? 'mode-btn active' : 'mode-btn',
         onclick: () => setMode(m)
-      }, modeLabel[m])
+      }, t(modeLabel[m]))
     );
 
     effect(() => {
       const currentMode = mode.get();
       modes.forEach((m, i) => {
         buttons[i].className = currentMode === m ? 'mode-btn active' : 'mode-btn';
+        buttons[i].textContent = t(modeLabel[m]);
       });
     });
 

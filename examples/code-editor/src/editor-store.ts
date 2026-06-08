@@ -1,4 +1,6 @@
 import { signal, computed, effect } from '@takanashi/rikka-signal';
+import { t } from './i18n.js';
+import { content } from './content.js';
 
 export type FileType = 'html' | 'css' | 'js';
 
@@ -13,14 +15,14 @@ const DEFAULT_HTML = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>预览</title>
+  <title>${t(content.previewTitle)}</title>
 </head>
 <body>
   <div class="container">
     <h1>👋 Hello, World!</h1>
-    <p>这是一个实时编辑器，修改下方代码即可看到效果</p>
-    <button id="clickBtn">点击我</button>
-    <p id="counter">点击次数: <span id="count">0</span></p>
+    <p>${t(content.defaultDesc)}</p>
+    <button id="clickBtn">${t(content.clickMe)}</button>
+    <p id="counter">${t(content.clickCount)}<span id="count">0</span></p>
   </div>
 </body>
 </html>`;
@@ -93,18 +95,18 @@ const countEl = document.getElementById('count');
 btn.addEventListener('click', () => {
   count++;
   countEl.textContent = count;
-  console.log('按钮被点击了 ' + count + ' 次！');
+  console.log('${t(content.btnClicked)}' + count + '${t(content.times)}');
   
   if (count === 5) {
-    console.info('🎉 太棒了！你已经点击了5次！');
+    console.info('${t(content.great5)}');
   }
   
   if (count === 10) {
-    console.warn('⚠️ 警告：你已经点击10次了，休息一下吧！');
+    console.warn('${t(content.warning10)}');
   }
 });
 
-console.log('🚀 编辑器已就绪！开始编辑代码吧');`;
+console.log('${t(content.editorReady)}');`;
 
 function loadFromStorage<T>(key: string, defaultValue: T): T {
   try {
@@ -184,7 +186,7 @@ export function setActiveTab(tab: FileType) {
 }
 
 export function resetAll() {
-  if (confirm('确定要重置所有代码吗？这将无法撤销。')) {
+  if (confirm(t(content.confirmReset))) {
     htmlCode.set(DEFAULT_HTML);
     cssCode.set(DEFAULT_CSS);
     jsCode.set(DEFAULT_JS);

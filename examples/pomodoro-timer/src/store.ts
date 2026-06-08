@@ -1,4 +1,5 @@
 import { signal, computed, effect } from '@takanashi/rikka-signal';
+import type { Locale } from './i18n.js';
 
 export type TimerMode = 'pomodoro' | 'shortBreak' | 'longBreak';
 
@@ -28,10 +29,10 @@ export const formatTime = (seconds: number): string => {
 
 export const displayTime = computed(() => formatTime(timeLeft.get()));
 
-export const modeLabel: Record<TimerMode, string> = {
-  pomodoro: '专注',
-  shortBreak: '短休息',
-  longBreak: '长休息',
+export const modeLabel: Record<TimerMode, Record<Locale, string>> = {
+  pomodoro: { en: 'Focus', zh: '专注' },
+  shortBreak: { en: 'Short Break', zh: '短休息' },
+  longBreak: { en: 'Long Break', zh: '长休息' },
 };
 
 export const modeColors: Record<TimerMode, string> = {

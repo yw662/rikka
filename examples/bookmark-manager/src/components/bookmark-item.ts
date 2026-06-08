@@ -1,6 +1,8 @@
 import { defineElement } from '@takanashi/rikka-elements';
 import { div, a, span, button, svg, path, css } from '@takanashi/rikka-dom';
 import { toggleFavorite, deleteBookmark, openEditForm, getDomain, type Bookmark } from '../store.js';
+import { t } from '../i18n.js';
+import { content } from '../content.js';
 
 export const bookmarkItem = defineElement('bookmark-item', {
   styles: css`
@@ -214,7 +216,7 @@ export const bookmarkItem = defineElement('bookmark-item', {
     deleteBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (confirm('确定要删除这个书签吗？')) {
+      if (confirm(t(content.confirmDelete))) {
         deleteBookmark(bookmark.id);
       }
     });

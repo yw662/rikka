@@ -1,6 +1,9 @@
 import { defineElement } from "@takanashi/rikka-elements";
 import { div, h1, h2, h3, p, a, span, css } from "@takanashi/rikka-dom";
+import { effect } from "@takanashi/rikka-signal";
 import { examplePageStyles } from "../shared/page-styles";
+import { locale, t } from "../shared/i18n";
+import { examples, exampleLabels } from "../shared/example-content";
 
 const styles = css`
   ${examplePageStyles}
@@ -135,45 +138,18 @@ const styles = css`
   }
 `;
 
-const examples = [
-  {
-    slug: "pomodoro-timer",
-    title: "🍅 Pomodoro Timer",
-    description: "A beautiful productivity-focused Pomodoro timer with session tracking, animated progress ring, and Web Audio API notifications.",
-    tags: ["Web Components", "Signals", "Effects"],
-    features: ["Timer Modes", "Progress Ring", "Session Stats"]
-  },
-  {
-    slug: "bookmark-manager",
-    title: "📌 Bookmark Manager",
-    description: "Comprehensive read-it-later application with instant search, smart tag system, and automatic localStorage persistence.",
-    tags: ["LocalStorage", "Filtering", "CRUD"],
-    features: ["Search & Filter", "Tag System", "Auto Save"]
-  },
-  {
-    slug: "code-editor",
-    title: "💻 Code Editor",
-    description: "Full-featured browser IDE with virtual file system, multi-tab editing, live preview, and integrated console capture.",
-    tags: ["Iframe", "Tabs", "Live Preview"],
-    features: ["File System", "Tabs UI", "Console Capture"]
-  },
-  {
-    slug: "finance-tracker",
-    title: "💰 Finance Tracker",
-    description: "Sophisticated personal finance app with transaction management, real-time analytics, and reactive CSS-based visualizations.",
-    tags: ["Charting", "Analytics", "Vite"],
-    features: ["Income/Expense", "Category Stats", "Persistence"]
-  }
-];
-
 const ExamplesIndex = defineElement("rikka-examples-index", {
   styles,
   render() {
-    return div(
-      { class: "example-page" },
-      h1({}, "Examples"),
-      p({}, "Complete, real-world applications built with Rikka through vibe coding. Each example is a standalone project you can explore, run, and learn from."),
-      div({ class: "examples-grid" },
+    const titleEl = h1({}, "Examples");
+    const subtitleEl = p({}, "");
+    const gridEl = div({ class: "examples-grid" });
+
+    const render = () => {
+      titleEl.textContent = t(exampleLabels.examplesTitle);
+      subtitleEl.textContent = t(exampleLabels.examplesSubtitle);
+
+      gridEl.replaceChildren(
         ...examples.map(example => div(
           { class: "example-card" },
           div({ class: "example-header" },
@@ -184,9 +160,9 @@ const ExamplesIndex = defineElement("rikka-examples-index", {
           ),
           div({ class: "example-content" },
             h3({}, example.title.substring(2).trim()),
-            p({}, example.description),
+            p({}, t(example.description)),
             div({ class: "example-features" },
-              ...example.features.map(feature => div(
+              ...t(example.features).map(feature => div(
                 { class: "feature-item" },
                 span({ class: "feature-dot" }),
                 span({}, feature)
@@ -194,11 +170,21 @@ const ExamplesIndex = defineElement("rikka-examples-index", {
             )
           ),
           div({ class: "example-actions" },
-            a({ href: "#/examples/" + example.slug, class: "view-demo" }, "Learn More"),
-            a({ href: "./examples/" + example.slug + "/index.html", target: "_blank", class: "view-source" }, "View")
+            a({ href: "#/examples/" + example.slug, class: "view-demo" }, t(exampleLabels.learnMore)),
+            a({ href: "./examples/" + example.slug + "/index.html", target: "_blank", class: "view-source" }, t(exampleLabels.viewDemo))
           )
         ))
-      )
+      );
+    };
+
+    render();
+    effect(() => { locale.get(); render(); });
+
+    return div(
+      { class: "example-page" },
+      titleEl,
+      subtitleEl,
+      gridEl
     );
   }
 });

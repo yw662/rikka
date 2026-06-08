@@ -8,6 +8,8 @@ import {
   jsCode,
   type FileType,
 } from '../editor-store.js';
+import { t } from '../i18n.js';
+import { content } from '../content.js';
 
 export const codeEditor = defineElement('code-editor', {
   attributes: {},
@@ -89,9 +91,9 @@ export const codeEditor = defineElement('code-editor', {
       textareaEl.value = signal.get();
       
       textareaEl.placeholder = 
-        currentTab === 'html' ? '在这里编写 HTML...' :
-        currentTab === 'css' ? '在这里编写 CSS...' :
-        '在这里编写 JavaScript...';
+        currentTab === 'html' ? t(content.htmlPlaceholder) :
+        currentTab === 'css' ? t(content.cssPlaceholder) :
+        t(content.jsPlaceholder);
     });
 
     return div(

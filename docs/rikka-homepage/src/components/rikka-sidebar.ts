@@ -1,6 +1,6 @@
 import { defineElement } from '@takanashi/rikka-elements';
-import { css, div, span, a } from '@takanashi/rikka-dom';
-import { effect, type Signal } from '@takanashi/rikka-signal';
+import { css, div, span, a, button } from '@takanashi/rikka-dom';
+import { signal, effect, type Signal } from '@takanashi/rikka-signal';
 
 interface TOCItem {
   title: string;
@@ -123,34 +123,142 @@ const sidebarStyles = css`
   }
 }
 
+.sidebar-fab {
+  display: none;
+  position: fixed;
+  bottom: 156px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--gradient-primary);
+  color: #fff;
+  font-size: 1.125rem;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+  z-index: 450;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.sidebar-fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px rgba(99, 102, 241, 0.5);
+}
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 400;
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+  pointer-events: none;
+}
+.sidebar-backdrop.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+.sidebar-drawer-header {
+  display: none;
+}
+
 /* Mobile Enhancement */
-@media (max-width: 768px) {
+@media (max-width: 800px) {
   :host {
-    width: 100%;
-    max-height: 60vh; /* 从 200px 提升到 60vh */
-    border-bottom: 1px solid var(--color-border);
-    padding: var(--spacing-sm) 0;
-    overflow-y: auto; /* 确保可滚动 */
-    -webkit-overflow-scrolling: touch; /* 平滑滚动 */
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    padding: 0;
   }
-  
+
+  .sidebar-fab {
+    display: flex;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+  }
+
+  .sidebar-container {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 280px;
+    background: var(--color-nav-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding: var(--spacing-xl);
+    transform: translateX(100%);
+    transition: transform var(--transition-normal);
+    z-index: 500;
+    box-shadow: var(--shadow-lg);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sidebar-container.active {
+    transform: translateX(0);
+  }
+
+  .sidebar-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .sidebar-drawer-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .sidebar-drawer-close {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--color-text-secondary);
+    font-size: 1.25rem;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    padding: 0;
+  }
+
+  .sidebar-drawer-close:hover {
+    background: var(--color-nav-link-bg);
+    color: var(--color-text-primary);
+  }
+
   .group {
     margin-bottom: var(--spacing-md);
   }
-  
+
   .group-title {
-    font-size: 0.75rem; /* 稍微放大以便触控 */
-    padding: 0 var(--spacing-md);
+    font-size: 0.75rem;
+    padding: 0;
     margin-bottom: var(--spacing-xs);
   }
-  
+
   .nav-item {
-    padding: var(--spacing-sm) var(--spacing-md); /* 增大触控区域 */
-    font-size: 0.875rem; /* 稍微放大 */
-    margin: 0.125rem var(--spacing-md);
-    min-height: 44px; /* WCAG 触控目标最小尺寸 */
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 0.875rem;
+    margin: 0.125rem 0;
+    min-height: 44px;
     display: flex;
     align-items: center;
+  }
+
+  body.sidebar-open {
+    overflow: hidden;
   }
 }
 `;
@@ -162,11 +270,42 @@ const RikkaSidebar = defineElement('rikka-sidebar', {
   styles: sidebarStyles,
   render() {
     const pathSignal = (this as unknown as { '$current-path': Signal.State<string> })['$current-path'];
+    const drawerOpen = signal(false);
 
-    const container = div({});
+    const toggleDrawer = () => drawerOpen.set(!drawerOpen.get());
+    const closeDrawer = () => {
+      if (drawerOpen.get()) drawerOpen.set(false);
+    };
+
+    const container = div({ class: 'sidebar-container' });
+
+    const sidebarFab = button(
+      {
+        class: 'sidebar-fab',
+        onclick: () => toggleDrawer(),
+        'aria-label': 'Table of Contents',
+        'aria-expanded': String(drawerOpen.get()),
+      },
+      '\u229e',  // ⊞ table of contents
+    );
+
+    const sidebarBackdrop = div({
+      class: 'sidebar-backdrop',
+      onclick: () => closeDrawer(),
+    });
 
     effect(() => {
       const currentPath = pathSignal.get();
+
+      const drawerHeader = div(
+        { class: 'sidebar-drawer-header' },
+        span({ class: 'sidebar-drawer-title' }, 'Table of Contents'),
+        button(
+          { class: 'sidebar-drawer-close', onclick: () => closeDrawer() },
+          '\u2715',
+        ),
+      );
+
       const groups = tableOfContents.map(group => {
         const items = group.items.map(item => {
           const isActive = currentPath === item.path;
@@ -175,6 +314,7 @@ const RikkaSidebar = defineElement('rikka-sidebar', {
             {
               class: `nav-item${isActive ? ' active' : ''}`,
               href: `#${item.path}`,
+              onclick: () => closeDrawer(),
             },
             item.title,
             advancedBadge,
@@ -188,10 +328,26 @@ const RikkaSidebar = defineElement('rikka-sidebar', {
         );
       });
 
-      container.replaceChildren(...groups);
+      container.replaceChildren(drawerHeader, ...groups);
+
+      sidebarFab.setAttribute('aria-expanded', String(drawerOpen.get()));
+      sidebarFab.textContent = drawerOpen.get() ? '\u2715' : '\u229e';
+
+      if (drawerOpen.get()) {
+        container.classList.add('active');
+        sidebarBackdrop.classList.add('active');
+        document.body.classList.add('sidebar-open');
+      } else {
+        container.classList.remove('active');
+        sidebarBackdrop.classList.remove('active');
+        document.body.classList.remove('sidebar-open');
+      }
     });
 
-    return container;
+    // Close drawer on navigation
+    window.addEventListener('hashchange', () => closeDrawer());
+
+    return div({}, container, sidebarFab, sidebarBackdrop);
   }
 });
 

@@ -2,6 +2,8 @@ import { defineElement } from '@takanashi/rikka-elements';
 import { div, span, button, svg, path, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
 import { consoleEntries, clearConsole, isConsoleOpen } from '../editor-store.js';
+import { t } from '../i18n.js';
+import { content } from '../content.js';
 
 export const consolePanel = defineElement('console-panel', {
   attributes: {},
@@ -142,14 +144,14 @@ export const consolePanel = defineElement('console-panel', {
   render() {
     const host = this;
 
-    const content = div({ class: 'console-content' });
+    const contentEl = div({ class: 'console-content' });
 
     function renderEntries() {
-      content.innerHTML = '';
+      contentEl.innerHTML = '';
       const entries = consoleEntries.get();
 
       if (entries.length === 0) {
-        content.appendChild(div({ class: 'console-empty' }, '控制台为空，等待输出...'));
+        contentEl.appendChild(div({ class: 'console-empty' }, t(content.consoleEmpty)));
         return;
       }
 
@@ -163,11 +165,11 @@ export const consolePanel = defineElement('console-panel', {
         entryEl.appendChild(span({ class: `entry-type ${entry.type}` }, entry.type));
         entryEl.appendChild(span({ class: 'entry-message' }, entry.message));
         
-        content.appendChild(entryEl);
+        contentEl.appendChild(entryEl);
       });
 
       // Auto-scroll to bottom
-      content.scrollTop = content.scrollHeight;
+      contentEl.scrollTop = contentEl.scrollHeight;
     }
 
     const clearBtn = button(
@@ -176,7 +178,7 @@ export const consolePanel = defineElement('console-panel', {
         { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2' },
         path({ d: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' })
       ),
-      '清空'
+      () => t(content.clearConsole)
     );
 
     clearBtn.addEventListener('click', () => {
@@ -187,10 +189,10 @@ export const consolePanel = defineElement('console-panel', {
       { class: 'console-container' },
       div(
         { class: 'console-header' },
-        div({ class: 'console-title' }, '🖥️ 控制台'),
+        div({ class: 'console-title' }, () => t(content.consoleTitle)),
         div({ class: 'console-actions' }, clearBtn)
       ),
-      content
+      contentEl
     );
 
     renderEntries();

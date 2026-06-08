@@ -1,6 +1,16 @@
 import { defineElement } from '@takanashi/rikka-elements';
 import { css, div, h1, p, a, span, h3 } from '@takanashi/rikka-dom';
-import {docPageStyles} from '../shared/page-styles';
+import { effect } from '@takanashi/rikka-signal';
+import { docPageStyles } from '../shared/page-styles';
+import { t, type Locale } from '../shared/i18n';
+
+const docsContent = {
+  title: { en: 'Documentation', zh: '文档' } as Record<Locale, string>,
+  subtitle: {
+    en: 'Learn Rikka step by step with interactive examples.',
+    zh: '通过交互式示例逐步学习 Rikka。',
+  } as Record<Locale, string>,
+};
 
 const styles = css`${docPageStyles}
 
@@ -149,8 +159,8 @@ const RikkaDocsIndex = defineElement('rikka-docs-index', {
   render() {
     return div({ class: 'docs-index' },
       div({ class: 'header' },
-        h1({ class: 'title' }, 'Documentation'),
-        p({ class: 'subtitle' }, 'Learn Rikka step by step with interactive examples.'),
+        (() => { const el = h1({ class: 'title' }); effect(() => { el.textContent = t(docsContent.title); }); return el; })(),
+        (() => { const el = p({ class: 'subtitle' }); effect(() => { el.textContent = t(docsContent.subtitle); }); return el; })(),
       ),
       div({ class: 'grid' },
         ...sections.map(section =>

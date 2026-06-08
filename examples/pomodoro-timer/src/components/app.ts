@@ -6,6 +6,8 @@ import { modeSelector } from './mode-selector.js';
 import { timerDisplay } from './timer-display.js';
 import { controls } from './controls.js';
 import { stats } from './stats.js';
+import { locale, t } from '../i18n.js';
+import { content } from '../content.js';
 
 export const app = defineElement('pomodoro-app', {
   attributes: {},
@@ -52,11 +54,19 @@ export const app = defineElement('pomodoro-app', {
       appContainer.style.boxShadow = `0 25px 50px -12px ${color}40`;
     });
 
+    const titleEl = h1({}, t(content.appTitle));
+    const subtitleEl = p({}, t(content.appSubtitle));
+
+    effect(() => {
+      titleEl.textContent = t(content.appTitle);
+      subtitleEl.textContent = t(content.appSubtitle);
+    });
+
     appContainer.appendChild(
       div(
         { class: 'app-header' },
-        h1({}, '🍅 番茄钟'),
-        p({}, '专注工作，高效休息')
+        titleEl,
+        subtitleEl
       )
     );
     appContainer.appendChild(modeSelector.h({}));

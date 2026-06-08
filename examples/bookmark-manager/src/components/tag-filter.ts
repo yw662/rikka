@@ -2,6 +2,8 @@ import { defineElement } from '@takanashi/rikka-elements';
 import { div, span, button, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
 import { allTags, selectedTags, toggleTag } from '../store.js';
+import { t } from '../i18n.js';
+import { content } from '../content.js';
 
 export const tagFilter = defineElement('tag-filter', {
   attributes: {},
@@ -49,7 +51,7 @@ export const tagFilter = defineElement('tag-filter', {
       const selected = selectedTags.get();
 
       if (tags.length === 0) {
-        const emptyMsg = span({}, '暂无标签，添加书签后会自动生成');
+        const emptyMsg = span({}, t(content.noTags));
         emptyMsg.style.color = 'rgba(255, 255, 255, 0.5)';
         emptyMsg.style.fontSize = '0.875rem';
         container.appendChild(emptyMsg);

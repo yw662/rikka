@@ -13,9 +13,34 @@ import {
   a,
   code,
 } from "@takanashi/rikka-dom";
-import { signal, computed } from "@takanashi/rikka-signal";
+import { signal, computed, effect } from "@takanashi/rikka-signal";
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
-import {sharedHelpers} from "../shared/helpers";
+import { sharedHelpers } from "../shared/helpers";
+import { locale, t, type Locale } from "../shared/i18n";
+import { homeContent } from "../shared/home-content";
+
+const cdnGzipKB = signal<string | null>(null);
+
+async function measureCdnGzipSize() {
+  try {
+    const res = await fetch("./cdn/rikka.esm.js");
+    const body = await res.text();
+    const stream = new Blob([body])
+      .stream()
+      .pipeThrough(new CompressionStream("gzip"));
+    const reader = stream.getReader();
+    let size = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.length;
+    }
+    cdnGzipKB.set(`~${Math.round(size / 1024)}KB`);
+  } catch {
+    cdnGzipKB.set("~15KB");
+  }
+}
+measureCdnGzipSize();
 
 const homeStyles = css`
   :host {
@@ -133,6 +158,28 @@ const homeStyles = css`
     50% {
       opacity: 0.4;
     }
+  }
+  @keyframes sizeShimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+  .size-loading {
+    display: inline-block;
+    min-width: 3.5em;
+    border-radius: 4px;
+    background: linear-gradient(
+      90deg,
+      var(--color-surface) 25%,
+      var(--color-border) 50%,
+      var(--color-surface) 75%
+    );
+    background-size: 200% 100%;
+    animation: sizeShimmer 1.5s ease-in-out infinite;
+    color: transparent;
   }
   .hero h1 {
     font-size: clamp(2.75rem, 7vw, 5.25rem);
@@ -1218,77 +1265,75 @@ const HomePage = defineElement("rikka-home", {
     const features = [
       {
         icon: "⚡",
-        title: "Fine-Grained Reactivity",
-        desc: "Signals drive surgical DOM updates. No virtual DOM diffing, no re-renders — just the minimal changes, instantly.",
+        titleKey: homeContent.featureFineGrainedTitle,
+        descKey: homeContent.featureFineGrainedDesc,
       },
       {
         icon: "🧠",
-        title: "LLM-Friendly",
-        desc: "Native HTML/CSS/JS patterns are more predictable for AI code generation than complex framework abstractions.",
+        titleKey: homeContent.featureLLMTitle,
+        descKey: homeContent.featureLLMDesc,
       },
       {
         icon: "📦",
-        title: "Zero Runtime Tax",
-        desc: "No framework runtime in your bundle. Direct browser APIs with tree-shakeable packages.",
+        titleKey: homeContent.featureZeroRuntimeTitle,
+        descKey: homeContent.featureZeroRuntimeDesc,
       },
       {
         icon: "✂️",
-        title: "Template System",
-        desc: [
-          code("css``"),
-          " and ",
-          code("h``"),
-          " tag templates with slots. Declarative, reactive, and type-safe styling.",
-        ],
+        titleKey: homeContent.featureTemplateTitle,
+        descKey: null,
       },
       {
         icon: "🔒",
-        title: "Type Safe",
-        desc: "Full TypeScript inference for signals and DOM helpers. Catch errors at compile time, not at runtime.",
+        titleKey: homeContent.featureTypeSafeTitle,
+        descKey: homeContent.featureTypeSafeDesc,
       },
       {
         icon: "🌐",
-        title: "Web Standards",
-        desc: "Built on Custom Elements, Shadow DOM, and the TC39 Signals proposal. Future-proof by design.",
+        titleKey: homeContent.featureWebStandardsTitle,
+        descKey: homeContent.featureWebStandardsDesc,
       },
     ];
 
     const advantages = [
       {
-        title: "No Hook Rules",
-        desc: "Signals work anywhere — inside loops, conditionals, callbacks, or even outside components. No more hook ordering restrictions.",
+        titleKey: homeContent.advantageNoHookRulesTitle,
+        descKey: homeContent.advantageNoHookRulesDesc,
         code: "// ✅ Rikka: Use signals freely\nif (condition) {\n  const count = signal(0);\n}\n\nfunction helper() {\n  const data = signal(null);  // OK!\n}\n\n// ❌ React: Hook rules violation\nif (condition) {\n  const [count, setCount] = useState(0); // Error!\n}",
       },
       {
-        title: "No Build Step",
-        desc: "h() function calls work directly in the browser. No JSX compiler, no webpack config, no transpilation needed.",
+        titleKey: homeContent.advantageNoBuildStepTitle,
+        descKey: homeContent.advantageNoBuildStepDesc,
         code: "// ✅ Rikka: Runs in browser\nconst btn = button(\n  { onclick: () => alert('Hi!') },\n  'Click me',\n);\ndocument.body.appendChild(btn);\n\n// ❌ React: Requires build step\n// Must compile JSX → React.createElement()\n// Needs bundler (webpack/vite)",
       },
       {
-        title: "Smaller Bundle",
-        desc: "Tree-shakeable packages with zero runtime overhead. Only ship what you use — no virtual DOM algorithm included.",
-        code: "// ✅ Rikka: Measured live from npm\n// Total: ~16KB (all 3 packages, min+gzip)\nimport { signal }       from '@takanashi/rikka-signal';       // ~2KB\nimport { div, button }  from '@takanashi/rikka-dom';          // ~6KB\nimport { defineElement } from '@takanashi/rikka-elements';     // ~3KB\n\n// ❌ React: ~42KB (min+gzip)\n// + ReactDOM: ~130KB\n// Total: ~172KB minimum (10x larger!)",
+        titleKey: homeContent.advantageSmallerBundleTitle,
+        descKey: homeContent.advantageSmallerBundleDesc,
+        code: computed(() => {
+          const size = cdnGzipKB.get();
+          return `// ✅ Rikka: Measured from CDN bundle\n// Total: ${size ?? "···"} (all 3 packages, min+gzip)\nimport { signal }       from '@takanashi/rikka-signal';       // ~2KB\nimport { div, button }  from '@takanashi/rikka-dom';          // ~6KB\nimport { defineElement } from '@takanashi/rikka-elements';     // ~3KB\n\n// ❌ React: ~42KB (min+gzip)\n// + ReactDOM: ~130KB\n// Total: ~172KB minimum (10x larger!)`;
+        }),
       },
       {
-        title: "Fine-Grained Updates",
-        desc: "Signals update only the exact DOM nodes that changed. No component re-renders, no virtual DOM diffing — surgical precision.",
+        titleKey: homeContent.advantageFineGrainedTitle,
+        descKey: homeContent.advantageFineGrainedDesc,
         code: "// ✅ Rikka: Updates single text node\nconst name = signal('Alice');\nspan({}, 'Hello ', name);\n// Only this text node updates on change\n\n// ❌ React: Re-renders entire component\n// Virtual DOM diff → patch → commit\n// Even for simple text changes",
       },
     ];
 
     const tags = [
-      "Signals",
-      "Computed",
-      "Effects",
-      "Custom Elements",
-      "Shadow DOM",
-      "Templates",
-      "Fine-Grained Updates",
-      "TypeScript",
-      "Decorators",
-      "Reactive Lists",
-      "No VDOM",
-      "Tree Shakable",
+      homeContent.tagSignals,
+      homeContent.tagComputed,
+      homeContent.tagEffects,
+      homeContent.tagCustomElements,
+      homeContent.tagShadowDOM,
+      homeContent.tagTemplates,
+      homeContent.tagFineGrainedUpdates,
+      homeContent.tagTypeScript,
+      homeContent.tagDecorators,
+      homeContent.tagReactiveLists,
+      homeContent.tagNoVDOM,
+      homeContent.tagTreeShakable,
     ];
 
     return div(
@@ -1300,48 +1345,114 @@ const HomePage = defineElement("rikka-home", {
           div(
             { class: "hero-badge" },
             span({ class: "badge-dot" }),
-            "TC39 Signals",
+            (() => {
+              const el = span({});
+              effect(() => {
+                el.textContent = t(homeContent.heroBadgeTC39);
+              });
+              return el;
+            })(),
             span({ style: { color: "var(--color-border)" } }, "·"),
-            "Zero VDOM",
+            (() => {
+              const el = span({});
+              effect(() => {
+                el.textContent = t(homeContent.heroBadgeZeroVDOM);
+              });
+              return el;
+            })(),
             span({ style: { color: "var(--color-border)" } }, "·"),
-            "Zero Runtime",
+            (() => {
+              const el = span({});
+              effect(() => {
+                el.textContent = t(homeContent.heroBadgeZeroRuntime);
+              });
+              return el;
+            })(),
           ),
           h1("Rikka"),
-          div({ class: "tagline" }, "Native Reactivity for the Web"),
-          p(
-            { class: "hero-desc" },
-            "Build Web Components with fine-grained signals. No virtual DOM, no framework overhead — just standards-based, LLM-friendly code that runs once and updates surgically.",
-          ),
+          (() => {
+            const el = div({ class: "tagline" });
+            effect(() => {
+              el.textContent = t(homeContent.heroTagline);
+            });
+            return el;
+          })(),
+          (() => {
+            const el = p({ class: "hero-desc" });
+            effect(() => {
+              el.textContent = t(homeContent.heroDesc);
+            });
+            return el;
+          })(),
           div(
             { class: "cta" },
-            a({ href: "#/docs", class: "btn-primary" }, "Get Started →"),
-            a({ href: "#/examples", class: "btn-secondary" }, "View Examples"),
+            (() => {
+              const el = a({ href: "#/docs", class: "btn-primary" });
+              effect(() => {
+                el.textContent = t(homeContent.heroCtaGetStarted);
+              });
+              return el;
+            })(),
+            (() => {
+              const el = a({ href: "#/examples", class: "btn-secondary" });
+              effect(() => {
+                el.textContent = t(homeContent.heroCtaViewExamples);
+              });
+              return el;
+            })(),
           ),
           div(
             { class: "stats-row" },
             span(
               { class: "stat-pill" },
               span({ class: "pill-dot purple" }),
-              "~16KB ",
-              span({ class: "pill-text" }, "All packages (gzip)"),
+              computed(() => {
+                const v = cdnGzipKB.get();
+                return v ? `${v} ` : span({ class: "size-loading" }, "---");
+              }),
+              (() => {
+                const el = span({ class: "pill-text" });
+                effect(() => {
+                  el.textContent = t(homeContent.heroStatCdn);
+                });
+                return el;
+              })(),
             ),
             span(
               { class: "stat-pill" },
               span({ class: "pill-dot green" }),
               "0 ",
-              span({ class: "pill-text" }, "Virtual DOM overhead"),
+              (() => {
+                const el = span({ class: "pill-text" });
+                effect(() => {
+                  el.textContent = t(homeContent.heroStatVDOM);
+                });
+                return el;
+              })(),
             ),
             span(
               { class: "stat-pill" },
               span({ class: "pill-dot pink" }),
               "TC39 ",
-              span({ class: "pill-text" }, "Standards based"),
+              (() => {
+                const el = span({ class: "pill-text" });
+                effect(() => {
+                  el.textContent = t(homeContent.heroStatStandards);
+                });
+                return el;
+              })(),
             ),
             span(
               { class: "stat-pill" },
               span({ class: "pill-dot amber" }),
               "100% ",
-              span({ class: "pill-text" }, "TypeScript"),
+              (() => {
+                const el = span({ class: "pill-text" });
+                effect(() => {
+                  el.textContent = t(homeContent.heroStatTypeScript);
+                });
+                return el;
+              })(),
             ),
           ),
           heroDemo,
@@ -1349,66 +1460,145 @@ const HomePage = defineElement("rikka-home", {
       ),
       section(
         { class: "section" },
-        span({ class: "section-eyebrow" }, "Why Rikka"),
-        h2({ class: "section-title" }, "Built for the modern web"),
-        p(
-          { class: "section-subtitle" },
-          "Simple primitives, predictable mental model, and surgical updates — no framework tax.",
-        ),
-        div(
-          { class: "feature-grid" },
-          ...features.map((f) =>
-            div(
-              { class: "feature-card" },
-              div({ class: "feature-icon" }, f.icon),
-              h3(f.title),
-              p(f.desc),
-            ),
-          ),
-        ),
+        (() => {
+          const el = span({ class: "section-eyebrow" });
+          effect(() => {
+            el.textContent = t(homeContent.featuresEyebrow);
+          });
+          return el;
+        })(),
+        (() => {
+          const el = h2({ class: "section-title" });
+          effect(() => {
+            el.textContent = t(homeContent.featuresTitle);
+          });
+          return el;
+        })(),
+        (() => {
+          const el = p({ class: "section-subtitle" });
+          effect(() => {
+            el.textContent = t(homeContent.featuresSubtitle);
+          });
+          return el;
+        })(),
+        (() => {
+          const container = div({ class: "feature-grid" });
+          effect(() => {
+            container.replaceChildren(
+              ...features.map((f) => {
+                const card = div(
+                  { class: "feature-card" },
+                  div({ class: "feature-icon" }, f.icon),
+                  h3(t(f.titleKey)),
+                  f.descKey
+                    ? p(t(f.descKey))
+                    : p(
+                        code("css``"),
+                        t(homeContent.featureTemplateDescAnd),
+                        code("h``"),
+                        t(homeContent.featureTemplateDescRest),
+                      ),
+                );
+                return card;
+              }),
+            );
+          });
+          return container;
+        })(),
       ),
       section(
         { class: "demo-section" },
         div(
           { class: "demo-container" },
-          span({ class: "section-eyebrow" }, "Try It Live"),
-          h2({ class: "section-title" }, "Edit code. See results instantly."),
-          p(
-            { class: "section-subtitle" },
-            "A real, working playground — no compilation, no build step. Just type and run.",
-          ),
+          (() => {
+            const el = span({ class: "section-eyebrow" });
+            effect(() => {
+              el.textContent = t(homeContent.demoEyebrow);
+            });
+            return el;
+          })(),
+          (() => {
+            const el = h2({ class: "section-title" });
+            effect(() => {
+              el.textContent = t(homeContent.demoTitle);
+            });
+            return el;
+          })(),
+          (() => {
+            const el = p({ class: "section-subtitle" });
+            effect(() => {
+              el.textContent = t(homeContent.demoSubtitle);
+            });
+            return el;
+          })(),
           RikkaLivePlayground.h({
-    code: counterCode, height: "300", title: "Live Counter"
-}),
+            code: counterCode,
+            height: "300",
+            title: "Live Counter",
+          }),
         ),
       ),
       section(
         { class: "advantages-section" },
-        span({ class: "section-eyebrow" }, "Comparison"),
-        h2({ class: "section-title" }, "Why Choose Rikka Over React?"),
-        p(
-          { class: "section-subtitle" },
-          "Same power, fewer rules, smaller bundles, and a much friendlier mental model.",
-        ),
-        div(
-          { class: "advantages-grid" },
-          ...advantages.map((a) =>
-            div(
-              { class: "advantage-card" },
-              h3(a.title),
-              p(a.desc),
-              (() => {
-                const el = document.createElement("pre");
-                el.className = "code-snippet";
-                el.innerHTML = highlightCode(a.code);
-                return el;
-              })(),
-            ),
-          ),
-        ),
+        (() => {
+          const el = span({ class: "section-eyebrow" });
+          effect(() => {
+            el.textContent = t(homeContent.advantagesEyebrow);
+          });
+          return el;
+        })(),
+        (() => {
+          const el = h2({ class: "section-title" });
+          effect(() => {
+            el.textContent = t(homeContent.advantagesTitle);
+          });
+          return el;
+        })(),
+        (() => {
+          const el = p({ class: "section-subtitle" });
+          effect(() => {
+            el.textContent = t(homeContent.advantagesSubtitle);
+          });
+          return el;
+        })(),
+        (() => {
+          const container = div({ class: "advantages-grid" });
+          effect(() => {
+            container.replaceChildren(
+              ...advantages.map((a) => {
+                const card = div(
+                  { class: "advantage-card" },
+                  h3(t(a.titleKey)),
+                  p(t(a.descKey)),
+                  (() => {
+                    const el = document.createElement("pre");
+                    el.className = "code-snippet";
+                    const codeVal = a.code;
+                    if (typeof codeVal === "string") {
+                      el.innerHTML = highlightCode(codeVal);
+                    } else {
+                      effect(() => {
+                        el.innerHTML = highlightCode(codeVal.get());
+                      });
+                    }
+                    return el;
+                  })(),
+                );
+                return card;
+              }),
+            );
+          });
+          return container;
+        })(),
         div(
           { class: "comparison-section" },
-          h3({ class: "comparison-title" }, "Framework Comparison"),
+          (() => {
+            const el = h3({ class: "comparison-title" });
+            effect(() => {
+              el.textContent = t(homeContent.comparisonTitle);
+            });
+            return el;
+          })(),
           div(
             { class: "comparison-table-wrapper" },
             (() => {
@@ -1431,16 +1621,18 @@ const HomePage = defineElement("rikka-home", {
                 headRow.appendChild(th);
               }
               const tbody = table.createTBody();
-              const rows: [
-                string,
-                (string | { icon: string; cls: string })[],
-              ][] = [
+              type CellData =
+                | string
+                | { icon: string; cls: string }
+                | typeof cdnGzipKB
+                | Record<Locale, string>;
+              const rows: [Record<Locale, string>, CellData[]][] = [
                 [
-                  "Runtime (gzip)",
-                  ["~16KB", "~172KB", "~33KB", "~2KB*", "~7KB", "~5KB"],
+                  homeContent.comparisonRuntime,
+                  [cdnGzipKB, "~172KB", "~33KB", "~2KB*", "~7KB", "~5KB"],
                 ],
                 [
-                  "Virtual DOM",
+                  homeContent.comparisonVirtualDOM,
                   [
                     { icon: "✗", cls: "check" },
                     { icon: "✓", cls: "cross" },
@@ -1451,29 +1643,29 @@ const HomePage = defineElement("rikka-home", {
                   ],
                 ],
                 [
-                  "Reactivity",
+                  homeContent.comparisonReactivity,
                   [
-                    "Signals",
-                    "Hooks",
-                    "Proxy",
-                    "Compiled",
-                    "Signals",
-                    "Properties",
+                    homeContent.comparisonSignals,
+                    homeContent.comparisonHooks,
+                    homeContent.comparisonProxy,
+                    homeContent.comparisonCompiled,
+                    homeContent.comparisonSignals,
+                    homeContent.comparisonProperties,
                   ],
                 ],
                 [
-                  "Build Step",
+                  homeContent.comparisonBuildStep,
                   [
-                    "Optional",
-                    "Required",
-                    "Required",
-                    "Required",
-                    "Required",
-                    "Optional",
+                    homeContent.comparisonOptional,
+                    homeContent.comparisonRequired,
+                    homeContent.comparisonRequired,
+                    homeContent.comparisonRequired,
+                    homeContent.comparisonRequired,
+                    homeContent.comparisonOptional,
                   ],
                 ],
                 [
-                  "Web Standards",
+                  homeContent.comparisonWebStandards,
                   [
                     { icon: "✓", cls: "check" },
                     { icon: "✗", cls: "cross" },
@@ -1484,30 +1676,48 @@ const HomePage = defineElement("rikka-home", {
                   ],
                 ],
                 [
-                  "Type Safe",
+                  homeContent.comparisonTypeSafe,
                   [
                     { icon: "✓", cls: "check" },
                     { icon: "✓", cls: "check" },
-                    "Partial",
-                    "Partial",
+                    homeContent.comparisonPartial,
+                    homeContent.comparisonPartial,
                     { icon: "✓", cls: "check" },
-                    "Partial",
+                    homeContent.comparisonPartial,
                   ],
                 ],
               ];
-              for (const [label, cells] of rows) {
+              for (const [labelKey, cells] of rows) {
                 const tr = tbody.insertRow();
                 const tdLabel = document.createElement("td");
-                tdLabel.textContent = label;
+                effect(() => {
+                  tdLabel.textContent = t(labelKey);
+                });
                 tr.appendChild(tdLabel);
                 cells.forEach((cell, i) => {
                   const td = document.createElement("td");
                   if (i === 0) td.className = "rikka-col";
                   if (typeof cell === "string") {
                     td.textContent = cell;
+                  } else if ("en" in cell && "zh" in cell) {
+                    effect(() => {
+                      td.textContent = t(cell as Record<Locale, string>);
+                    });
+                  } else if ("get" in cell && typeof cell.get === "function") {
+                    effect(() => {
+                      const v = cell.get();
+                      if (v === null) {
+                        td.textContent = "";
+                        td.className =
+                          i === 0 ? "rikka-col size-loading" : "size-loading";
+                      } else {
+                        td.className = i === 0 ? "rikka-col" : "";
+                        td.textContent = v;
+                      }
+                    });
                   } else {
-                    td.textContent = cell.icon;
-                    td.classList.add(cell.cls);
+                    td.textContent = (cell as { icon: string }).icon;
+                    td.classList.add((cell as { cls: string }).cls);
                   }
                   tr.appendChild(td);
                 });
@@ -1515,33 +1725,71 @@ const HomePage = defineElement("rikka-home", {
               return table;
             })(),
           ),
-          p(
-            { class: "comparison-caption" },
-            "*Svelte has a tiny runtime but requires a compiler at build time.",
-          ),
+          (() => {
+            const el = p({ class: "comparison-caption" });
+            effect(() => {
+              el.textContent = t(homeContent.comparisonCaption);
+            });
+            return el;
+          })(),
         ),
       ),
       section(
         { class: "tags-section" },
-        span({ class: "section-eyebrow" }, "All in one"),
-        h2({ class: "section-title" }, "Everything You Need"),
-        p(
-          { class: "section-subtitle" },
-          "A complete toolkit for building modern, reactive Web Components.",
-        ),
-        div(
-          { class: "tags-cloud" },
-          ...tags.map((t) => span({ class: "tag" }, t)),
-        ),
+        (() => {
+          const el = span({ class: "section-eyebrow" });
+          effect(() => {
+            el.textContent = t(homeContent.tagsEyebrow);
+          });
+          return el;
+        })(),
+        (() => {
+          const el = h2({ class: "section-title" });
+          effect(() => {
+            el.textContent = t(homeContent.tagsTitle);
+          });
+          return el;
+        })(),
+        (() => {
+          const el = p({ class: "section-subtitle" });
+          effect(() => {
+            el.textContent = t(homeContent.tagsSubtitle);
+          });
+          return el;
+        })(),
+        (() => {
+          const container = div({ class: "tags-cloud" });
+          effect(() => {
+            container.replaceChildren(
+              ...tags.map((tagKey) => span({ class: "tag" }, t(tagKey))),
+            );
+          });
+          return container;
+        })(),
       ),
       section(
         { class: "quick-start" },
-        span({ class: "section-eyebrow" }, "Get started"),
-        h2({ class: "section-title" }, "Three steps. Zero config."),
-        p(
-          { class: "section-subtitle" },
-          "Install once, write your UI, and let signals handle the rest.",
-        ),
+        (() => {
+          const el = span({ class: "section-eyebrow" });
+          effect(() => {
+            el.textContent = t(homeContent.quickStartEyebrow);
+          });
+          return el;
+        })(),
+        (() => {
+          const el = h2({ class: "section-title" });
+          effect(() => {
+            el.textContent = t(homeContent.quickStartTitle);
+          });
+          return el;
+        })(),
+        (() => {
+          const el = p({ class: "section-subtitle" });
+          effect(() => {
+            el.textContent = t(homeContent.quickStartSubtitle);
+          });
+          return el;
+        })(),
         div(
           { class: "steps" },
           div(
@@ -1549,11 +1797,17 @@ const HomePage = defineElement("rikka-home", {
             div({ class: "step-number" }, "1"),
             div(
               { class: "step-content" },
-              h4("Install"),
+              (() => {
+                const el = h4();
+                effect(() => {
+                  el.textContent = t(homeContent.quickStartStep1Title);
+                });
+                return el;
+              })(),
               p(
-                "Choose your preferred method — npm, a ",
+                t(homeContent.quickStartStep1Desc1),
                 code("<script>"),
-                " tag, or ES module import:",
+                t(homeContent.quickStartStep1Desc2),
               ),
               (() => {
                 const codes: Record<string, string> = {
@@ -1642,7 +1896,7 @@ const HomePage = defineElement("rikka-home", {
                         onclick: () =>
                           navigator.clipboard.writeText(codes[tab.get()]),
                       },
-                      "Copy",
+                      computed(() => t(homeContent.quickStartCopy)),
                     ),
                   ),
                 );
@@ -1654,15 +1908,21 @@ const HomePage = defineElement("rikka-home", {
             div({ class: "step-number" }, "2"),
             div(
               { class: "step-content" },
-              h4("Write"),
+              (() => {
+                const el = h4();
+                effect(() => {
+                  el.textContent = t(homeContent.quickStartStep2Title);
+                });
+                return el;
+              })(),
               p(
-                "Use ",
+                t(homeContent.quickStartStep2Desc1),
                 code("h()"),
                 ", ",
                 code("div()"),
-                ", and signals to build your UI. ",
+                t(homeContent.quickStartStep2Desc2),
                 code("defineElement"),
-                " for reusable components (optional).",
+                t(homeContent.quickStartStep2Desc3),
               ),
             ),
           ),
@@ -1671,15 +1931,25 @@ const HomePage = defineElement("rikka-home", {
             div({ class: "step-number" }, "3"),
             div(
               { class: "step-content" },
-              h4("Render"),
-              p(
-                "h() runs once — Signals handle all DOM updates automatically. No re-renders, no diffing.",
-              ),
+              (() => {
+                const el = h4();
+                effect(() => {
+                  el.textContent = t(homeContent.quickStartStep3Title);
+                });
+                return el;
+              })(),
+              (() => {
+                const el = p();
+                effect(() => {
+                  el.textContent = t(homeContent.quickStartStep3Desc);
+                });
+                return el;
+              })(),
             ),
           ),
         ),
         RikkaLivePlayground.h({
-    code: `import { signal, computed } from '@takanashi/rikka-signal';
+          code: `import { signal, computed } from '@takanashi/rikka-signal';
 import { div, span, button } from '@takanashi/rikka-dom';
 
 const count = signal(0);
@@ -1694,44 +1964,70 @@ const app = div(
   }, '+')
 );
 
-container.appendChild(app);`, height: "220", title: "Quick Example"
-}),
+container.appendChild(app);`,
+          height: "220",
+          title: "Quick Example",
+        }),
       ),
       section(
         { class: "packages-section" },
-        span({ class: "section-eyebrow" }, "Packages"),
-        h2(
-          { class: "section-title" },
-          "Three Packages, Infinite Possibilities",
-        ),
-        p(
-          { class: "section-subtitle" },
-          "Pick what you need. Each package is independently useful and tree-shakeable.",
-        ),
+        (() => {
+          const el = span({ class: "section-eyebrow" });
+          effect(() => {
+            el.textContent = t(homeContent.packagesEyebrow);
+          });
+          return el;
+        })(),
+        (() => {
+          const el = h2({ class: "section-title" });
+          effect(() => {
+            el.textContent = t(homeContent.packagesTitle);
+          });
+          return el;
+        })(),
+        (() => {
+          const el = p({ class: "section-subtitle" });
+          effect(() => {
+            el.textContent = t(homeContent.packagesSubtitle);
+          });
+          return el;
+        })(),
         div(
           { class: "package-grid" },
           div(
             { class: "package-card" },
             h3("@takanashi/rikka-elements"),
-            p(
-              "Define Custom Elements with Shadow DOM, attributes, events, and styles.",
-            ),
+            (() => {
+              const el = p();
+              effect(() => {
+                el.textContent = t(homeContent.packageElementsDesc);
+              });
+              return el;
+            })(),
             div({ class: "npm" }, "npm install @takanashi/rikka-elements"),
           ),
           div(
             { class: "package-card" },
             h3("@takanashi/rikka-dom"),
-            p(
-              "Type-safe h() and tag factories. For() for reactive lists. Signals as children for fine-grained updates.",
-            ),
+            (() => {
+              const el = p();
+              effect(() => {
+                el.textContent = t(homeContent.packageDomDesc);
+              });
+              return el;
+            })(),
             div({ class: "npm" }, "npm install @takanashi/rikka-dom"),
           ),
           div(
             { class: "package-card" },
             h3("@takanashi/rikka-signal"),
-            p(
-              "TC39 Signals polyfill. signal(), computed(), and effect() for reactivity. Standards-based primitives.",
-            ),
+            (() => {
+              const el = p();
+              effect(() => {
+                el.textContent = t(homeContent.packageSignalDesc);
+              });
+              return el;
+            })(),
             div({ class: "npm" }, "npm install @takanashi/rikka-signal"),
           ),
         ),

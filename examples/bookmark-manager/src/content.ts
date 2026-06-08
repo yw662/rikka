@@ -1,0 +1,33 @@
+import type { Locale } from './i18n';
+
+export const content = {
+  appTitle: { en: 'Bookmark Manager', zh: '书签管理器' },
+  appSubtitle: { en: 'Save your inspiration, view anytime', zh: '保存你的灵感，随时查看' },
+  searchPlaceholder: { en: 'Search bookmarks...', zh: '搜索书签...' },
+  add: { en: 'Add', zh: '添加' },
+  currentFilters: { en: 'Current filters:', zh: '当前筛选：' },
+  search: { en: 'Search', zh: '搜索' },
+  clear: { en: 'Clear', zh: '清除' },
+  noTags: { en: 'No tags yet, they will be auto-generated when you add bookmarks', zh: '暂无标签，添加书签后会自动生成' },
+  total: { en: 'Total', zh: '总计' },
+  favorites: { en: 'Favorites', zh: '收藏' },
+  tags: { en: 'Tags', zh: '标签' },
+  addBookmark: { en: 'Add Bookmark', zh: '添加书签' },
+  editBookmark: { en: 'Edit Bookmark', zh: '编辑书签' },
+  titlePlaceholder: { en: 'Bookmark title', zh: '书签标题' },
+  descPlaceholder: { en: 'Bookmark description (optional)', zh: '书签描述（可选）' },
+  tagsPlaceholder: { en: 'Tags, separated by commas (optional)', zh: '标签，用逗号分隔（可选）' },
+  titleLabel: { en: 'Title', zh: '标题' },
+  urlLabel: { en: 'URL', zh: '链接' },
+  descLabel: { en: 'Description', zh: '描述' },
+  tagsLabel: { en: 'Tags', zh: '标签' },
+  cancel: { en: 'Cancel', zh: '取消' },
+  save: { en: 'Save', zh: '保存' },
+  fillRequired: { en: 'Please fill in title and URL', zh: '请填写标题和链接' },
+  confirmDelete: { en: 'Are you sure you want to delete this bookmark?', zh: '确定要删除这个书签吗？' },
+  noBookmarks: { en: 'No bookmarks yet, click the add button above to start', zh: '暂无书签，点击上方添加按钮开始吧' },
+  // Default bookmark descriptions
+  githubDesc: { en: "The world's largest code hosting platform", zh: '世界上最大的代码托管平台' },
+  mdnDesc: { en: 'Web development docs, the best reference', zh: 'Web 开发文档，最好的参考资料' },
+  soDesc: { en: 'Programmer Q&A community', zh: '程序员问答社区' },
+};

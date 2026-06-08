@@ -5,7 +5,20 @@ import {
   deleteTransaction,
   CATEGORY_ICONS,
   Transaction,
+  TransactionCategory,
 } from '../finance-store';
+import { t, locale } from '../i18n.js';
+import { content } from '../content.js';
+
+const CATEGORY_CONTENT: Record<TransactionCategory, { en: string; zh: string }> = {
+  Food: content.catFood,
+  Transport: content.catTransport,
+  Entertainment: content.catEntertainment,
+  Shopping: content.catShopping,
+  Bills: content.catBills,
+  Salary: content.catSalary,
+  Other: content.catOther,
+};
 
 function TransactionItem(tx: Transaction) {
   const isIncome = tx.type === 'income';
@@ -17,8 +30,8 @@ function TransactionItem(tx: Transaction) {
       span({}, CATEGORY_ICONS[tx.category])
     ),
     div({ class: 'transaction-details' },
-      span({ class: 'transaction-category' }, tx.category),
-      span({ class: 'transaction-description' }, tx.description || 'No description'),
+      span({ class: 'transaction-category' }, t(CATEGORY_CONTENT[tx.category])),
+      span({ class: 'transaction-description' }, tx.description || t(content.noDescription)),
       span({ class: 'transaction-date' }, formatDate(tx.date))
     ),
     div({ class: 'transaction-amount-wrapper' },
@@ -28,7 +41,7 @@ function TransactionItem(tx: Transaction) {
       button({
         class: 'delete-btn',
         onclick: () => deleteTransaction(tx.id),
-        title: 'Delete transaction',
+        title: t(content.deleteTransaction),
       }, '×')
     )
   );
@@ -36,7 +49,8 @@ function TransactionItem(tx: Transaction) {
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr + 'T00:00:00');
-  return date.toLocaleDateString('en-US', {
+  const loc = locale.get() === 'zh' ? 'zh-CN' : 'en-US';
+  return date.toLocaleDateString(loc, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -54,8 +68,8 @@ export function TransactionList() {
       ),
       () => div({ class: 'empty-state' },
         span({ class: 'empty-icon' }, '📝'),
-        span({ class: 'empty-title' }, 'No transactions yet'),
-        span({ class: 'empty-subtitle' }, 'Add your first transaction above')
+        span({ class: 'empty-title' }, () => t(content.noTransactions)),
+        span({ class: 'empty-subtitle' }, () => t(content.addFirst))
       )
     )
   );

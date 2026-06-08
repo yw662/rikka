@@ -2,6 +2,8 @@ import { defineElement } from '@takanashi/rikka-elements';
 import { div, button, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
 import { isRunning, startTimer, pauseTimer, resetTimer } from '../store.js';
+import { locale, t } from '../i18n.js';
+import { content } from '../content.js';
 
 export const controls = defineElement('timer-controls', {
   attributes: {},
@@ -57,12 +59,13 @@ export const controls = defineElement('timer-controls', {
   render() {
     const playBtn = button(
       { class: 'control-btn play-btn', onclick: () => isRunning.get() ? pauseTimer() : startTimer() },
-      isRunning.get() ? '暂停' : '开始'
+      isRunning.get() ? t(content.pause) : t(content.start)
     );
-    const resetBtn = button({ class: 'control-btn reset-btn', onclick: resetTimer }, '重置');
+    const resetBtn = button({ class: 'control-btn reset-btn', onclick: resetTimer }, t(content.reset));
 
     effect(() => {
-      playBtn.textContent = isRunning.get() ? '暂停' : '开始';
+      playBtn.textContent = isRunning.get() ? t(content.pause) : t(content.start);
+      resetBtn.textContent = t(content.reset);
     });
 
     return div({ class: 'controls' }, playBtn, resetBtn);

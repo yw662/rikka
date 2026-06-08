@@ -1,4 +1,6 @@
 import { signal, computed, effect } from '@takanashi/rikka-signal';
+import { t } from './i18n.js';
+import { content } from './content.js';
 
 export interface Bookmark {
   id: string;
@@ -17,7 +19,7 @@ const DEFAULT_BOOKMARKS: Bookmark[] = [
     id: '1',
     url: 'https://github.com',
     title: 'GitHub',
-    description: '世界上最大的代码托管平台',
+    description: t(content.githubDesc),
     tags: ['开发', '工具'],
     createdAt: Date.now() - 86400000 * 7,
     favorite: true,

@@ -1,7 +1,7 @@
 {
-  "name": "@takanashi/rikka-signal",
-  "version": "0.1.1",
-  "description": "Reactive primitives based on TC39 Signals polyfill",
+  "name": "@takanashi/rikka-web-agent",
+  "version": "0.1.0",
+  "description": "WebMCP agent component — expose tools to AI agents via the Web Model Context Protocol",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -9,7 +9,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yw662/rikka.git",
-    "directory": "utils/rikka-signal"
+    "directory": "components/rikka-web-agent"
   },
   "exports": {
     ".": {
@@ -26,11 +26,15 @@
     "test": "rstest",
     "test:watch": "rstest -w"
   },
+  "dependencies": {
+    "@takanashi/rikka-dom": "workspace:*",
+    "@takanashi/rikka-elements": "workspace:*",
+    "@takanashi/rikka-signal": "workspace:*"
+  },
   "peerDependencies": {
-    "signal-polyfill": "catalog:"
+    "@mcp-b/webmcp-polyfill": "^3.0.0"
   },
   "devDependencies": {
-    "signal-polyfill": "catalog:",
     "@rslib/core": "catalog:",
     "@rstest/core": "catalog:",
     "@rstest/coverage-v8": "catalog:",

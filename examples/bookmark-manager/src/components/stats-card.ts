@@ -2,6 +2,8 @@ import { defineElement } from '@takanashi/rikka-elements';
 import { div, span, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
 import { stats } from '../store.js';
+import { t } from '../i18n.js';
+import { content } from '../content.js';
 
 export const statsCard = defineElement('stats-card', {
   attributes: {},
@@ -52,16 +54,17 @@ export const statsCard = defineElement('stats-card', {
     const favEl = span({ class: 'stat-value' }, stats.get().favorites.toString());
     const tagsEl = span({ class: 'stat-value' }, stats.get().tags.toString());
 
+    const totalLabel = span({ class: 'stat-label' }, t(content.total));
+    const favLabel = span({ class: 'stat-label' }, t(content.favorites));
+    const tagsLabel = span({ class: 'stat-label' }, t(content.tags));
+
     effect(() => {
       totalEl.textContent = stats.get().total.toString();
-    });
-
-    effect(() => {
       favEl.textContent = stats.get().favorites.toString();
-    });
-
-    effect(() => {
       tagsEl.textContent = stats.get().tags.toString();
+      totalLabel.textContent = t(content.total);
+      favLabel.textContent = t(content.favorites);
+      tagsLabel.textContent = t(content.tags);
     });
 
     return div(
@@ -69,17 +72,17 @@ export const statsCard = defineElement('stats-card', {
       div(
         { class: 'stat-card' },
         totalEl,
-        span({ class: 'stat-label' }, '总计')
+        totalLabel
       ),
       div(
         { class: 'stat-card' },
         favEl,
-        span({ class: 'stat-label' }, '收藏')
+        favLabel
       ),
       div(
         { class: 'stat-card' },
         tagsEl,
-        span({ class: 'stat-label' }, '标签')
+        tagsLabel
       )
     );
   },

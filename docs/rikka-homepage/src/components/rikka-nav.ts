@@ -2,10 +2,16 @@ import { defineElement, css } from "@takanashi/rikka-elements";
 import { div, nav, a, span, button } from "@takanashi/rikka-dom";
 import { signal, effect } from "@takanashi/rikka-signal";
 import {getPathFromHash} from "../shared/helpers";
+import "../components/rikka-lang-switcher";
 
 const navStyles = css`
   :host {
     display: block;
+  }
+  .nav-wrapper {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky);
   }
   .main-nav {
     display: flex;
@@ -16,11 +22,7 @@ const navStyles = css`
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--color-nav-border);
-    position: sticky;
-    top: 0;
-    z-index: var(--z-sticky);
     transition: background var(--transition-normal), border-color var(--transition-normal);
-    overflow: hidden;
   }
   .nav-brand {
     display: flex;
@@ -63,6 +65,17 @@ const navStyles = css`
     gap: 0.25rem;
     flex-shrink: 1;
     min-width: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .nav-center > * {
+    pointer-events: auto;
   }
   .nav-link {
     padding: 0.5rem 1rem;
@@ -142,46 +155,50 @@ const navStyles = css`
     font-size: 1rem;
   }
 
-  .hamburger {
+  .nav-fab {
     display: none;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: 4px;
-    width: 32px;
-    height: 32px;
-    padding: 4px;
-    background: transparent;
+    position: fixed;
+    bottom: 90px;
+    right: 24px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
     border: none;
+    background: var(--gradient-primary);
+    color: #fff;
+    font-size: 1.25rem;
     cursor: pointer;
-    border-radius: var(--radius-sm);
-    transition: background var(--transition-fast);
-    color: var(--color-text-primary);
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+    z-index: 450;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s, box-shadow 0.2s;
   }
-  .hamburger:hover {
-    background: var(--color-nav-link-bg);
+  .nav-fab:hover {
+    transform: scale(1.08);
+    box-shadow: 0 6px 24px rgba(99, 102, 241, 0.5);
   }
-  .hamburger-line {
-    width: 100%;
-    height: 2px;
-    background: var(--color-text-primary);
-    border-radius: 1px;
-    transition: all var(--transition-fast);
-  }
-  .hamburger[aria-expanded="true"] .hamburger-line:nth-child(1) {
-    transform: translateY(6px) rotate(45deg);
-  }
-  .hamburger[aria-expanded="true"] .hamburger-line:nth-child(2) {
+  .nav-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 400;
     opacity: 0;
+    transition: opacity var(--transition-normal);
+    pointer-events: none;
   }
-  .hamburger[aria-expanded="true"] .hamburger-line:nth-child(3) {
-    transform: translateY(-6px) rotate(-45deg);
+  .nav-backdrop.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .nav-drawer-header {
+    display: none;
   }
 
   @media (max-width: 1024px) {
     .main-nav {
       padding: var(--spacing-sm) var(--spacing-lg);
-      overflow: visible;
     }
     .nav-center {
       gap: 0;
@@ -204,6 +221,7 @@ const navStyles = css`
       );
       padding-inline: 8px;
       margin-inline: -8px;
+      justify-content: center;
     }
     .nav-center::-webkit-scrollbar {
       display: none;
@@ -228,36 +246,82 @@ const navStyles = css`
     }
   }
 
-  @media (max-width: 640px) {
-    .hamburger {
+  @media (max-width: 800px) {
+    .nav-fab {
       display: flex;
     }
-
+    .nav-backdrop {
+      display: block;
+    }
     .nav-center {
-      display: none;
       position: fixed;
       top: 0;
-      left: 0;
       right: 0;
       bottom: 0;
+      left: auto;
+      width: 280px;
+      display: flex;
       flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
       background: var(--color-nav-bg);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      padding: calc(var(--spacing-xl) + 48px) var(--spacing-xl) var(--spacing-xl);
+      padding: var(--spacing-xl);
       gap: var(--spacing-md);
-      transform: translateX(-100%);
+      transform: translateX(100%);
       transition: transform var(--transition-normal);
-      z-index: var(--z-fixed);
+      z-index: 500;
       box-shadow: var(--shadow-lg);
       overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: auto;
+      mask-image: none;
+      -webkit-mask-image: none;
+      padding-inline: var(--spacing-xl);
+      margin-inline: 0;
+      pointer-events: auto;
     }
-
     .nav-center.active {
-      display: flex;
       transform: translateX(0);
     }
-
+    .nav-link {
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      white-space: normal;
+    }
+    .nav-drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing-lg);
+      padding-bottom: var(--spacing-md);
+      border-bottom: 1px solid var(--color-border);
+    }
+    .nav-drawer-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+    .nav-drawer-close {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: var(--color-text-secondary);
+      font-size: 1.25rem;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      padding: 0;
+    }
+    .nav-drawer-close:hover {
+      background: var(--color-nav-link-bg);
+      color: var(--color-text-primary);
+    }
     body.menu-open {
       overflow: hidden;
     }
@@ -328,17 +392,20 @@ const RikkaNav = defineElement("rikka-nav", {
       span({ class: "brand-text" }, "Rikka"),
     );
 
-    const hamburger = button(
+    const navFab = button(
       {
-        class: "hamburger",
+        class: "nav-fab",
         onclick: () => toggleMenu(),
-        "aria-label": "Toggle navigation",
+        "aria-label": "Toggle navigation menu",
         "aria-expanded": String(menuOpen.get()),
       },
-      span({ class: "hamburger-line" }),
-      span({ class: "hamburger-line" }),
-      span({ class: "hamburger-line" }),
+      "\u2630",  // ☰ hamburger
     );
+
+    const navBackdrop = div({
+      class: "nav-backdrop",
+      onclick: () => closeMenu(),
+    });
 
     const linksContainer = div({ class: "nav-center" });
 
@@ -361,12 +428,26 @@ const RikkaNav = defineElement("rikka-nav", {
         const themeSwitcher = document.createElement("rikka-theme-switcher");
         return themeSwitcher;
       })(),
+      // 语言切换按钮
+      (() => {
+        const langSwitcher = document.createElement("rikka-lang-switcher");
+        return langSwitcher;
+      })(),
     );
 
     effect(() => {
       const path = currentPath.get();
 
       brand.className = `nav-brand${isActive(path, "/") ? " active" : ""}`;
+
+      const drawerHeader = div(
+        { class: "nav-drawer-header" },
+        span({ class: "nav-drawer-title" }, "Navigation"),
+        button(
+          { class: "nav-drawer-close", onclick: () => closeMenu() },
+          "\u2715",
+        ),
+      );
 
       const links = navRoutes.map((route) => {
         const linkAttrs: Record<string, unknown> = {
@@ -382,14 +463,17 @@ const RikkaNav = defineElement("rikka-nav", {
         }
         return a(linkAttrs as Parameters<typeof a>[0], route.label);
       });
-      linksContainer.replaceChildren(...links);
+      linksContainer.replaceChildren(drawerHeader, ...links);
 
-      hamburger.setAttribute("aria-expanded", String(menuOpen.get()));
+      navFab.setAttribute("aria-expanded", String(menuOpen.get()));
+      navFab.textContent = menuOpen.get() ? "\u2715" : "\u2630";
 
       if (menuOpen.get()) {
         linksContainer.classList.add("active");
+        navBackdrop.classList.add("active");
       } else {
         linksContainer.classList.remove("active");
+        navBackdrop.classList.remove("active");
       }
     });
 
@@ -408,12 +492,12 @@ const RikkaNav = defineElement("rikka-nav", {
     });
     this.addEventListener("rikka:outsideclick", () => closeMenu());
 
-    return nav(
-      { class: "main-nav" },
-      brand,
-      hamburger,
+    return div(
+      { class: "nav-wrapper" },
+      nav({ class: "main-nav" }, brand, actions),
       linksContainer,
-      actions,
+      navBackdrop,
+      navFab,
     );
   },
 });

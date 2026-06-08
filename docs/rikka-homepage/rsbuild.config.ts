@@ -32,6 +32,7 @@ export default defineConfig({
       "@takanashi/rikka-dom": resolve(workspaceRoot, "utils/rikka-dom/src/index.ts"),
       "@takanashi/rikka-elements": resolve(workspaceRoot, "utils/rikka-elements/src/index.ts"),
       "@takanashi/rikka-live-playground": resolve(workspaceRoot, "components/rikka-live-playground/src/index.ts"),
+      "@takanashi/rikka-web-agent": resolve(workspaceRoot, "components/rikka-web-agent/src/index.ts"),
     },
   },
   html: {

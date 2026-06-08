@@ -1,6 +1,8 @@
 import { defineElement } from '@takanashi/rikka-elements';
 import { div, h1, p, button, svg, path, css } from '@takanashi/rikka-dom';
 import { resetAll } from '../editor-store.js';
+import { t } from '../i18n.js';
+import { content } from '../content.js';
 import { tabBar } from './tab-bar.js';
 import { codeEditor } from './code-editor.js';
 import { previewFrame } from './preview-frame.js';
@@ -124,7 +126,7 @@ export const app = defineElement('editor-app', {
         { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2' },
         path({ d: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' })
       ),
-      '重置代码'
+      () => t(content.resetCode)
     );
 
     resetBtn.addEventListener('click', () => {
@@ -138,8 +140,8 @@ export const app = defineElement('editor-app', {
         div(
           { class: 'header-left' },
           div({},
-            h1({ class: 'app-title' }, '💻 代码编辑器'),
-            p({ class: 'app-subtitle' }, 'HTML, CSS, JavaScript 在线编辑器')
+            h1({ class: 'app-title' }, () => t(content.appTitle)),
+            p({ class: 'app-subtitle' }, () => t(content.appSubtitle))
           )
         ),
         div({ class: 'header-actions' }, resetBtn)

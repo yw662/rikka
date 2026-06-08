@@ -1,5 +1,22 @@
 import { defineElement, css } from "@takanashi/rikka-elements";
 import { div, a, span, p, footer } from "@takanashi/rikka-dom";
+import { effect, computed } from "@takanashi/rikka-signal";
+import { t, type Locale } from "../shared/i18n";
+
+const footerContent = {
+  brandDesc: {
+    en: "A modern Web Components toolkit with fine-grained reactivity based on TC39 Signals.",
+    zh: "基于 TC39 Signals 的现代 Web Components 工具集，提供细粒度响应式能力。",
+  } as Record<Locale, string>,
+  builtWith: { en: "Built with Rikka", zh: "使用 Rikka 构建" } as Record<Locale, string>,
+  learn: { en: "Learn", zh: "学习" } as Record<Locale, string>,
+  documentation: { en: "Documentation", zh: "文档" } as Record<Locale, string>,
+  gettingStarted: { en: "Getting Started", zh: "快速开始" } as Record<Locale, string>,
+  examples: { en: "Examples", zh: "示例" } as Record<Locale, string>,
+  packages: { en: "Packages", zh: "包" } as Record<Locale, string>,
+  community: { en: "Community", zh: "社区" } as Record<Locale, string>,
+  backToTop: { en: "Back to top", zh: "回到顶部" } as Record<Locale, string>,
+};
 
 const footerStyles = css`
   :host {
@@ -155,25 +172,30 @@ const RikkaFooter = defineElement("rikka-footer", {
           div(
             { class: "footer-brand-section" },
             a({ href: "#/", class: "footer-logo" }, "Rikka"),
-            p(
-              { class: "footer-brand-desc" },
-              "A modern Web Components toolkit with fine-grained reactivity based on TC39 Signals.",
-            ),
-            span({ class: "footer-built-with" }, "\u26a1 Built with Rikka"),
+            (() => {
+              const el = p({ class: "footer-brand-desc" });
+              effect(() => { el.textContent = t(footerContent.brandDesc); });
+              return el;
+            })(),
+            (() => {
+              const el = span({ class: "footer-built-with" }, "\u26a1 ");
+              effect(() => { el.textContent = "\u26a1 " + t(footerContent.builtWith); });
+              return el;
+            })(),
           ),
           div(
             {},
-            div({ class: "footer-column-title" }, "Learn"),
+            (() => { const el = div({ class: "footer-column-title" }); effect(() => { el.textContent = t(footerContent.learn); }); return el; })(),
             div(
               { class: "footer-links" },
-              a({ href: "#/docs" }, "Documentation"),
-              a({ href: "#/docs/@takanashi/rikka-signal/getting-started" }, "Getting Started"),
-              a({ href: "#/examples" }, "Examples"),
+              (() => { const el = a({ href: "#/docs" }); effect(() => { el.textContent = t(footerContent.documentation); }); return el; })(),
+              (() => { const el = a({ href: "#/docs/@takanashi/rikka-signal/getting-started" }); effect(() => { el.textContent = t(footerContent.gettingStarted); }); return el; })(),
+              (() => { const el = a({ href: "#/examples" }); effect(() => { el.textContent = t(footerContent.examples); }); return el; })(),
             ),
           ),
           div(
             {},
-            div({ class: "footer-column-title" }, "Packages"),
+            (() => { const el = div({ class: "footer-column-title" }); effect(() => { el.textContent = t(footerContent.packages); }); return el; })(),
             div(
               { class: "footer-links" },
               a({ href: "#/docs/@takanashi/rikka-signal/signal" }, "@takanashi/rikka-signal"),
@@ -183,7 +205,7 @@ const RikkaFooter = defineElement("rikka-footer", {
           ),
           div(
             {},
-            div({ class: "footer-column-title" }, "Community"),
+            (() => { const el = div({ class: "footer-column-title" }); effect(() => { el.textContent = t(footerContent.community); }); return el; })(),
             div(
               { class: "footer-links" },
               a({
@@ -218,7 +240,7 @@ const RikkaFooter = defineElement("rikka-footer", {
                 e.preventDefault();
                 window.scrollTo({ top: 0, behavior: "smooth" });
               },
-            }, "\u2191 Back to top"),
+            }, computed(() => "\u2191 " + t(footerContent.backToTop))),
             a({
               href: "https://github.com/yw662/rikka",
               target: "_blank",

@@ -2,6 +2,8 @@ import { defineElement } from '@takanashi/rikka-elements';
 import { div, span, svg, path, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
 import { pomodorosCompleted } from '../store.js';
+import { locale, t } from '../i18n.js';
+import { content } from '../content.js';
 
 export const stats = defineElement('timer-stats', {
   attributes: {},
@@ -46,8 +48,18 @@ export const stats = defineElement('timer-stats', {
   render() {
     const countSpan = span({ class: 'stats-count' }, String(pomodorosCompleted.get()));
 
+    const statsText = span({ class: 'stats-text' }, t(content.completed), countSpan, t(content.pomodoros));
+
     effect(() => {
       countSpan.textContent = String(pomodorosCompleted.get());
+    });
+
+    effect(() => {
+      // Re-render the stats text when locale changes
+      statsText.textContent = '';
+      statsText.appendChild(document.createTextNode(t(content.completed)));
+      statsText.appendChild(countSpan);
+      statsText.appendChild(document.createTextNode(t(content.pomodoros)));
     });
 
     return div(
@@ -58,7 +70,7 @@ export const stats = defineElement('timer-stats', {
           { class: 'stats-icon', xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 24 24', fill: 'currentColor' },
           path({ d: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z' })
         ),
-        span({ class: 'stats-text' }, '已完成: ', countSpan, ' 个番茄')
+        statsText
       )
     );
   },

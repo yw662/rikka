@@ -11,10 +11,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@mcp-b/webmcp-polyfill": "^3.0.0",
     "@takanashi/rikka-dom": "workspace:*",
     "@takanashi/rikka-elements": "workspace:*",
     "@takanashi/rikka-live-playground": "workspace:*",
-    "@takanashi/rikka-signal": "workspace:*"
+    "@takanashi/rikka-signal": "workspace:*",
+    "@takanashi/rikka-web-agent": "workspace:*"
   },
   "devDependencies": {
     "@rsbuild/core": "catalog:",
