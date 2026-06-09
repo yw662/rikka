@@ -1,5 +1,13 @@
 # @takanashi/rikka-live-playground
 
+## 0.1.2
+
+### Patch Changes
+
+- 6f88b6d: fix(rikka-live-playground): 显式标注 `forEach` 回调参数为 `HTMLElement`,避免在严格类型下 `btn.dataset` 访问报错。无运行时行为变化。
+- Updated dependencies [6f88b6d]
+  - @takanashi/rikka-elements@0.2.0
+
 ## 0.1.1
 
 ### Patch Changes
