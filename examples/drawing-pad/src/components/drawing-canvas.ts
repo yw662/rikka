@@ -358,9 +358,10 @@ export const drawingCanvas = defineElement('drawing-canvas', {
       const scaleY = canvas.height / rect.height;
       let clientX: number;
       let clientY: number;
-      if (e instanceof TouchEvent) {
-        clientX = e.touches[0]?.clientX ?? 0;
-        clientY = e.touches[0]?.clientY ?? 0;
+      const hasTouches = 'touches' in e && (e as any).touches.length > 0;
+      if (hasTouches) {
+        clientX = (e as any).touches[0]?.clientX ?? 0;
+        clientY = (e as any).touches[0]?.clientY ?? 0;
       } else {
         clientX = e.clientX;
         clientY = e.clientY;
