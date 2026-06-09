@@ -37,6 +37,8 @@ import './pages/examples/pomodoro-timer';
 import './pages/examples/bookmark-manager';
 import './pages/examples/code-editor';
 import './pages/examples/finance-tracker';
+import './pages/examples/todo-list';
+import './pages/examples/drawing-pad';
 
 interface RouteConfig {
   tag: string;
