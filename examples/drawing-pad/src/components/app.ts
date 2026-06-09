@@ -66,11 +66,6 @@ export const app = defineElement('drawing-app', {
       setLocale((e.target as HTMLSelectElement).value as Locale);
     });
 
-    // Subscribe to locale changes
-    locale.subscribe((newLocale) => {
-      langSelect.value = newLocale;
-    });
-
     topBar.appendChild(langSelect);
     wrap.appendChild(topBar);
 
