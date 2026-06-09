@@ -75,6 +75,8 @@ const routes: Record<string, RouteConfig> = {
   '/examples/bookmark-manager': { tag: 'rikka-example-bookmark-manager', showSidebar: false, title: 'Bookmark Manager — Rikka' },
   '/examples/code-editor': { tag: 'rikka-example-code-editor', showSidebar: false, title: 'Code Editor — Rikka' },
   '/examples/finance-tracker': { tag: 'rikka-example-finance-tracker', showSidebar: false, title: 'Finance Tracker — Rikka' },
+  '/examples/todo-list': { tag: 'rikka-example-todo-list', showSidebar: false, title: 'Todo List — Rikka' },
+  '/examples/drawing-pad': { tag: 'rikka-example-drawing-pad', showSidebar: false, title: 'Drawing Pad — Rikka' },
 };
 
 const currentPath = signal('/');
