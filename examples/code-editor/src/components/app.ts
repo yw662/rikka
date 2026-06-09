@@ -1,8 +1,8 @@
 import { defineElement } from '@takanashi/rikka-elements';
-import { div, h1, p, button, svg, path, css } from '@takanashi/rikka-dom';
+import { div, h1, p, button, select, option, svg, path, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
 import { resetAll } from '../editor-store.js';
-import { t, locale, setLocale } from '../i18n.js';
+import { t, locale, setLocale, type Locale } from '../i18n.js';
 import { content } from '../content.js';
 import { tabBar } from './tab-bar.js';
 import { codeEditor } from './code-editor.js';
@@ -91,11 +91,19 @@ export const app = defineElement('editor-app', {
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
+      appearance: none;
+      -webkit-appearance: none;
+      min-width: 80px;
     }
 
     .lang-btn:hover {
       background: rgba(99, 102, 241, 0.25);
       border-color: rgba(99, 102, 241, 0.5);
+    }
+
+    .lang-btn option {
+      background: #1e293b;
+      color: white;
     }
 
     .app-content {
@@ -150,16 +158,20 @@ export const app = defineElement('editor-app', {
     );
     resetBtn.addEventListener('click', () => resetAll());
 
-    const langBtn = button({ class: 'lang-btn' }, locale.get() === 'en' ? '中文' : 'EN');
-    langBtn.addEventListener('click', () => {
-      setLocale(locale.get() === 'en' ? 'zh' : 'en');
+    const langSelect = select(
+      { class: 'lang-btn' },
+      option({ value: 'en' }, 'English'),
+      option({ value: 'zh' }, '中文')
+    );
+    langSelect.value = locale.get();
+    langSelect.addEventListener('change', (e) => {
+      setLocale((e.target as HTMLSelectElement).value as Locale);
     });
 
     effect(() => {
       const newTitle = t(content.appTitle);
       const newSubtitle = t(content.appSubtitle);
       const newReset = t(content.resetCode);
-      const newLang = locale.get() === 'en' ? '中文' : 'EN';
 
       if (titleEl.childNodes.length > 1) {
         const last = titleEl.childNodes[titleEl.childNodes.length - 1];
@@ -171,13 +183,13 @@ export const app = defineElement('editor-app', {
         const last = resetChildren[resetChildren.length - 1];
         if (last.nodeType === Node.TEXT_NODE) last.textContent = newReset;
       }
-      langBtn.textContent = newLang;
+      langSelect.value = locale.get();
     });
 
     return div({ class: 'app-container' },
       div({ class: 'app-header' },
         div({ class: 'header-left' }, titleEl, subtitleEl),
-        div({ class: 'header-actions' }, langBtn, resetBtn)
+        div({ class: 'header-actions' }, langSelect, resetBtn)
       ),
       div({ class: 'app-content' },
         div({ class: 'editor-panel' }, tabBar.h({}), codeEditor.h({})),

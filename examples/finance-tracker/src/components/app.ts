@@ -1,6 +1,6 @@
-import { div, h1, span, button } from '@takanashi/rikka-dom';
+import { div, h1, span, button, select, option } from '@takanashi/rikka-dom';
 import { computed } from '@takanashi/rikka-signal';
-import { t, locale, setLocale } from '../i18n.js';
+import { t, locale, setLocale, type Locale } from '../i18n.js';
 import { content } from '../content.js';
 import { TransactionForm } from './transaction-form';
 import { TransactionList } from './transaction-list';
@@ -8,15 +8,20 @@ import { StatsPanel } from './stats-panel';
 import { CategoryChart } from './category-chart';
 
 export function App() {
-  const localeLabel = computed(() => locale.get() === 'en' ? '中文' : 'EN');
+  const langSelect = select(
+    { class: 'locale-toggle' },
+    option({ value: 'en' }, 'English'),
+    option({ value: 'zh' }, '中文')
+  );
+  langSelect.value = locale.get();
+  langSelect.addEventListener('change', (e) => {
+    setLocale((e.target as HTMLSelectElement).value as Locale);
+  });
 
   return div({ class: 'app' },
     div({ class: 'app-header' },
       h1({ class: 'app-title' }, () => t(content.appTitle)),
-      button({
-        class: 'locale-toggle',
-        onclick: () => setLocale(locale.get() === 'en' ? 'zh' : 'en'),
-      }, localeLabel)
+      langSelect
     ),
     div({ class: 'main-content' },
       div({ class: 'left-column' },

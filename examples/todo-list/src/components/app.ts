@@ -1,12 +1,12 @@
 import { defineElement } from '@takanashi/rikka-elements';
 import {
-  div, h1, p, span, button, css,
+  div, h1, p, span, button, select, option, css,
 } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
 import {
   todos, activeCount, completedCount, clearCompleted, exportData, importData,
 } from '../store.js';
-import { locale, setLocale, t } from '../i18n.js';
+import { locale, setLocale, t, type Locale } from '../i18n.js';
 import { content } from '../content.js';
 import { todoInput } from './todo-input.js';
 import { filterBar } from './filter-bar.js';
@@ -65,10 +65,18 @@ export const app = defineElement('todo-app', {
       font-weight: 600;
       cursor: pointer;
       transition: all 0.15s;
+      appearance: none;
+      -webkit-appearance: none;
+      min-width: 70px;
     }
 
     .icon-btn:hover {
       background: rgba(255, 255, 255, 0.25);
+    }
+
+    .icon-btn option {
+      background: #764ba2;
+      color: white;
     }
 
     .app-card {
@@ -131,12 +139,17 @@ export const app = defineElement('todo-app', {
       subtitleEl.textContent = t(content.appSubtitle);
     });
 
-    const langBtn = button({ class: 'icon-btn' }, locale.get() === 'en' ? '中文' : 'EN');
-    langBtn.addEventListener('click', () => {
-      setLocale(locale.get() === 'en' ? 'zh' : 'en');
+    const langSelect = select(
+      { class: 'icon-btn' },
+      option({ value: 'en' }, 'English'),
+      option({ value: 'zh' }, '中文')
+    );
+    langSelect.value = locale.get();
+    langSelect.addEventListener('change', (e) => {
+      setLocale((e.target as HTMLSelectElement).value as Locale);
     });
     effect(() => {
-      langBtn.textContent = locale.get() === 'en' ? '中文' : 'EN';
+      langSelect.value = locale.get();
     });
 
     // 导出按钮
@@ -197,7 +210,7 @@ export const app = defineElement('todo-app', {
 
     return div(
       { class: 'app-container' },
-      div({ class: 'top-actions' }, importBtn, exportBtn, langBtn),
+      div({ class: 'top-actions' }, importBtn, exportBtn, langSelect),
       div({ class: 'app-header' }, titleEl, subtitleEl),
       div(
         { class: 'app-card' },

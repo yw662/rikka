@@ -1,7 +1,7 @@
 import { defineElement } from '@takanashi/rikka-elements';
-import { div, h1, p, button, svg, path, css } from '@takanashi/rikka-dom';
+import { div, h1, p, button, select, option, svg, path, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
-import { t, locale, setLocale } from '../i18n.js';
+import { t, locale, setLocale, type Locale } from '../i18n.js';
 import { content } from '../content.js';
 import { statsCard } from './stats-card.js';
 import { searchBar } from './search-bar.js';
@@ -43,10 +43,18 @@ export const app = defineElement('bookmark-app', {
       font-weight: 600;
       cursor: pointer;
       transition: all 0.15s;
+      appearance: none;
+      -webkit-appearance: none;
+      min-width: 80px;
     }
 
     .lang-btn:hover {
       background: rgba(255, 255, 255, 0.18);
+    }
+
+    .lang-btn option {
+      background: #1a1a2e;
+      color: white;
     }
 
     .app-header {
@@ -77,9 +85,14 @@ export const app = defineElement('bookmark-app', {
     }
   `,
   render() {
-    const langBtn = button({ class: 'lang-btn' }, locale.get() === 'en' ? '中文' : 'EN');
-    langBtn.addEventListener('click', () => {
-      setLocale(locale.get() === 'en' ? 'zh' : 'en');
+    const langSelect = select(
+      { class: 'lang-btn' },
+      option({ value: 'en' }, 'English'),
+      option({ value: 'zh' }, '中文')
+    );
+    langSelect.value = locale.get();
+    langSelect.addEventListener('change', (e) => {
+      setLocale((e.target as HTMLSelectElement).value as Locale);
     });
 
     const titleEl = h1(
@@ -93,8 +106,7 @@ export const app = defineElement('bookmark-app', {
     const subtitleEl = p({ class: 'app-subtitle' }, t(content.appSubtitle));
 
     effect(() => {
-      const newLang = locale.get() === 'en' ? '中文' : 'EN';
-      langBtn.textContent = newLang;
+      langSelect.value = locale.get();
       if (titleEl.childNodes.length > 1) {
         const last = titleEl.childNodes[titleEl.childNodes.length - 1];
         if (last.nodeType === Node.TEXT_NODE) last.textContent = t(content.appTitle);
@@ -103,7 +115,7 @@ export const app = defineElement('bookmark-app', {
     });
 
     return div({ class: 'app-container' },
-      div({ class: 'top-bar' }, langBtn),
+      div({ class: 'top-bar' }, langSelect),
       div({ class: 'app-header' }, titleEl, subtitleEl),
       statsCard.h({}),
       searchBar.h({}),

@@ -1,5 +1,5 @@
 import { defineElement } from '@takanashi/rikka-elements';
-import { div, h1, p, button, css } from '@takanashi/rikka-dom';
+import { div, h1, p, button, select, option, css } from '@takanashi/rikka-dom';
 import { effect, signal as rSignal } from '@takanashi/rikka-signal';
 import { mode, modeColors, startTimer, pauseTimer, resetTimer, setMode, type TimerMode, activeTask } from '../store.js';
 import { locale, setLocale, t, type Locale } from '../i18n.js';
@@ -73,10 +73,18 @@ export const app = defineElement('pomodoro-app', {
       font-weight: 600;
       cursor: pointer;
       transition: all 0.15s;
+      appearance: none;
+      -webkit-appearance: none;
+      min-width: 70px;
     }
 
     .lang-toggle:hover {
       background: rgba(255, 255, 255, 0.25);
+    }
+
+    .lang-toggle option {
+      background: #1e293b;
+      color: white;
     }
 
     .active-task-banner {
@@ -132,12 +140,17 @@ export const app = defineElement('pomodoro-app', {
     });
 
     // 顶部栏（语言切换）
-    const langBtn = button({ class: 'lang-toggle' }, locale.get() === 'en' ? '中文' : 'EN');
-    langBtn.addEventListener('click', () => {
-      setLocale(locale.get() === 'en' ? 'zh' : 'en');
+    const langSelect = select(
+      { class: 'lang-toggle' },
+      option({ value: 'en' }, 'English'),
+      option({ value: 'zh' }, '中文')
+    );
+    langSelect.value = locale.get();
+    langSelect.addEventListener('change', (e) => {
+      setLocale((e.target as HTMLSelectElement).value as Locale);
     });
     effect(() => {
-      langBtn.textContent = locale.get() === 'en' ? '中文' : 'EN';
+      langSelect.value = locale.get();
     });
 
     const titleEl = h1({}, t(content.appTitle));
@@ -189,7 +202,7 @@ export const app = defineElement('pomodoro-app', {
     renderTabContent();
     effect(() => { activeTab.get(); renderTabContent(); });
 
-    appContainer.appendChild(div({ class: 'top-bar' }, langBtn));
+    appContainer.appendChild(div({ class: 'top-bar' }, langSelect));
     appContainer.appendChild(
       div({ class: 'app-header' }, titleEl, subtitleEl)
     );
