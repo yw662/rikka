@@ -1,3 +1,8 @@
+---
+name: reactive-state
+description: How to create and use reactive state in rikka — `signal`, `computed`, `effect`, `untracked`. All built on TC39 Signals. Load this when the task is about defining state, derived values, side effects, batching, error handling, or avoiding feedback loops.
+---
+
 # Reactive State
 
 All reactive state in rikka is a TC39 `Signal`. There are three core reactive primitives: `signal`, `computed`, and `effect`. One escape hatch: `untracked`.
@@ -20,7 +25,7 @@ count.set(5);
 count.get(); // 5
 ```
 
-Pass the **signal itself** (not `.get()`) when binding to DOM — that gives fine-grained updates. See [signal-binding.md](./signal-binding.md).
+Pass the **signal itself** (not `.get()`) when binding to DOM — that gives fine-grained updates. See [../signal-binding/](../signal-binding/).
 
 For nested or structured state, use a `signal` holding an object or array and update it immutably, or use separate signals per field.
 
@@ -165,7 +170,7 @@ div({}, () => `count=${count.get()}`); // wait, this IS wrapped... see below
 div({}, computed(() => `count=${count.get()}`));
 ```
 
-> **Note:** rikka-dom *does* auto-wrap function children as `computed`. But when a function is used as a value (e.g. for an `inlineStyle` argument, or a prop that expects a `Signal`), you MUST use `computed()`. See [signal-binding.md](./signal-binding.md#function-values-vs-computed).
+> **Note:** rikka-dom *does* auto-wrap function children as `computed`. But when a function is used as a value (e.g. for an `inlineStyle` argument, or a prop that expects a `Signal`), you MUST use `computed()`. See [../signal-binding/#function-values-vs-computed](../signal-binding/SKILL.md#function-values-vs-computed).
 
 ### 4. `effect` without cleanup leaking listeners
 
@@ -185,5 +190,5 @@ If a signal change inside an `effect` triggers the same effect, you do **not** n
 
 ## See also
 
-- [signal-binding.md](./signal-binding.md) — using signals in DOM
-- [common-pitfalls.md](./common-pitfalls.md) — cross-cutting mistakes
+- [../signal-binding/](../signal-binding/) — using signals in DOM
+- [../common-pitfalls/](../common-pitfalls/) — cross-cutting mistakes

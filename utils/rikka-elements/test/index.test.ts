@@ -52,7 +52,7 @@ describe("defineElement", () => {
     const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-basic-${Date.now()}`;
 
-    const TestEl = defineElement(tag);
+    const TestEl = defineElement(tag).build();
 
     await new Promise((r) => setTimeout(r, 20));
     expect(customElements.get(tag)).toBe(TestEl);
@@ -680,7 +680,7 @@ describe("defineElement events", () => {
     });
     el.dispatchChange(42, { bubbles: true, composed: true });
     expect(receivedEvent).toBeTruthy();
-    expect((receivedEvent as CustomEvent).detail).toBe(42);
+    expect((receivedEvent! as CustomEvent).detail).toBe(42);
     expect(receivedEvent!.bubbles).toBe(true);
     expect(receivedEvent!.composed).toBe(true);
 
@@ -835,7 +835,7 @@ describe("defineElement shadow & styles", () => {
     const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-shadow-${Date.now()}`;
 
-    const TestEl = defineElement(tag);
+    const TestEl = defineElement(tag).build();
 
     await new Promise((r) => setTimeout(r, 20));
     const el = document.createElement(tag) as InstanceType<typeof TestEl>;
@@ -984,7 +984,7 @@ describe("defineElement render function", () => {
     let thisValue: any = null;
 
     const TestEl = defineElement(tag, {
-      render(this: any) {
+      render() {
         thisValue = this;
         return span();
       },
@@ -1024,7 +1024,7 @@ describe("defineElement render function", () => {
 
     const TestEl = defineElement(tag, {
       attributes: { label: StringAttr },
-      render(this: any) {
+      render() {
         return span(this.label);
       },
     });
@@ -1283,7 +1283,7 @@ describe("defineElement .h tag function", () => {
     const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-h-noargs-${Date.now()}`;
 
-    const TestEl = defineElement(tag);
+    const TestEl = defineElement(tag).build();
 
     await new Promise((r) => setTimeout(r, 20));
     const el = TestEl.h();
@@ -1361,7 +1361,7 @@ describe("defineElement .h tag function", () => {
     const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-ctor-prop-${Date.now()}`;
 
-    const TestEl = defineElement(tag);
+    const TestEl = defineElement(tag).build();
 
     await new Promise((r) => setTimeout(r, 20));
 
@@ -1375,7 +1375,7 @@ describe("defineElement h(TestEl) integration", () => {
     const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-h-tagfn-${Date.now()}`;
 
-    const TestEl = defineElement(tag);
+    const TestEl = defineElement(tag).build();
 
     await new Promise((r) => setTimeout(r, 20));
     const el = h(TestEl);
@@ -1430,7 +1430,7 @@ describe("defineElement new TestEl()", () => {
     const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-new-basic-${Date.now()}`;
 
-    const TestEl = defineElement(tag);
+    const TestEl = defineElement(tag).build();
 
     await new Promise((r) => setTimeout(r, 20));
     const el = new TestEl();
@@ -1511,7 +1511,7 @@ describe("defineElement new TestEl()", () => {
     const { defineElement, NumberAttr, StringAttr, BooleanAttr } = await import("../src/defineElement.js");
     const tag = `test-new-shadow-${Date.now()}`;
 
-    const TestEl = defineElement(tag);
+    const TestEl = defineElement(tag).build();
 
     await new Promise((r) => setTimeout(r, 20));
     const el = new TestEl();
@@ -1558,13 +1558,13 @@ describe("defineElement config.methods", () => {
     const { defineElement, StringAttr } = await import("../src/defineElement.js");
     const tag = `test-methods-single-${Date.now()}`;
 
-    function greet(this: any) {
-      return `Hello, ${this.getAttribute("name") || "world"}`;
-    }
-
     const TestEl = defineElement(tag, {
       attributes: { name: StringAttr },
-      methods: { greet },
+      methods: {
+        greet() {
+          return `Hello, ${this.getAttribute("name") || "world"}`;
+        },
+      },
     });
 
     await new Promise((r) => setTimeout(r, 20));
@@ -1586,8 +1586,8 @@ describe("defineElement config.methods", () => {
 
     const TestEl = defineElement(tag, {
       methods: {
-        foo(this: any) { return 1; },
-        bar(this: any) { return "two"; },
+        foo() { return 1; },
+        bar() { return "two"; },
       },
     });
 
@@ -2015,5 +2015,357 @@ describe("defineElement dataset", () => {
         dataset: { foo: { default: "" } },
       }),
     ).toThrow(/dataset key "foo" produces attribute "data-foo"/);
+  });
+});
+
+describe("defineElement builder API (strict this typing)", () => {
+  it("Builder: render() receives RikkaElement as this", async () => {
+    const { defineElement, StringAttr } = await import("../src/defineElement.js");
+    const tag = `test-builder-render-${Date.now()}`;
+    let capturedThis: any = null;
+
+    const TestEl = defineElement(tag)
+      .attrs({ label: StringAttr })
+      .render(function () {
+        // No `this: any` annotation — this must be typed as RikkaElement<C>.
+        const s: string = this.label;
+        capturedThis = this;
+        return document.createElement("span");
+      })
+      .build();
+
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as InstanceType<typeof TestEl>;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(capturedThis).toBe(el);
+    expect(typeof (el as any).label).toBe("string");
+
+    el.remove();
+  });
+
+  it("Builder: methods() receives RikkaElement as this", async () => {
+    const { defineElement, StringAttr } = await import("../src/defineElement.js");
+    const tag = `test-builder-methods-${Date.now()}`;
+
+    const TestEl = defineElement(tag)
+      .attrs({ name: StringAttr })
+      .methods({
+        greet() {
+          // this.name is typed as string
+          const n: string = this.name;
+          return `Hello, ${n || "world"}`;
+        },
+      })
+      .build();
+
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as InstanceType<typeof TestEl>;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(typeof el.greet).toBe("function");
+    expect(el.greet()).toBe("Hello, world");
+    el.setAttribute("name", "Alice");
+    expect(el.greet()).toBe("Hello, Alice");
+
+    el.remove();
+  });
+
+  it("Builder: instance type exposes $signal accessors", async () => {
+    const { defineElement, NumberAttr } = await import("../src/defineElement.js");
+    const tag = `test-builder-sig-${Date.now()}`;
+
+    const TestEl = defineElement(tag)
+      .attrs({ count: { ...NumberAttr, default: 0 } })
+      .build();
+
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as InstanceType<typeof TestEl>;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 10));
+
+    el.count = 5;
+    expect(el.count).toBe(5);
+    expect(el.$count.get()).toBe(5);
+
+    el.remove();
+  });
+
+  it("Builder: event dispatch methods are typed", async () => {
+    const { defineElement, event, NumberAttr, StringAttr } = await import("../src/defineElement.js");
+    const tag = `test-builder-evt-${Date.now()}`;
+
+    interface Payload { x: number; y: number; }
+
+    const TestEl = defineElement(tag)
+      .events({ change: Number, move: event<Payload>() })
+      .attrs({ name: StringAttr })
+      .build();
+
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as InstanceType<typeof TestEl>;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 10));
+
+    // dispatchChange accepts a number; dispatchMove accepts Payload.
+    el.dispatchChange(42);
+    el.dispatchMove({ x: 1, y: 2 });
+
+    el.remove();
+  });
+
+  it("Builder: render accesses this.$signal for reactivity", async () => {
+    const { defineElement, NumberAttr } = await import("../src/defineElement.js");
+    const { span } = await import("@takanashi/rikka-dom");
+    const tag = `test-builder-rendersig-${Date.now()}`;
+
+    const TestEl = defineElement(tag)
+      .attrs({ count: { ...NumberAttr, default: 0 } })
+      .render(function () {
+        // $count.get() should be number
+        const n: number = this.$count.get();
+        return span(`Count: ${n}`);
+      })
+      .build();
+
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as InstanceType<typeof TestEl>;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(el.shadowRoot?.textContent).toContain("Count: 0");
+
+    el.remove();
+  });
+});
+
+describe("defineElement builder phased state machine (type-level)", () => {
+  // These tests verify compile-time state transitions using @ts-expect-error.
+  // The forbidden calls are wrapped in a function that we never invoke at
+  // runtime — they exist purely for the type checker.
+  // If a forbidden call somehow compiles, the @ts-expect-error will fail.
+
+  it("BuilderFresh: only .attrs/.dataset/.events are available (no .methods/.render/.template)", async () => {
+    const { defineElement, StringAttr } = await import("../src/defineElement.js");
+    const b = defineElement("test-bs-1");
+
+    // ✅ Allowed (executed at runtime)
+    b.styles(new CSSStyleSheet());
+    b.shadow({ mode: "open" });
+    b.tools({});
+    b.toolContext({});
+    b.attrs({ name: StringAttr });
+    b.dataset({ role: { default: "" } });
+    b.events({ change: Number });
+
+    // Wrap the rest in a function we never call so the @ts-expect-error
+    // markers are checked without producing runtime errors.
+    const _typeCheck = () => {
+      const x = b;
+      // @ts-expect-error — methods not on BuilderFresh
+      x.methods({ greet() {} });
+      // @ts-expect-error — template not on BuilderFresh
+      x.template(document.createElement("template"));
+      // @ts-expect-error — render not on BuilderFresh
+      x.render(() => document.createElement("div"));
+      return x;
+    };
+    // Just type-check; do not invoke.
+    void _typeCheck;
+  });
+
+  it("BuilderWithBindings: first-phase bindings still callable; .methods/.template/.render available", async () => {
+    const { defineElement, StringAttr } = await import("../src/defineElement.js");
+    const b = defineElement("test-bs-2").attrs({ name: StringAttr });
+
+    // ✅ Allowed (executed at runtime)
+    b.dataset({ role: { default: "" } });
+    b.events({ change: Number });
+    b.methods({ greet() {} });
+    b.template(document.createElement("template"));
+    b.render(() => document.createElement("div"));
+
+    // First-phase bindings are STILL callable on WithBindings (so the user
+    // can pick them up in any order). Last call wins for the runtime value.
+    const _typeCheck = () => {
+      const x = b;
+      x.attrs({ other: StringAttr });
+      x.dataset({ other: { default: "" } });
+      x.events({ other: Number });
+      return x;
+    };
+    void _typeCheck;
+  });
+
+  it("BuilderWithMethods: .attrs/.dataset/.events/.methods hidden; .template/.render available", async () => {
+    const { defineElement, StringAttr } = await import("../src/defineElement.js");
+    const b = defineElement("test-bs-3")
+      .attrs({ name: StringAttr })
+      .dataset({ role: { default: "" } })
+      .events({ change: Number })
+      .methods({ greet() {} });
+
+    // ✅ Allowed
+    b.template(document.createElement("template"));
+    b.render(() => document.createElement("div"));
+
+    const _typeCheck = () => {
+      const x = b;
+      // @ts-expect-error — attrs hidden
+      x.attrs({ other: StringAttr });
+      // @ts-expect-error — dataset hidden
+      x.dataset({ other: { default: "" } });
+      // @ts-expect-error — events hidden
+      x.events({ other: Number });
+      // @ts-expect-error — methods already called
+      x.methods({ other() {} });
+      return x;
+    };
+    void _typeCheck;
+  });
+
+  it("BuilderWithTemplate: terminal — only meta + .build", async () => {
+    const { defineElement, StringAttr } = await import("../src/defineElement.js");
+    const tpl = document.createElement("template");
+    const b = defineElement("test-bs-4")
+      .attrs({ name: StringAttr })
+      .template(tpl);
+
+    // ✅ Allowed (meta still works)
+    b.styles(new CSSStyleSheet());
+    b.shadow({ mode: "open" });
+
+    const _typeCheck = () => {
+      const x = b;
+      // @ts-expect-error — attrs hidden
+      x.attrs({ other: StringAttr });
+      // @ts-expect-error — dataset hidden
+      x.dataset({ role: { default: "" } });
+      // @ts-expect-error — events hidden
+      x.events({ change: Number });
+      // @ts-expect-error — methods hidden
+      x.methods({ other() {} });
+      // @ts-expect-error — template already called
+      x.template(document.createElement("template"));
+      // @ts-expect-error — render forbidden with template
+      x.render(() => document.createElement("div"));
+      return x;
+    };
+    void _typeCheck;
+  });
+
+  it("BuilderWithRender: terminal — only meta + .build", async () => {
+    const { defineElement, StringAttr } = await import("../src/defineElement.js");
+    const b = defineElement("test-bs-5")
+      .attrs({ name: StringAttr })
+      .render(function () {
+        return document.createElement("div");
+      });
+
+    // ✅ Allowed
+    b.styles(new CSSStyleSheet());
+    b.shadow({ mode: "open" });
+
+    const _typeCheck = () => {
+      const x = b;
+      // @ts-expect-error — attrs hidden
+      x.attrs({ other: StringAttr });
+      // @ts-expect-error — dataset hidden
+      x.dataset({ role: { default: "" } });
+      // @ts-expect-error — events hidden
+      x.events({ change: Number });
+      // @ts-expect-error — methods hidden
+      x.methods({ other() {} });
+      // @ts-expect-error — render already called
+      x.render(() => document.createElement("div"));
+      // @ts-expect-error — template forbidden with render
+      x.template(document.createElement("template"));
+      return x;
+    };
+    void _typeCheck;
+  });
+
+  it("phase chain: .attrs → .events → .methods → .render → .build() preserves the full C in build", async () => {
+    const { defineElement, StringAttr, NumberAttr, event } = await import("../src/defineElement.js");
+    const { span } = await import("@takanashi/rikka-dom");
+
+    interface Move { x: number; y: number; }
+
+    // .events must come before .attrs/.methods
+    const M = defineElement("test-bs-6")
+      .events({ move: event<Move>() })
+      .attrs({ name: StringAttr, count: { ...NumberAttr, default: 0 } })
+      .methods({
+        inc() { this.count++; },
+        getName() { return this.name; },
+      })
+      .render(function () {
+        // `this` should know about name (string), count (number), $count (signal),
+        // dispatchMove(payload), inc() and getName() methods.
+        const n: string = this.name;
+        const c: number = this.count;
+        this.dispatchMove({ x: 1, y: 2 });
+        this.inc();
+        const g: string = this.getName();
+        return span(`${n} ${c} ${g}`);
+      })
+      .build();
+
+    type Inst = InstanceType<typeof M>;
+    const el = document.createElement("test-bs-6") as Inst;
+    // Every field is typed.
+    const _checks = [
+      el.name,
+      el.count,
+      el.$count,
+      el.dispatchMove,
+      el.inc,
+      el.getName,
+    ];
+    void _checks;
+  });
+
+  it("phase chain: .attrs → .template → .build() (skip methods)", async () => {
+    const { defineElement, StringAttr } = await import("../src/defineElement.js");
+    const tpl = document.createElement("template");
+    tpl.innerHTML = `<span></span>`;
+
+    const M = defineElement("test-bs-7")
+      .attrs({ name: StringAttr })
+      .template(tpl)
+      .build();
+
+    type Inst = InstanceType<typeof M>;
+    const el = document.createElement("test-bs-7") as Inst;
+    // name is typed
+    const _check: string = el.name;
+    void _check;
+  });
+
+  it("phase chain: .attrs → .render → .build() (skip methods)", async () => {
+    const { defineElement, StringAttr } = await import("../src/defineElement.js");
+
+    const M = defineElement("test-bs-8")
+      .attrs({ name: StringAttr })
+      .render(function () {
+        // this.name is typed without needing methods
+        return document.createElement("div");
+      })
+      .build();
+
+    type Inst = InstanceType<typeof M>;
+    const el = document.createElement("test-bs-8") as Inst;
+    const _check: string = el.name;
+    void _check;
+  });
+
+  it("phase chain: empty .build() produces an element with no bindings", async () => {
+    const { defineElement } = await import("../src/defineElement.js");
+    const M = defineElement("test-bs-9").build();
+    type Inst = InstanceType<typeof M>;
+    const el = document.createElement("test-bs-9") as Inst;
+    void el;
   });
 });

@@ -281,7 +281,7 @@ export const bookmarkForm = defineElement('bookmark-form', {
     const submitBtn = button({ class: 'submit-btn' }, '保存');
     submitBtn.addEventListener('click', handleSubmit);
 
-    host.addEventListener('keydown', (e) => {
+    host.addEventListener('keydown', (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         closeForm();
         resetForm();

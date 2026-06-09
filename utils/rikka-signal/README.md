@@ -52,8 +52,10 @@ Inside `computed` and `effect` callbacks, you **must** use `.get()` to read valu
 
 ## Full Documentation
 
-- [Skills Index](https://yw662.github.io/rikka/skills/README.md) — start here
-- [Overview](https://yw662.github.io/rikka/skills/overview.md)
-- [Reactive State](https://yw662.github.io/rikka/skills/reactive-state.md)
-- [Signal Binding](https://yw662.github.io/rikka/skills/signal-binding.md)
-- [Common Pitfalls](https://yw662.github.io/rikka/skills/common-pitfalls.md)
+- [Skills (umbrella)](https://github.com/yw662/rikka/tree/main/skills/rikka/SKILL.md) — start here
+- [Overview](https://github.com/yw662/rikka/tree/main/skills/overview/SKILL.md)
+- [Reactive State](https://github.com/yw662/rikka/tree/main/skills/reactive-state/SKILL.md)
+- [Signal Binding](https://github.com/yw662/rikka/tree/main/skills/signal-binding/SKILL.md)
+- [Common Pitfalls](https://github.com/yw662/rikka/tree/main/skills/common-pitfalls/SKILL.md)
+
+Install all 14 skills at once: `npx skills add yw662/rikka`

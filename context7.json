@@ -7,7 +7,7 @@
     "utils/rikka-dom/src",
     "utils/rikka-elements/src",
     "components/rikka-live-playground/src",
-    "docs/rikka-skills"
+    "skills"
   ],
   "excludeFolders": [
     "node_modules",

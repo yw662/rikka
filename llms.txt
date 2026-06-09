@@ -2,36 +2,42 @@
 
 > A modern Web Components toolkit with fine-grained reactivity based on TC39 Signals. Zero virtual DOM, ~16KB gzip, type-safe, and LLM-friendly. Three published packages: `@takanashi/rikka-signal`, `@takanashi/rikka-dom`, `@takanashi/rikka-elements`.
 
-This file follows the [llms.txt](https://llmstxt.org/) convention. If you're an AI coding agent, start with the skills index below.
+This file follows the [llms.txt](https://llmstxt.org/) convention. If you're an AI coding agent, start with the umbrella skill below, then load task-specific skills on demand.
 
-## Skills (start here)
+## Umbrella skill (start here)
 
-- [Skills Index](https://yw662.github.io/rikka/skills/README.md): Loading strategy and decision tree for the 14 task-oriented skill files. Read first.
-- [Overview](https://yw662.github.io/rikka/skills/overview.md): What rikka is, the three packages, design principles, when to use it.
+- [rikka](https://github.com/yw662/rikka/tree/main/skills/rikka/SKILL.md): Orientation — what rikka is, the four LLM-specific footguns, the minimal counter example. Load this first.
+- [overview](https://github.com/yw662/rikka/tree/main/skills/overview/SKILL.md): What rikka is, the three packages, design principles, when to use it.
 
 ## Reactive state
 
-- [Reactive State](https://yw662.github.io/rikka/skills/reactive-state.md): `signal`, `computed`, `effect`, `untracked`. The TC39-Signals-based reactive primitives.
+- [reactive-state](https://github.com/yw662/rikka/tree/main/skills/reactive-state/SKILL.md): `signal`, `computed`, `effect`, `untracked`. The TC39-Signals-based reactive primitives.
 
 ## DOM
 
-- [DOM Creation](https://yw662.github.io/rikka/skills/dom-creation.md): `h()`, tag helpers, `h\`` template literal. Creates real DOM elements.
-- [Signal Binding](https://yw662.github.io/rikka/skills/signal-binding.md): Binding signals to text nodes, attributes, template slots. Fine-grained vs coarse-grained.
-- [Control Flow](https://yw662.github.io/rikka/skills/control-flow.md): `For` (lists), `Show` / `When` / `Switch` / `Match` (conditionals).
-- [Form Binding](https://yw662.github.io/rikka/skills/form-binding.md): Two-way binding for `<input>`, `<textarea>`, `<select>`.
-- [SVG](https://yw662.github.io/rikka/skills/svg.md): SVG elements, namespace handling, name-collision tags (`a`, `script`, `style`, `title`).
+- [dom-creation](https://github.com/yw662/rikka/tree/main/skills/dom-creation/SKILL.md): `h()`, tag helpers, `h\`` template literal. Creates real DOM elements.
+- [signal-binding](https://github.com/yw662/rikka/tree/main/skills/signal-binding/SKILL.md): Binding signals to text nodes, attributes, template slots. Fine-grained vs coarse-grained.
+- [control-flow](https://github.com/yw662/rikka/tree/main/skills/control-flow/SKILL.md): `For` (lists), `Show` / `When` / `Switch` / `Match` (conditionals).
+- [form-binding](https://github.com/yw662/rikka/tree/main/skills/form-binding/SKILL.md): Two-way binding for `<input>`, `<textarea>`, `<select>`.
+- [svg](https://github.com/yw662/rikka/tree/main/skills/svg/SKILL.md): SVG elements, namespace handling, name-collision tags (`a`, `script`, `style`, `title`).
 
 ## Custom elements
 
-- [Custom Element](https://yw662.github.io/rikka/skills/custom-element.md): `defineElement`, `attributes`, `events`, `methods`, `render` — the full `ElementConfig` reference.
-- [Shadow DOM & Styling](https://yw662.github.io/rikka/skills/shadow-dom-styling.md): `css\``, `inlineStyle\``, `adoptStyle`, `:host` selector.
-- [Template Binding](https://yw662.github.io/rikka/skills/template-binding.md): The `template` option of `defineElement` with `{{name}}` / `{{@event}}` syntax.
-- [Composition](https://yw662.github.io/rikka/skills/composition.md): Composable functions + `MyElement.h(...)` to embed a custom element.
+- [custom-element](https://github.com/yw662/rikka/tree/main/skills/custom-element/SKILL.md): `defineElement`, `attributes`, `events`, `methods`, `render` — the full `ElementConfig` reference.
+- [shadow-dom-styling](https://github.com/yw662/rikka/tree/main/skills/shadow-dom-styling/SKILL.md): `css\``, `inlineStyle\``, `adoptStyle`, `:host` selector.
+- [template-binding](https://github.com/yw662/rikka/tree/main/skills/template-binding/SKILL.md): The `template` option of `defineElement` with `{{name}}` / `{{@event}}` syntax.
+- [composition](https://github.com/yw662/rikka/tree/main/skills/composition/SKILL.md): Composable functions + `MyElement.h(...)` to embed a custom element.
 
 ## Operations
 
-- [Browser Compatibility](https://yw662.github.io/rikka/skills/browser-compatibility.md): Browser support matrix and polyfills for Custom Elements / Shadow DOM / CSSStyleSheet.
-- [Common Pitfalls](https://yw662.github.io/rikka/skills/common-pitfalls.md): Cross-cutting mistakes — read this before generating rikka code. Covers the 4 rikka-specific LLM footguns.
+- [browser-compatibility](https://github.com/yw662/rikka/tree/main/skills/browser-compatibility/SKILL.md): Browser support matrix and polyfills for Custom Elements / Shadow DOM / CSSStyleSheet.
+- [common-pitfalls](https://github.com/yw662/rikka/tree/main/skills/common-pitfalls/SKILL.md): Cross-cutting mistakes — read this before generating rikka code. Covers the 4 rikka-specific LLM footguns.
+
+## Install via the `skills` CLI
+
+```bash
+npx skills add yw662/rikka
+```
 
 ## Optional
 

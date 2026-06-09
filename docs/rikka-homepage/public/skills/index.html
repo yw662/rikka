@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Agent Skills — Rikka</title>
-  <meta name="description" content="Task-oriented operational guides for AI coding agents writing code with the Rikka Web Components toolkit. 14 markdown files covering reactive state, DOM creation, custom elements, and more.">
+  <meta name="description" content="Task-oriented operational guides for AI coding agents writing code with the Rikka Web Components toolkit. 14 task-oriented skills, installable via the `skills` CLI: reactive state, DOM creation, custom elements, and more.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://yw662.github.io/rikka/skills/index.html">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>">
@@ -170,44 +170,45 @@
     <h1>Agent Skills</h1>
     <p class="tagline">
       Task-oriented operational guides for AI coding agents writing code with the Rikka
-      Web Components toolkit. 14 markdown files, each one file ≈ one task. Read the
-      index first, then load only the file matching the current task.
+      Web Components toolkit. 14 skills, each one folder ≈ one task. Follow the
+      [agentskills.io](https://agentskills.io) format (<code>SKILL.md</code> with YAML frontmatter).
     </p>
 
     <div class="callout">
-      <div class="callout-title">For AI agents</div>
+      <div class="callout-title">Install all 14 skills</div>
       <ul>
-        <li>Start: <a href="README.md"><code>README.md</code></a> — index + decision tree</li>
-        <li>Last: <a href="common-pitfalls.md"><code>common-pitfalls.md</code></a> — the 5 rikka-specific footguns</li>
-        <li>Also see <a href="../llms.txt"><code>../llms.txt</code></a> (machine-readable index)</li>
-        <li>Raw URLs: <code>https://yw662.github.io/rikka/skills/&lt;file&gt;.md</code></li>
+        <li>Run <code>npx skills add yw662/rikka</code> — installs into the agent's skill directory (supports OpenCode, Claude Code, Codex, Cursor, and 67 more).</li>
+        <li>Or browse them at <a href="https://skills.sh">skills.sh</a>.</li>
+        <li>Or read them raw: <code>https://yw662.github.io/rikka/skills/&lt;name&gt;/SKILL.md</code></li>
+        <li>Machine-readable index: <a href="../llms.txt"><code>../llms.txt</code></a></li>
+        <li>Start with <a href="rikka/SKILL.md"><code>rikka/SKILL.md</code></a> (umbrella) — then load one of the task-specific skills below.</li>
       </ul>
     </div>
 
     <h2>Start here</h2>
     <div class="grid">
       <div class="card">
-        <a class="title" href="README.md">Skills Index</a>
-        <div class="filename">README.md</div>
-        <p class="desc">Entry point. Decision tree mapping tasks to the right skill file. Includes loading strategy.</p>
+        <a class="title" href="rikka/SKILL.md">Umbrella: rikka</a>
+        <div class="filename">rikka/SKILL.md</div>
+        <p class="desc">Orientation. The four LLM-specific footguns, minimal counter example, which skill to load for which task. Load first.</p>
       </div>
       <div class="card">
-        <a class="title" href="overview.md">Overview</a>
-        <div class="filename">overview.md</div>
+        <a class="title" href="overview/SKILL.md">Overview</a>
+        <div class="filename">overview/SKILL.md</div>
         <p class="desc">What rikka is, the three packages, design principles, when (and when not) to use it.</p>
       </div>
       <div class="card">
-        <a class="title" href="common-pitfalls.md">Common Pitfalls</a>
-        <div class="filename">common-pitfalls.md</div>
-        <p class="desc">Cross-cutting mistakes. Read before generating rikka code. Covers the 5 LLM-specific footguns.</p>
+        <a class="title" href="common-pitfalls/SKILL.md">Common Pitfalls</a>
+        <div class="filename">common-pitfalls/SKILL.md</div>
+        <p class="desc">Cross-cutting mistakes. Read before generating rikka code. Covers the 4 LLM-specific footguns.</p>
       </div>
     </div>
 
     <h2>Reactive state</h2>
     <div class="grid">
       <div class="card">
-        <a class="title" href="reactive-state.md">Reactive State</a>
-        <div class="filename">reactive-state.md</div>
+        <a class="title" href="reactive-state/SKILL.md">Reactive State</a>
+        <div class="filename">reactive-state/SKILL.md</div>
         <p class="desc"><code>signal</code>, <code>computed</code>, <code>effect</code>. The TC39-Signals-based primitives.</p>
       </div>
     </div>
@@ -215,28 +216,28 @@
     <h2>DOM</h2>
     <div class="grid">
       <div class="card">
-        <a class="title" href="dom-creation.md">DOM Creation</a>
-        <div class="filename">dom-creation.md</div>
+        <a class="title" href="dom-creation/SKILL.md">DOM Creation</a>
+        <div class="filename">dom-creation/SKILL.md</div>
         <p class="desc"><code>h()</code>, tag helpers, <code>h&#96;...&#96;</code> template literal. Creates real DOM elements — no virtual DOM.</p>
       </div>
       <div class="card">
-        <a class="title" href="signal-binding.md">Signal Binding</a>
-        <div class="filename">signal-binding.md</div>
+        <a class="title" href="signal-binding/SKILL.md">Signal Binding</a>
+        <div class="filename">signal-binding/SKILL.md</div>
         <p class="desc">Binding signals to text nodes, attributes, template slots. Fine-grained vs coarse-grained. The most error-prone area.</p>
       </div>
       <div class="card">
-        <a class="title" href="control-flow.md">Control Flow</a>
-        <div class="filename">control-flow.md</div>
+        <a class="title" href="control-flow/SKILL.md">Control Flow</a>
+        <div class="filename">control-flow/SKILL.md</div>
         <p class="desc"><code>For</code> (lists), <code>Show</code> / <code>When</code> / <code>Switch</code> / <code>Match</code> (conditionals).</p>
       </div>
       <div class="card">
-        <a class="title" href="form-binding.md">Form Binding</a>
-        <div class="filename">form-binding.md</div>
+        <a class="title" href="form-binding/SKILL.md">Form Binding</a>
+        <div class="filename">form-binding/SKILL.md</div>
         <p class="desc">Two-way binding for <code>&lt;input&gt;</code>, <code>&lt;textarea&gt;</code>, <code>&lt;select&gt;</code> via writable signals.</p>
       </div>
       <div class="card">
-        <a class="title" href="svg.md">SVG</a>
-        <div class="filename">svg.md</div>
+        <a class="title" href="svg/SKILL.md">SVG</a>
+        <div class="filename">svg/SKILL.md</div>
         <p class="desc">SVG elements, namespace handling, name-collision tags (<code>a</code>, <code>script</code>, <code>style</code>, <code>title</code>, <code>text</code>, <code>span</code>).</p>
       </div>
     </div>
@@ -244,23 +245,23 @@
     <h2>Custom elements</h2>
     <div class="grid">
       <div class="card">
-        <a class="title" href="custom-element.md">Custom Element</a>
-        <div class="filename">custom-element.md</div>
+        <a class="title" href="custom-element/SKILL.md">Custom Element</a>
+        <div class="filename">custom-element/SKILL.md</div>
         <p class="desc"><code>defineElement</code>, <code>attributes</code>, <code>events</code>, <code>methods</code>, <code>render</code> — the full <code>ElementConfig</code> reference.</p>
       </div>
       <div class="card">
-        <a class="title" href="shadow-dom-styling.md">Shadow DOM &amp; Styling</a>
-        <div class="filename">shadow-dom-styling.md</div>
+        <a class="title" href="shadow-dom-styling/SKILL.md">Shadow DOM &amp; Styling</a>
+        <div class="filename">shadow-dom-styling/SKILL.md</div>
         <p class="desc"><code>css&#96;...&#96;</code>, <code>inlineStyle&#96;...&#96;</code>, <code>adoptStyle</code>, <code>:host</code> selector.</p>
       </div>
       <div class="card">
-        <a class="title" href="template-binding.md">Template Binding</a>
-        <div class="filename">template-binding.md</div>
+        <a class="title" href="template-binding/SKILL.md">Template Binding</a>
+        <div class="filename">template-binding/SKILL.md</div>
         <p class="desc">The <code>template</code> option of <code>defineElement</code> with <code>{{name}}</code> / <code>{{@event}}</code> syntax.</p>
       </div>
       <div class="card">
-        <a class="title" href="composition.md">Composition</a>
-        <div class="filename">composition.md</div>
+        <a class="title" href="composition/SKILL.md">Composition</a>
+        <div class="filename">composition/SKILL.md</div>
         <p class="desc">Composable functions + <code>MyElement.h(...)</code> to embed a custom element inside another.</p>
       </div>
     </div>
@@ -268,20 +269,20 @@
     <h2>Operations</h2>
     <div class="grid">
       <div class="card">
-        <a class="title" href="browser-compatibility.md">Browser Compatibility</a>
-        <div class="filename">browser-compatibility.md</div>
+        <a class="title" href="browser-compatibility/SKILL.md">Browser Compatibility</a>
+        <div class="filename">browser-compatibility/SKILL.md</div>
         <p class="desc">Browser support matrix and polyfills for Custom Elements / Shadow DOM / CSSStyleSheet. SSR guidance.</p>
       </div>
     </div>
 
     <h2 style="margin-top: 2.5rem;">Use from an AI agent</h2>
     <p style="color: var(--text-secondary);">
-      The simplest way to load all 14 skills into context: read the index, then
-      fetch the relevant files. Each file is small enough to fit in context
-      individually. The full set totals ~2,600 lines.
+      The fastest path: install with the <code>skills</code> CLI. Each skill auto-loads into
+      context based on its <code>description</code> frontmatter field. The full set totals
+      ~2,800 lines.
     </p>
     <div class="copy-snippet">
-      <code>curl https://yw662.github.io/rikka/skills/README.md</code>
+      <code>npx skills add yw662/rikka</code>
     </div>
   </main>
 

@@ -177,11 +177,13 @@ const app = div(MyCounter.h({ count: 0 }));
 
 ## Full Documentation
 
-- [Skills Index](https://yw662.github.io/rikka/skills/README.md) — start here
-- [Overview](https://yw662.github.io/rikka/skills/overview.md)
-- [Custom Element](https://yw662.github.io/rikka/skills/custom-element.md)
-- [Template Binding](https://yw662.github.io/rikka/skills/template-binding.md)
-- [Shadow DOM & Styling](https://yw662.github.io/rikka/skills/shadow-dom-styling.md)
-- [Composition](https://yw662.github.io/rikka/skills/composition.md)
-- [Browser Compatibility](https://yw662.github.io/rikka/skills/browser-compatibility.md)
-- [Common Pitfalls](https://yw662.github.io/rikka/skills/common-pitfalls.md)
+- [Skills (umbrella)](https://github.com/yw662/rikka/tree/main/skills/rikka/SKILL.md) — start here
+- [Overview](https://github.com/yw662/rikka/tree/main/skills/overview/SKILL.md)
+- [Custom Element](https://github.com/yw662/rikka/tree/main/skills/custom-element/SKILL.md)
+- [Template Binding](https://github.com/yw662/rikka/tree/main/skills/template-binding/SKILL.md)
+- [Shadow DOM & Styling](https://github.com/yw662/rikka/tree/main/skills/shadow-dom-styling/SKILL.md)
+- [Composition](https://github.com/yw662/rikka/tree/main/skills/composition/SKILL.md)
+- [Browser Compatibility](https://github.com/yw662/rikka/tree/main/skills/browser-compatibility/SKILL.md)
+- [Common Pitfalls](https://github.com/yw662/rikka/tree/main/skills/common-pitfalls/SKILL.md)
+
+Install all 14 skills at once: `npx skills add yw662/rikka`

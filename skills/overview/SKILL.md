@@ -1,3 +1,8 @@
+---
+name: overview
+description: What rikka is — a Web UI toolkit with no virtual DOM, signals-based reactivity, and native Web Components. Load this to understand the three packages, design principles, derivable naming rules, and when rikka is the right (or wrong) fit. Read this once, before diving into the task-specific skills.
+---
+
 # Rikka Overview
 
 Rikka is a Web UI toolkit built around three principles:
@@ -52,11 +57,11 @@ Tag helpers follow HTML tag names — `div` → `div()`, `button` → `button()`
 
 ## Browser support
 
-Chrome 73+ / Firefox 101+ / Safari 16.4+ / Edge 79+ need **no polyfill**. For older browsers, see [browser-compatibility.md](./browser-compatibility.md).
+Chrome 73+ / Firefox 101+ / Safari 16.4+ / Edge 79+ need **no polyfill**. For older browsers, see [../browser-compatibility/](../browser-compatibility/).
 
 ## Further reading
 
-- [reactive-state.md](./reactive-state.md) — how to create and use signals
-- [dom-creation.md](./dom-creation.md) — how to create elements
-- [custom-element.md](./custom-element.md) — how to define a custom element
-- [common-pitfalls.md](./common-pitfalls.md) — read this before generating code
+- [../reactive-state/](../reactive-state/) — how to create and use signals
+- [../dom-creation/](../dom-creation/) — how to create elements
+- [../custom-element/](../custom-element/) — how to define a custom element
+- [../common-pitfalls/](../common-pitfalls/) — read this before generating code

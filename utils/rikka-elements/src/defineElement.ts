@@ -110,6 +110,11 @@ type EventDetailOf<S> = S extends undefined
 // Element Config
 // ---------------------------------------------------------------------------
 
+/**
+ * Base shape of every defineElement config object. `C` in the rest of the
+ * types refers to a value of this type with optional fields filled in by the
+ * user's `defineElement(tag, { ... })` literal.
+ */
 type BaseConfig = {
   shadow?: ShadowRootInit | false;
   styles?: CSSStyleSheet | CSSStyleSheet[];
@@ -128,13 +133,52 @@ type ResolvedTools<C extends BaseConfig> = C["tools"] extends Record<string, Too
   ? { [K in keyof C["tools"]]: ToolDefinition<RikkaElement<C>> }
   : never;
 
+/**
+ * Discriminated union for element config:
+ *  - `template` (HTMLTemplateElement) is mutually exclusive with `render`.
+ *  - The bare `BaseConfig` branch lets the user pass no config at all.
+ *
+ * `C` is the user's literal config; the `this` type of `render` uses
+ * `NoInfer<C>` to keep inference flowing from `attributes`/`events`/etc.
+ */
 export type ElementConfig<C extends BaseConfig = BaseConfig> =
   | (BaseConfig & { template: HTMLTemplateElement; render?: never })
   | (BaseConfig & {
       template?: never;
-      render?: (this: RikkaElement<C>) => Element;
+      render?: (this: RikkaElement<NoInfer<C>>) => Element;
     })
   | BaseConfig;
+
+/**
+ * Names of all native `on*` event handler properties on `HTMLElement`
+ * (e.g. `onchange`, `onclick`). Used to omit them from `RikkaElement<C>`
+ * when the user has redefined the corresponding event, so the user's
+ * CustomEvent-typed handler wins over the native `(ev: Event)` signature.
+ */
+type NativeOnHandlerKeys = Extract<keyof HTMLElement, `on${string}`>;
+
+/**
+ * For each event the user declared in `config.events`, compute the matching
+ * native `on*` handler key (e.g. `change` → `onchange`). If the user didn't
+ * redefine a native event, nothing is omitted.
+ *
+ * Note: TypeScript's `Omit` only removes properties defined directly on the
+ * target type, so it cannot drop native `on*` handlers inherited from parent
+ * interfaces like `GlobalEventHandlers`. We therefore expose the user's
+ * `CustomEvent`-typed handlers via `EventListenerProps<C>` and rely on
+ * declaration merging / intersection order in the consuming code (e.g.
+ * `onclose` in the user's `EventProps` will be the source of truth at the
+ * call site). The keys here are still useful as documentation and to keep
+ * the type system aware of the override.
+ */
+type OverriddenNativeOnHandlers<C extends BaseConfig> =
+  C["events"] extends Record<string, EventSpec>
+    ? {
+        [K in keyof C["events"] & string]: `on${CamelCase<K & string>}`;
+      }[keyof C["events"] & string] extends infer Keys
+        ? Extract<Keys, NativeOnHandlerKeys>
+        : never
+    : never;
 
 export type RikkaElement<C extends BaseConfig> = HTMLElement &
   AttributeProps<C> &
@@ -145,6 +189,13 @@ export type RikkaElement<C extends BaseConfig> = HTMLElement &
   ShadowProp<C> &
   MethodProps<C>;
 
+/**
+ * Property bag accepted by the `.h()` tag function. Attributes are partial
+ * (so the caller can omit any and fall back to the element's defaults).
+ * Event listener props are always partial. Methods are intentionally NOT
+ * part of the tag-function argument shape — they are configured on the
+ * element class itself and are accessible on the live element instance.
+ */
 export type TagFunctionProps<C extends BaseConfig> = PartialAttributeProps<C> &
   EventListenerProps<C>;
 
@@ -243,7 +294,12 @@ type ShadowProp<C extends BaseConfig> = C["shadow"] extends false
 
 type MethodProps<C extends BaseConfig> =
   C["methods"] extends Record<string, (...args: any[]) => any>
-    ? { -readonly [K in keyof C["methods"]]: C["methods"][K] }
+    ? {
+        -readonly [K in keyof C["methods"]]: (
+          this: any,
+          ...args: Parameters<C["methods"][K]>
+        ) => ReturnType<C["methods"][K]>;
+      }
     : {};
 
 export type ElementConstructor<C extends BaseConfig> =
@@ -252,9 +308,14 @@ export type ElementConstructor<C extends BaseConfig> =
         observedAttributes: (keyof C["attributes"] & string)[];
         readonly h: TagFunctionH<C>;
       }
-    : (new (...args: any[]) => RikkaElement<C>) & {
-        readonly h: TagFunctionH<C>;
-      };
+    : C["dataset"] extends Record<string, DatasetSpec>
+      ? (new (...args: any[]) => RikkaElement<C>) & {
+          observedAttributes: (keyof C["dataset"] & string)[];
+          readonly h: TagFunctionH<C>;
+        }
+      : (new (...args: any[]) => RikkaElement<C>) & {
+          readonly h: TagFunctionH<C>;
+        };
 
 // ---------------------------------------------------------------------------
 // Runtime: Signal helpers
@@ -756,10 +817,375 @@ function isSignal(value: unknown): value is { get(): unknown } {
 }
 
 // ---------------------------------------------------------------------------
+// Builder
+//
+// `defineElement(tag)` (one argument) returns a phased builder that captures
+// the config piece by piece. The builder transitions through states:
+//
+//   BuilderFresh                            (first-phase bindings available:
+//      │                                       .attrs, .dataset, .events)
+//      │  .attrs(A) | .dataset(D) | .events(E)    (any order, any subset;
+//      │                                           each call accumulates into C)
+//      ▼
+//   BuilderWithBindings<C & {...}>          (first-phase bindings still
+//      │                                       available — useful when the
+//      │                                       user wants to call them in a
+//      │                                       different order on the chain;
+//      │                                       .methods / .template / .render
+//      │                                       now available)
+//      │  .methods(M)                         (optional)
+//      ▼
+//   BuilderWithMethods<C & { methods: M }>  (.methods hidden;
+//      │                                       .template / .render available)
+//      │  .template(T)        .render(F)     (mutually exclusive)
+//      ▼                       ▼
+//   BuilderWithTemplate       BuilderWithRender
+//
+// Invariants:
+//   - `attrs` / `dataset` / `events` are first-phase: each is callable on
+//     `BuilderFresh` and `BuilderWithBindings`. Calling one of them adds the
+//     corresponding field to `C` and returns a new `BuilderWithBindings`
+//     with the augmented generic. Order is unrestricted.
+//   - `methods` is only available on `BuilderWithBindings` (and later) —
+//     never on `BuilderFresh`. Itself optional: `template` / `render` can
+//     be called from `BuilderWithBindings` directly (skipping `methods`).
+//   - `template` and `render` are mutually exclusive terminals. Each is
+//     one-shot on its phase; after calling one, the other is hidden.
+//   - `.build()` works on any phase.
+// ---------------------------------------------------------------------------
+
+/**
+ * Internal mutable state shared by all builder phases. Each phase class holds
+ * a reference to one of these; transitions do not allocate new state.
+ * @internal
+ */
+class BuilderState {
+  attrs: Record<string, AttributeSpec<any>> | undefined = undefined;
+  dataset: Record<string, DatasetSpec> | undefined = undefined;
+  events: Record<string, EventSpec> | undefined = undefined;
+  methods: Record<string, (...args: any[]) => any> | undefined = undefined;
+  render: ((this: HTMLElement) => Element) | undefined = undefined;
+  template: HTMLTemplateElement | undefined = undefined;
+  styles: CSSStyleSheet | CSSStyleSheet[] | undefined = undefined;
+  shadow: ShadowRootInit | false | undefined = undefined;
+  tools: Record<string, ToolDefinition<any>> | undefined = undefined;
+  toolContext: ToolContextMapping | undefined = undefined;
+}
+
+/**
+ * Base class with methods that are available in **every** phase. The state
+ * object is shared so transitions preserve all previously-set bindings.
+ *
+ * Generic over the accumulated config `C` so that `.build()` returns the
+ * properly-typed `ElementConstructor<C>`.
+ * @internal
+ */
+abstract class BuilderBase<C extends BaseConfig = BaseConfig> {
+  /** @internal */
+  readonly _tag: string;
+  /** @internal */
+  readonly _state: BuilderState;
+
+  constructor(tag: string, state: BuilderState) {
+    this._tag = tag;
+    this._state = state;
+  }
+
+  /** Set the stylesheets adopted by the shadow root. */
+  styles(s: CSSStyleSheet | CSSStyleSheet[]): this {
+    this._state.styles = s;
+    return this;
+  }
+
+  /** Configure the shadow root mode. */
+  shadow(s: ShadowRootInit | false): this {
+    this._state.shadow = s;
+    return this;
+  }
+
+  /** WebMCP tool definitions registered once at class level. */
+  tools<T extends Record<string, ToolDefinition<any>>>(tools: T): this {
+    this._state.tools = tools;
+    return this;
+  }
+
+  /** WebMCP context mapping. */
+  toolContext(ctx: ToolContextMapping): this {
+    this._state.toolContext = ctx;
+    return this;
+  }
+
+  /**
+   * Finalize the builder and register the custom element. Returns the same
+   * type as the two-argument `defineElement` form.
+   */
+  build(): ElementConstructor<C> {
+    const config: Record<string, unknown> = {};
+    const s = this._state;
+    if (s.attrs !== undefined) config.attributes = s.attrs;
+    if (s.dataset !== undefined) config.dataset = s.dataset;
+    if (s.events !== undefined) config.events = s.events;
+    if (s.methods !== undefined) config.methods = s.methods;
+    if (s.render !== undefined) config.render = s.render;
+    if (s.template !== undefined) config.template = s.template;
+    if (s.styles !== undefined) config.styles = s.styles;
+    if (s.shadow !== undefined) config.shadow = s.shadow;
+    if (s.tools !== undefined) config.tools = s.tools;
+    if (s.toolContext !== undefined) config.toolContext = s.toolContext;
+    return defineElementImpl(this._tag, config as ElementConfig<C>);
+  }
+}
+
+/**
+ * Phase 0 — fresh builder. The first-phase bindings (`.attrs`, `.dataset`,
+ * `.events`) are exposed; nothing else. `.methods` / `.template` / `.render`
+ * are not yet available because they need the accumulated `C` for `this`
+ * typing, which is only meaningful after at least one binding call.
+ */
+export class BuilderFresh extends BuilderBase<BaseConfig> {
+  /** @internal */
+  constructor(tag: string, state: BuilderState) {
+    super(tag, state);
+  }
+
+  /**
+   * Declare reactive attributes. Transitions to
+   * {@link BuilderWithBindings}.
+   */
+  attrs<A extends Record<string, AttributeSpec<any>>>(
+    attrs: A,
+  ): BuilderWithBindings<{ attributes: A }> {
+    this._state.attrs = attrs;
+    return new BuilderWithBindings<{ attributes: A }>(this._tag, this._state);
+  }
+
+  /**
+   * Declare `data-*` attributes. Transitions to
+   * {@link BuilderWithBindings}.
+   */
+  dataset<D extends Record<string, DatasetSpec>>(
+    dataset: D,
+  ): BuilderWithBindings<{ dataset: D }> {
+    this._state.dataset = dataset;
+    return new BuilderWithBindings<{ dataset: D }>(this._tag, this._state);
+  }
+
+  /**
+   * Declare custom events. Transitions to
+   * {@link BuilderWithBindings}.
+   */
+  events<E extends Record<string, EventSpec>>(
+    events: E,
+  ): BuilderWithBindings<{ events: E }> {
+    this._state.events = events;
+    return new BuilderWithBindings<{ events: E }>(this._tag, this._state);
+  }
+}
+
+/**
+ * Phase 1 — at least one of `.attrs` / `.dataset` / `.events` has been
+ * called. The remaining first-phase bindings (`.attrs` / `.dataset` /
+ * `.events`) are still available; `.methods` is also now available. After
+ * `.methods` the builder transitions to {@link BuilderWithMethods}.
+ */
+export class BuilderWithBindings<C extends BaseConfig> extends BuilderBase<C> {
+  /** @internal */
+  constructor(tag: string, state: BuilderState) {
+    super(tag, state);
+  }
+
+  /**
+   * Declare reactive attributes. Each first-phase binding is one-shot;
+   * once the user has called it (or one of the other first-phase methods)
+   * the call is recorded in `C` and the resulting type narrows accordingly.
+   */
+  attrs<A extends Record<string, AttributeSpec<any>>>(
+    attrs: A,
+  ): BuilderWithBindings<C & { attributes: A }> {
+    this._state.attrs = attrs;
+    return this as unknown as BuilderWithBindings<C & { attributes: A }>;
+  }
+
+  /** Declare `data-*` attributes. */
+  dataset<D extends Record<string, DatasetSpec>>(
+    dataset: D,
+  ): BuilderWithBindings<C & { dataset: D }> {
+    this._state.dataset = dataset;
+    return this as unknown as BuilderWithBindings<C & { dataset: D }>;
+  }
+
+  /** Declare custom events. */
+  events<E extends Record<string, EventSpec>>(
+    events: E,
+  ): BuilderWithBindings<C & { events: E }> {
+    this._state.events = events;
+    return this as unknown as BuilderWithBindings<C & { events: E }>;
+  }
+
+  /**
+   * Attach prototype methods. `this` in each callback is typed as
+   * `RikkaElement<C>`. Transitions to {@link BuilderWithMethods}.
+   */
+  methods<M extends Record<string, (...args: any[]) => any>>(
+    methods: ThisType<RikkaElement<C>> & M,
+  ): BuilderWithMethods<C & { methods: M }> {
+    this._state.methods = methods;
+    return new BuilderWithMethods<C & { methods: M }>(this._tag, this._state);
+  }
+
+  /**
+   * Use an `HTMLTemplateElement` for declarative rendering. Mutually
+   * exclusive with `.render()`; transitions to {@link BuilderWithTemplate}.
+   */
+  template(
+    tpl: HTMLTemplateElement,
+  ): BuilderWithTemplate<C & { template: typeof tpl }> {
+    this._state.template = tpl;
+    return new BuilderWithTemplate<C & { template: typeof tpl }>(
+      this._tag,
+      this._state,
+    );
+  }
+
+  /**
+   * Imperative render. `this` is typed as `RikkaElement<C>`. Mutually
+   * exclusive with `.template()`; transitions to {@link BuilderWithRender}.
+   */
+  render(
+    fn: (this: RikkaElement<C>) => Element,
+  ): BuilderWithRender<C & { render: typeof fn }> {
+    this._state.render = fn as unknown as (this: HTMLElement) => Element;
+    return new BuilderWithRender<C & { render: typeof fn }>(
+      this._tag,
+      this._state,
+    );
+  }
+}
+
+/**
+ * Phase 2 — `.methods()` has been called. `.methods()` itself is no longer
+ * available. `.template` / `.render` are exposed.
+ */
+export class BuilderWithMethods<C extends BaseConfig> extends BuilderBase<C> {
+  /** @internal */
+  constructor(tag: string, state: BuilderState) {
+    super(tag, state);
+  }
+
+  /**
+   * Use an `HTMLTemplateElement` for declarative rendering. Mutually
+   * exclusive with `.render()`; transitions to {@link BuilderWithTemplate}.
+   */
+  template(
+    tpl: HTMLTemplateElement,
+  ): BuilderWithTemplate<C & { template: typeof tpl }> {
+    this._state.template = tpl;
+    return new BuilderWithTemplate<C & { template: typeof tpl }>(
+      this._tag,
+      this._state,
+    );
+  }
+
+  /**
+   * Imperative render. `this` is typed as `RikkaElement<C>`. Mutually
+   * exclusive with `.template()`; transitions to {@link BuilderWithRender}.
+   */
+  render(
+    fn: (this: RikkaElement<C>) => Element,
+  ): BuilderWithRender<C & { render: typeof fn }> {
+    this._state.render = fn as unknown as (this: HTMLElement) => Element;
+    return new BuilderWithRender<C & { render: typeof fn }>(
+      this._tag,
+      this._state,
+    );
+  }
+}
+
+/**
+ * Phase 3a — `.template()` has been called. Terminal phase: only `.build()`
+ * (and the meta methods inherited from the base) are available.
+ */
+export class BuilderWithTemplate<C extends BaseConfig> extends BuilderBase<C> {
+  /** @internal */
+  constructor(tag: string, state: BuilderState) {
+    super(tag, state);
+  }
+}
+
+/**
+ * Phase 3b — `.render()` has been called. Terminal phase: only `.build()`
+ * (and the meta methods inherited from the base) are available.
+ */
+export class BuilderWithRender<C extends BaseConfig> extends BuilderBase<C> {
+  /** @internal */
+  constructor(tag: string, state: BuilderState) {
+    super(tag, state);
+  }
+}
+
+/**
+ * Convenience union of every builder phase. Useful when a function accepts
+ * a builder at any point in the chain.
+ */
+export type AnyBuilder =
+  | BuilderFresh
+  | BuilderWithBindings<BaseConfig>
+  | BuilderWithMethods<BaseConfig>
+  | BuilderWithTemplate<BaseConfig>
+  | BuilderWithRender<BaseConfig>;
+
+// ---------------------------------------------------------------------------
 // defineElement
 // ---------------------------------------------------------------------------
 
+/**
+ * Single-argument form: returns a {@link BuilderFresh} (the first phase of
+ * the phased builder) for fluent construction with strict `this` typing in
+ * `render` / `methods`. The builder is terminated with `.build()`, which
+ * registers the custom element.
+ *
+ * Use this form when you need `this.name`, `this.getAttribute`, etc. to be
+ * type-checked inside `render` or `methods` callbacks.
+ */
+export function defineElement(tagName: string): BuilderFresh;
+
+/**
+ * Two-argument form: declarative config object. Backward-compatible API.
+ * The `render` and `methods` `this` types are `any` here — TypeScript cannot
+ * infer the config generic `C` from a function body that references `this`,
+ * so we type `this` as `any` and trust the user to access only valid
+ * properties. For strict `this` typing, prefer the single-argument
+ * {@link Builder} form.
+ */
+export function defineElement<C extends BaseConfig>(
+  tagName: string,
+  config: BaseConfig & { template: HTMLTemplateElement; render?: never } & C,
+): ElementConstructor<C>;
+
+export function defineElement<C extends BaseConfig>(
+  tagName: string,
+  config: BaseConfig & {
+    template?: never;
+    render?: (this: any) => Element;
+  } & C,
+): ElementConstructor<C>;
+
+export function defineElement<C extends BaseConfig>(
+  tagName: string,
+  config?: C,
+): ElementConstructor<C>;
+
 export function defineElement<C extends BaseConfig = BaseConfig>(
+  tagName: string,
+  config?: ElementConfig<C>,
+): ElementConstructor<C> | BuilderFresh {
+  if (arguments.length === 1) {
+    return new BuilderFresh(tagName, new BuilderState());
+  }
+  return defineElementImpl<C>(tagName, config as ElementConfig<C>);
+}
+
+function defineElementImpl<C extends BaseConfig = BaseConfig>(
   tagName: string,
   config?: ElementConfig<C>,
 ): ElementConstructor<C> {
@@ -904,9 +1330,9 @@ export function defineElement<C extends BaseConfig = BaseConfig>(
         tagName,
         args[0] as Parameters<typeof h>[1],
         ...(args.slice(1) as Child[]),
-      ) as RikkaElement<C>;
+      ) as unknown as RikkaElement<C>;
     }
-    return h(tagName, ...(args as Child[])) as RikkaElement<C>;
+    return h(tagName, ...(args as Child[])) as unknown as RikkaElement<C>;
   };
 
   const result = RikkaElementInner as unknown as ElementConstructor<C>;

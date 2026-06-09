@@ -337,13 +337,22 @@ console.log(count.get());`,
 
 ## 🤖 AI Coding with Rikka
 
-If you're an LLM/agent generating rikka code, **read the skills index first**:
+If you're an LLM/agent generating rikka code, **install the skills first**:
 
-- **Skills index:** <https://yw662.github.io/rikka/skills/README.md>
+```bash
+npx skills add yw662/rikka
+```
+
+This installs all 14 task-oriented skills (in the [agentskills.io](https://agentskills.io) format) into your agent's skill directory. Compatible with OpenCode, Claude Code, Codex, Cursor, and 67 more agents.
+
+Manual fallback (if you can't use the CLI):
+
+- **Skills index:** <https://github.com/yw662/rikka/tree/main/skills/rikka/SKILL.md>
 - **llms.txt:** <https://yw662.github.io/rikka/llms.txt>
 - **Homepage index:** <https://yw662.github.io/rikka/skills/index.html>
+- **Browse on skills.sh:** <https://skills.sh>
 
-These contain task-oriented guides (`reactive-state.md`, `dom-creation.md`, `signal-binding.md`, `custom-element.md`, `common-pitfalls.md`, etc.) that explain patterns and the most common LLM-specific mistakes. See also [`AGENTS.md`](./AGENTS.md) at the project root.
+These contain task-oriented guides (`reactive-state`, `dom-creation`, `signal-binding`, `custom-element`, `common-pitfalls`, etc.) that explain patterns and the most common LLM-specific mistakes. See also [`AGENTS.md`](./AGENTS.md) at the project root.
 
 ## 🏗️ Underlying Standards
 

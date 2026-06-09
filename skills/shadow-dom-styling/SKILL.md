@@ -1,3 +1,8 @@
+---
+name: shadow-dom-styling
+description: How to style rikka custom elements — `css\`` for Shadow DOM stylesheets, `inlineStyle\`` for inline style attributes, `adoptStyle`, the `:host` selector, and signal interpolation in styles. Load this when the task is about scoping CSS, theming via signals, or wiring a stylesheet into a custom element.
+---
+
 # Shadow DOM & Styling
 
 Two CSS tagged templates from `@takanashi/rikka-dom`: `css\`\`` returns a `CSSStyleSheet` (for Shadow DOM), `inlineStyle\`\`` returns a plain style object (for inline `style` attributes).
@@ -204,6 +209,6 @@ const s = inlineStyle`--my-color: red; color: var(--my-color);`;
 
 ## See also
 
-- [dom-creation.md](./dom-creation.md)
-- [custom-element.md](./custom-element.md)
-- [browser-compatibility.md](./browser-compatibility.md) — fallback for old browsers
+- [../dom-creation/](../dom-creation/)
+- [../custom-element/](../custom-element/)
+- [../browser-compatibility/](../browser-compatibility/) — fallback for old browsers

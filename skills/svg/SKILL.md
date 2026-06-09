@@ -1,3 +1,8 @@
+---
+name: svg
+description: How to create SVG elements with rikka — namespace handling, the `svg`-prefixed helpers for tags that collide with HTML (`a`, `script`, `style`, `title`, `text`, `span`, `textPath`), and signal binding inside SVG. Load this when the task is about drawing shapes, gradients, paths, or any `<svg>` markup.
+---
+
 # SVG
 
 rikka-dom creates SVG elements in the SVG namespace automatically. Most SVG tags are also tag helpers.
@@ -28,7 +33,7 @@ svg(
 
 ## Namespace handling
 
-rikka-dom auto-selects the namespace based on the tag name:
+rikka-dom auto-selects the namespace based on tag name:
 
 - **SVG-only tags** (`circle`, `path`, `rect`, `g`, `defs`, `use`, `linearGradient`, …) are always created in the SVG namespace — no extra syntax.
 - **MathML-only tags** are always created in the MathML namespace.
@@ -143,5 +148,5 @@ svg({ width: 200, height: 200 }, circle({ cx: 50, cy: 50, r: 40 }));
 
 ## See also
 
-- [dom-creation.md](./dom-creation.md) — `h`, tag helpers
-- [signal-binding.md](./signal-binding.md) — signal patterns
+- [../dom-creation/](../dom-creation/) — `h`, tag helpers
+- [../signal-binding/](../signal-binding/) — signal patterns

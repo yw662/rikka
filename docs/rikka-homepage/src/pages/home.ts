@@ -16,30 +16,50 @@ import {
 import { signal, computed, effect } from "@takanashi/rikka-signal";
 import { RikkaLivePlayground } from "@takanashi/rikka-live-playground";
 import { sharedHelpers } from "../shared/helpers";
-import { locale, t, type Locale } from "../shared/i18n";
+import { locale, t, tr, type Locale } from "../shared/i18n";
 import { homeContent } from "../shared/home-content";
 import { hljsTheme } from "../shared/page-styles";
 import { highlightInline } from "../shared/highlight";
 
 const cdnGzipKB = signal<string | null>(null);
+const packageGzipKB = signal<{ signal: number; dom: number; elements: number } | null>(null);
+
+async function measureGzipSize(url: string): Promise<number> {
+  const res = await fetch(url);
+  const body = await res.text();
+  const stream = new Blob([body])
+    .stream()
+    .pipeThrough(new CompressionStream("gzip"));
+  const reader = stream.getReader();
+  let size = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+  }
+  return size;
+}
+
+function formatKB(bytes: number): string {
+  return bytes < 1024 ? `~${bytes}B` : `~${Math.round(bytes / 1024)}KB`;
+}
 
 async function measureCdnGzipSize() {
   try {
-    const res = await fetch("./cdn/rikka.esm.js");
-    const body = await res.text();
-    const stream = new Blob([body])
-      .stream()
-      .pipeThrough(new CompressionStream("gzip"));
-    const reader = stream.getReader();
-    let size = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.length;
-    }
-    cdnGzipKB.set(`~${Math.round(size / 1024)}KB`);
+    const total = await measureGzipSize("./cdn/rikka.esm.js");
+    cdnGzipKB.set(formatKB(total));
   } catch {
-    cdnGzipKB.set("~15KB");
+    cdnGzipKB.set("~13KB");
+  }
+  try {
+    const [sig, dom, elm] = await Promise.all([
+      measureGzipSize("./esm/rikka-signal.js"),
+      measureGzipSize("./esm/rikka-dom.js"),
+      measureGzipSize("./esm/rikka-elements.js"),
+    ]);
+    packageGzipKB.set({ signal: sig, dom, elements: elm });
+  } catch {
+    packageGzipKB.set(null);
   }
 }
 measureCdnGzipSize();
@@ -1135,6 +1155,96 @@ const homeStyles = css`
       text-align: center;
     }
   }
+
+  /* ========== AI section ========== */
+  .ai-section {
+    padding: 5rem 2rem;
+    max-width: 1000px;
+    margin: 0 auto;
+    text-align: center;
+    position: relative;
+  }
+  .ai-section::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse 60% 50% at 50% 50%,
+      var(--color-primary) 0%,
+      transparent 70%
+    );
+    opacity: 0.08;
+    pointer-events: none;
+  }
+  .ai-section > * {
+    position: relative;
+  }
+  .ai-tag {
+    display: inline-block;
+    padding: 0.35rem 0.875rem;
+    background: var(--color-primary);
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    border-radius: 9999px;
+    margin-bottom: 1rem;
+  }
+  .ai-section h2 {
+    font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+    color: var(--color-text-primary);
+    margin: 0 0 0.875rem 0;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .ai-section .ai-desc {
+    color: var(--color-text-secondary);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    max-width: 640px;
+    margin: 0 auto 1.75rem;
+  }
+  .ai-section .ai-desc code {
+    background: var(--color-step-code-bg);
+    padding: 0.15rem 0.45rem;
+    border-radius: 0.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    color: var(--color-step-code-text);
+  }
+  .ai-ctas {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+  }
+  .ai-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.7rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+  }
+  .ai-cta--primary {
+    background: var(--color-primary);
+    color: white;
+  }
+  .ai-cta--primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px -4px rgba(4, 120, 87, 0.4);
+  }
+  .ai-cta--secondary {
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+  }
+  .ai-cta--secondary:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
 `;
 
 const counterCode = `// Try editing this code!
@@ -1252,7 +1362,11 @@ const HomePage = defineElement("rikka-home", {
         descKey: homeContent.advantageSmallerBundleDesc,
         code: computed(() => {
           const size = cdnGzipKB.get();
-          return `// ✅ Rikka: Measured from CDN bundle\n// Total: ${size ?? "···"} (all 3 packages, min+gzip)\nimport { signal }       from '@takanashi/rikka-signal';       // ~2KB\nimport { div, button }  from '@takanashi/rikka-dom';          // ~6KB\nimport { defineElement } from '@takanashi/rikka-elements';     // ~3KB\n\n// ❌ React: ~42KB (min+gzip)\n// + ReactDOM: ~130KB\n// Total: ~172KB minimum (10x larger!)`;
+          const pkg = packageGzipKB.get();
+          const sig = pkg ? formatKB(pkg.signal) : "···";
+          const dom = pkg ? formatKB(pkg.dom) : "···";
+          const elm = pkg ? formatKB(pkg.elements) : "···";
+          return `// ✅ Rikka: Measured from CDN bundle (gzip)\n// Total: ${size ?? "···"} (all 3 packages)\nimport { signal }       from '@takanashi/rikka-signal';       // ${sig}\nimport { div, button }  from '@takanashi/rikka-dom';          // ${dom}\nimport { defineElement } from '@takanashi/rikka-elements';     // ${elm}\n\n// Other frameworks ship an order of magnitude more.\n// A virtual DOM runtime is heavier than fine-grained signals.`;
         }),
       },
       {
@@ -1397,6 +1511,34 @@ const HomePage = defineElement("rikka-home", {
             ),
           ),
           heroDemo,
+        ),
+      ),
+      section(
+        { class: "ai-section" },
+        span({ class: "ai-tag" }, tr(homeContent.aiEyebrow)),
+        (() => {
+          const el = h2({});
+          effect(() => {
+            el.textContent = t(homeContent.aiTitle);
+          });
+          return el;
+        })(),
+        p({ class: "ai-desc" }, tr(homeContent.aiDesc)),
+        div(
+          { class: "ai-ctas" },
+          a(
+            {
+              class: "ai-cta ai-cta--primary",
+              href: "./skills/",
+              target: "_blank",
+              rel: "noopener",
+            },
+            tr(homeContent.aiCtaSkills),
+          ),
+          a(
+            { class: "ai-cta ai-cta--secondary", href: "#/playground" },
+            tr(homeContent.aiCtaPlayground),
+          ),
         ),
       ),
       section(
@@ -1570,7 +1712,7 @@ const HomePage = defineElement("rikka-home", {
               const rows: [Record<Locale, string>, CellData[]][] = [
                 [
                   homeContent.comparisonRuntime,
-                  [cdnGzipKB, "~172KB", "~33KB", "~2KB*", "~7KB", "~5KB"],
+                  [cdnGzipKB, "~45KB*", "~18KB*", "~2KB*", "~7KB*", "~5KB*"],
                 ],
                 [
                   homeContent.comparisonVirtualDOM,
@@ -1625,6 +1767,17 @@ const HomePage = defineElement("rikka-home", {
                     homeContent.comparisonPartial,
                     { icon: "✓", cls: "check" },
                     homeContent.comparisonPartial,
+                  ],
+                ],
+                [
+                  homeContent.comparisonAgentDocs,
+                  [
+                    homeContent.comparisonAgentDocsRikka,
+                    homeContent.comparisonAgentDocsNone,
+                    homeContent.comparisonAgentDocsNone,
+                    homeContent.comparisonAgentDocsNone,
+                    homeContent.comparisonAgentDocsNone,
+                    homeContent.comparisonAgentDocsNone,
                   ],
                 ],
               ];

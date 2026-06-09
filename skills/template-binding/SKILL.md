@@ -1,3 +1,8 @@
+---
+name: template-binding
+description: The `template` option of `defineElement` with `{{name}}` / `{{@event}}` binding syntax. Load this when the task is about writing declarative HTML templates inside a custom element, using `{{...}}` for text/attributes, or `{{@event}}` to dispatch custom events.
+---
+
 # Template Binding
 
 The `template` option of `defineElement` lets you write the element's markup as an HTML string with `{{}}` binding syntax. `render()` and `template` are **mutually exclusive** — pick one.
@@ -190,6 +195,6 @@ defineElement("my-el", {
 
 ## See also
 
-- [custom-element.md](./custom-element.md) — full `defineElement` reference
-- [signal-binding.md](./signal-binding.md) — fine-grained binding patterns
-- [shadow-dom-styling.md](./shadow-dom-styling.md) — `css\`\`` for templates
+- [../custom-element/](../custom-element/) — full `defineElement` reference
+- [../signal-binding/](../signal-binding/) — fine-grained binding patterns
+- [../shadow-dom-styling/](../shadow-dom-styling/) — `css\`\`` for templates

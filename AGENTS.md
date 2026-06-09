@@ -4,19 +4,30 @@ Guidance for AI coding agents (LLMs, IDE coding assistants, autonomous coders) w
 
 ## If you're writing rikka code
 
-Before generating any rikka code, **read the skills index**:
+The rikka skills are published in the [agentskills.io](https://agentskills.io) format — one folder per skill, each with a `SKILL.md` containing YAML frontmatter (`name` + `description`).
 
-- **Skills index:** <https://yw662.github.io/rikka/skills/README.md>
-- **llms.txt:** <https://yw662.github.io/rikka/llms.txt>
+### Install via the `skills` CLI
+
+```bash
+npx skills add yw662/rikka
+```
+
+This installs all 14 skills into the agent's skill directory. They can also be browsed at <https://skills.sh> or read on the web at <https://yw662.github.io/rikka/skills/>.
+
+### Loading strategy (manual)
+
+If you can't use the CLI, read files directly:
+
+- **Skills index:** <https://yw662.github.io/rikka/skills/overview/SKILL.md> — start here
+- **llms.txt:** <https://yw662.github.io/rikka/llms.txt> — machine-readable index of all skills
 - **Skills landing page:** <https://yw662.github.io/rikka/skills/index.html>
+- **GitHub source:** <https://github.com/yw662/rikka/tree/main/skills>
 
-These are 14 task-oriented markdown files covering: reactive state, DOM creation, signal binding, control flow, form binding, custom elements, shadow DOM & styling, template binding, composition, SVG, browser compatibility, and common pitfalls.
+There are 14 task-oriented skills, one folder each: `rikka/`, `overview/`, `reactive-state/`, `dom-creation/`, `signal-binding/`, `control-flow/`, `form-binding/`, `custom-element/`, `shadow-dom-styling/`, `template-binding/`, `composition/`, `svg/`, `browser-compatibility/`, `common-pitfalls/`.
 
-### Loading strategy
-
-1. Read `https://yw662.github.io/rikka/skills/README.md` once to get the file map and decision tree.
-2. Load only the topic files relevant to the current task. Do not load all 14 files at once — context budget matters.
-3. Before generating code, also load `common-pitfalls.md` to internalize the #1 LLM-specific mistakes (passing `.get()` to DOM, plain function vs `computed`, `this.xxx` vs `this.$xxx`, etc.).
+1. Load `skills/rikka/SKILL.md` once for orientation, then load only the task-specific skill(s) for the current work.
+2. Do not load all 14 files at once — context budget matters.
+3. Before generating code, also load `skills/common-pitfalls/SKILL.md` to internalize the #1 LLM-specific mistakes (passing `.get()` to DOM, plain function vs `computed`, `this.xxx` vs `this.$xxx`, etc.).
 
 ### The four rikka-specific footguns
 
@@ -27,7 +38,7 @@ These are the most common LLM errors. Internalize them before writing rikka code
 3. **`this.xxx` vs `this.$xxx`** in `defineElement.render()` — `this.count` is the raw number, `this.$count` is the signal. Use `$` for DOM bindings.
 4. **`events` values are transform functions** — `(e) => detail`, not `MouseEvent` type markers.
 
-Full list with examples: <https://yw662.github.io/rikka/skills/common-pitfalls.md>
+Full list with examples: <https://yw662.github.io/rikka/skills/common-pitfalls/SKILL.md>
 
 ## If you're working on this repository
 
@@ -63,22 +74,37 @@ components/                   # published web components
   rikka-live-playground/
 docs/                         # documentation site source
   rikka-homepage/             # the marketing site (deployed to GitHub Pages)
-  rikka-skills/               # 14 markdown files, the agent-facing skill set
   research/llm/               # LLM-friendliness design notes and benchmark
 examples/                     # example projects
 scripts/                      # CI / test / typecheck scripts (browser-test paused, see scripts/browser-test.mjs)
+skills/                       # 14 agentskills.io-format skills, one folder each
+  rikka/                      # orientation skill (umbrella)
+  overview/                   # what rikka is, packages, design principles
+  reactive-state/             # signal, computed, effect, untracked
+  dom-creation/               # h(), tag helpers, h`...`
+  signal-binding/             # signals as children/attrs, fine-grained vs coarse
+  control-flow/               # For, Show, When, Switch, Match
+  form-binding/               # two-way binding for input/textarea/select
+  custom-element/             # defineElement, attributes, events, methods, render
+  shadow-dom-styling/         # css`...`, inlineStyle`...`, :host
+  template-binding/           # {{name}} / {{@event}} in templates
+  composition/                # composable functions + MyElement.h(...)
+  svg/                        # SVG namespace, svg-prefixed tags
+  browser-compatibility/      # polyfills, SSR, Light DOM fallback
+  common-pitfalls/            # cross-cutting LLM mistakes
 ```
 
 ### When editing skills
 
-The skills in `docs/rikka-skills/` are the primary documentation consumed by coding agents. Keep them:
+The skills in `skills/<name>/SKILL.md` are the primary documentation consumed by coding agents. They follow the [agentskills.io](https://agentskills.io) spec (YAML frontmatter with `name` + `description`, body in Markdown). Keep them:
 
 - **In English** (project convention).
-- **Task-oriented, not package-oriented** — one topic per file.
+- **Task-oriented, not package-oriented** — one topic per skill folder.
 - **With explicit "Pitfalls" sections** — anti-patterns the LLM should avoid.
-- **Cross-link via relative paths** — never duplicate content across files.
+- **Cross-link via relative paths** — use `../other-skill/` to link to a sibling skill.
+- **Frontmatter is required**: every `SKILL.md` must have `name` and `description` in the YAML header. The `description` is what the `skills` CLI and agent loaders display — phrase it as "when to use" guidance, not just "what it is".
 
-After editing skills, the homepage `pnpm build` step copies the 14 files into `dist/skills/` for serving. No manual sync required.
+After editing skills, the homepage `pnpm build` step copies the new layout into `dist/skills/<name>/SKILL.md` for serving. No manual sync required.
 
 ## Imports
 

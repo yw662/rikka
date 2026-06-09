@@ -1,3 +1,8 @@
+---
+name: custom-element
+description: How to define a Web Component with rikka's `defineElement`. Covers the two-argument form, the strict-typed builder form, `attributes`, `events`, `methods`, `render`, `template`, and lifecycle. Load this when the task is about creating a `<my-tag>` element, declaring reactive HTML attributes, or dispatching custom events.
+---
+
 # Custom Elements
 
 `defineElement` registers a real Custom Element. The returned constructor also exposes a `.h` tag function for embedding in `rikka-dom`.
@@ -23,6 +28,79 @@ const MyCounter = defineElement("my-counter", {
 ```
 
 All instance types are inferred from `config`. No decorators, no base class, no manual `customElements.define` call.
+
+> **Caveat — `this` typing.** TypeScript cannot infer the config generic `C` from inside the body of a function literal. With the two-argument form, the `this` type of `render` and `methods` is `any`. Use the [builder form](#builder-form-strict-this-typing) below for strict `this` typing.
+
+## Builder form (strict `this` typing)
+
+When you need `this` to be correctly typed inside `render` / `methods` callbacks, call `defineElement(tagName)` (one argument) and chain the builder methods. The builder is **phased**: its return type narrows as you call methods, so by the time the `render` body is type-checked, `this` is `RikkaElement<FullConfig>` and typos become compile errors.
+
+### State machine
+
+```
+BuilderFresh                                  (first-phase bindings available)
+   │  .attrs(A) | .dataset(D) | .events(E)   (any order, any subset, all optional)
+   ▼
+BuilderWithBindings<C & {...}>                (.attrs/.dataset/.events still
+   │                                          callable — useful when the user
+   │  .methods(M)                            wants to pick them up later;
+   ▼                                          .methods now available)
+BuilderWithMethods<C & { methods: M }>        (.methods hidden;
+   │                                          .template / .render available)
+   │  .template(T)        .render(F)        (mutually exclusive terminals)
+   ▼                       ▼
+BuilderWithTemplate       BuilderWithRender
+```
+
+- **First-phase bindings** (`.attrs`, `.dataset`, `.events`) must all be called (if at all) **before** `.methods` and **before** `.template`/`.render`. They can be called in any order, on either `BuilderFresh` or `BuilderWithBindings`. Each is also independently optional.
+- **`.methods`** must come after the first-phase bindings (i.e. on `BuilderWithBindings` or later). Itself optional: `.template` / `.render` can be called from `BuilderWithBindings` directly.
+- **`.template` / `.render`** are mutually exclusive terminals. They can be called from `BuilderWithBindings` (skipping `.methods`) or from `BuilderWithMethods`.
+- **Meta methods** (`.styles`, `.shadow`, `.tools`, `.toolContext`) and **`.build()`** are available in every phase.
+
+### Full example
+
+```typescript
+const MyCounter = defineElement("my-counter")          // BuilderFresh
+  .attrs({ count: { ...NumberAttr, default: 0 } })      // BuilderWithBindings
+  .events({ change: (e: MouseEvent) => ({ x: e.clientX, y: e.clientY }) })
+  .styles(css`:host { display: block; padding: 16px; }`)
+  .methods({                                          // BuilderWithMethods
+    increment() { this.count++; },        // this is typed
+    reset() { this.count = 0; },
+  })
+  .render(function () {                  // `function` not arrow — preserves `this`
+    // this: RikkaElement<FullConfig> — strict, autocomplete works
+    return div(p({}, this.$count), button({ onclick: () => this.count++ }, "+"));
+  })
+  .build();                                           // BuilderWithRender
+```
+
+Skipping any step works too:
+
+```typescript
+defineElement("my-el")
+  .attrs({ label: StringAttr })          // skip events, dataset, methods
+  .render(function () { return span(this.label); })
+  .build();
+```
+
+### Method reference
+
+| Method | Available in phase | Purpose |
+| --- | --- | --- |
+| `.attrs(A)` | `BuilderFresh` / `BuilderWithBindings` | declare reactive attributes |
+| `.dataset(D)` | same | declare `data-*` attributes |
+| `.events(E)` | same | declare custom events |
+| `.methods(M)` | `BuilderWithBindings` only | attach prototype methods (typed `this`) |
+| `.template(tpl)` | `BuilderWithBindings` / `BuilderWithMethods` | declarative template with `{{...}}` / `{{@event}}` bindings |
+| `.render(fn)` | `BuilderWithBindings` / `BuilderWithMethods` | imperative render (typed `this`) |
+| `.styles(sheet \| sheet[])` | every phase | adopt stylesheets into shadow root |
+| `.shadow(init \| false)` | every phase | configure shadow root mode |
+| `.tools(T)` | every phase | WebMCP tool definitions |
+| `.toolContext(C)` | every phase | WebMCP context mapping |
+| `.build()` | every phase | finalize and register the custom element |
+
+The element is registered the first time `.build()` is called.
 
 ## Config options
 
@@ -179,11 +257,11 @@ styles: css`:host { display: block; }`,
 styles: [css`:host { color: red; }`, css`:host { background: blue; }`],
 ```
 
-See [shadow-dom-styling.md](./shadow-dom-styling.md).
+See [../shadow-dom-styling/](../shadow-dom-styling/).
 
 ### `template` — declarative template
 
-Pass an `HTMLTemplateElement` instead of `render`. Use `{{name}}` / `{{@event}}` binding. See [template-binding.md](./template-binding.md).
+Pass an `HTMLTemplateElement` instead of `render`. Use `{{name}}` / `{{@event}}` binding. See [../template-binding/](../template-binding/).
 
 `template` and `render` are mutually exclusive.
 
@@ -317,8 +395,8 @@ rikka uses `queueMicrotask` to defer registration, so multiple `defineElement` c
 
 ## See also
 
-- [shadow-dom-styling.md](./shadow-dom-styling.md) — `css\`\``, `adoptStyle`
-- [template-binding.md](./template-binding.md) — `template` option
-- [composition.md](./composition.md) — embedding custom elements
-- [signal-binding.md](./signal-binding.md) — `this.$xxx` patterns
-- [browser-compatibility.md](./browser-compatibility.md) — polyfills
+- [../shadow-dom-styling/](../shadow-dom-styling/) — `css\``, `adoptStyle`
+- [../template-binding/](../template-binding/) — `template` option
+- [../composition/](../composition/) — embedding custom elements
+- [../signal-binding/](../signal-binding/) — `this.$xxx` patterns
+- [../browser-compatibility/](../browser-compatibility/) — polyfills

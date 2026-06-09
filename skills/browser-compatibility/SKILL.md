@@ -1,3 +1,8 @@
+---
+name: browser-compatibility
+description: Browser support matrix for rikka — Custom Elements, Shadow DOM, Constructable Stylesheets, plus polyfill choices (`@webcomponents/custom-elements`, `@webcomponents/shadydom`), Light DOM fallbacks, and SSR guidance (`happy-dom` vs jsdom). Load this when the task is about targeting old browsers, deciding which polyfill to add, or making a custom element work without Shadow DOM.
+---
+
 # Browser Compatibility
 
 `@takanashi/rikka-elements` depends on three browser APIs: Custom Elements, Shadow DOM, and Constructable Stylesheets. Modern browsers support all of them; older browsers need polyfills or fallbacks.
@@ -186,5 +191,5 @@ The polyfill will upgrade the existing `<my-counter>` once it loads, but with a 
 
 ## See also
 
-- [custom-element.md](./custom-element.md)
-- [shadow-dom-styling.md](./shadow-dom-styling.md)
+- [../custom-element/](../custom-element/)
+- [../shadow-dom-styling/](../shadow-dom-styling/)

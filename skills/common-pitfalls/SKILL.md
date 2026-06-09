@@ -1,3 +1,8 @@
+---
+name: common-pitfalls
+description: Cross-cutting mistakes that recur across rikka code generation. Load this BEFORE generating rikka code, and refer back when debugging. Covers the 4 rikka-specific LLM footguns (signal vs `.get()`, plain function vs `computed`, `this.xxx` vs `this.$xxx`, `events` as transform functions) plus `h\`\`` interpolation modes, `NumberAttr` default `NaN`, and more.
+---
+
 # Common Pitfalls
 
 Cross-cutting mistakes that recur across rikka code generation. Read this before generating rikka code; refer back when debugging.
@@ -58,7 +63,33 @@ defineElement("my-el", {
 
 The `$`-prefix exposes the underlying `Signal.State`. Use it in DOM bindings.
 
-### 4. `events` value must be a transform function, not a type marker
+### 4. `this` in `render` / `methods` is `any` (two-argument form)
+
+TypeScript cannot infer the config generic `C` from inside a function body that uses `this`. With `defineElement(tag, { render() { ... } })`, `this` is typed as `any`, so the body is **not** type-checked.
+
+```typescript
+// ❌ No type checking on this.name, this.$count, this.getAttribute, ...
+defineElement("my-el", {
+  attributes: { label: StringAttr },
+  render() {
+    return span(this.name);   // works at runtime, but TS won't catch typos
+  },
+});
+```
+
+For strict `this` typing, use the [builder form](../custom-element/SKILL.md#builder-form-strict-this-typing):
+
+```typescript
+// ✅ this: RikkaElement<FullConfig> — typos become TS errors
+defineElement("my-el")
+  .attrs({ label: StringAttr })
+  .render(function () {
+    return span(this.label);   // strict
+  })
+  .build();
+```
+
+### 5. `events` value must be a transform function, not a type marker
 
 ```typescript
 // ❌ Type marker — wrong
@@ -156,7 +187,7 @@ In an SVG context, use the `svg`-prefixed version for `a`, `script`, `style`, `t
 svg(svga({ href: "#x" }, "Link"), svgtext({ x: 10, y: 30 }, "Text"));
 ```
 
-The unprefixed names (`a`, `script`, …) create HTML elements. See [svg.md](./svg.md).
+The unprefixed names (`a`, `script`, …) create HTML elements. See [../svg/](../svg/).
 
 ## Don't use `innerHTML`
 
@@ -214,8 +245,8 @@ If the defining module loads asynchronously, custom elements may briefly exist a
 
 ## See also
 
-- [reactive-state.md](./reactive-state.md) — signals, computed, effect
-- [signal-binding.md](./signal-binding.md) — fine-grained vs coarse-grained
-- [form-binding.md](./form-binding.md) — two-way binding
-- [custom-element.md](./custom-element.md) — `defineElement` config
-- [template-binding.md](./template-binding.md) — `{{name}}` / `{{@event}}`
+- [../reactive-state/](../reactive-state/) — signals, computed, effect
+- [../signal-binding/](../signal-binding/) — fine-grained vs coarse-grained
+- [../form-binding/](../form-binding/) — two-way binding
+- [../custom-element/](../custom-element/) — `defineElement` config
+- [../template-binding/](../template-binding/) — `{{name}}` / `{{@event}}`

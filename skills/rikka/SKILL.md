@@ -1,6 +1,6 @@
 ---
 name: rikka
-description: A Web Components toolkit with fine-grained reactivity based on TC39 Signals. Use this skill when writing interactive UIs with rikka — creating real DOM elements, binding signals, defining custom elements, or working with rikka's reactive primitives.
+description: A Web Components toolkit with fine-grained reactivity based on TC39 Signals. Use this skill when writing interactive UIs with rikka — creating real DOM elements, binding signals, defining custom elements, or working with rikka's reactive primitives. Load this first to get oriented, then load one of the task-specific skills (reactive-state, dom-creation, custom-element, etc.) for the actual work.
 ---
 
 # rikka
@@ -132,8 +132,21 @@ Use it in any HTML page:
 <my-counter start="10"></my-counter>
 ```
 
-## Further reading
+## Loading the right skill
 
-This skill is a quick primer. For the full picture, read the [skills index](./docs/rikka-skills/README.md) — 14 task-oriented files covering reactive state, DOM creation, signal binding, control flow, form binding, custom elements, shadow DOM & styling, template binding, composition, SVG, browser compatibility, and common pitfalls.
+This is the orientation skill. For actual work, load the matching task-specific skill:
 
-The single most important file is **[common-pitfalls.md](./docs/rikka-skills/common-pitfalls.md)** — read it before generating rikka code.
+- Creating or reading signals / computed / effect → `../reactive-state/`
+- Building elements with `h()` or tag helpers → `../dom-creation/`
+- Putting signals into DOM (text, attributes, `{{name}}`) → `../signal-binding/`
+- Lists / conditionals → `../control-flow/`
+- Two-way binding for inputs → `../form-binding/`
+- Defining a custom element with `defineElement` → `../custom-element/`
+- Shadow DOM + `css\``/`inlineStyle\`` → `../shadow-dom-styling/`
+- The `template` option with `{{name}}` / `{{@event}}` → `../template-binding/`
+- Composing components and embedding custom elements → `../composition/`
+- SVG → `../svg/`
+- Old browsers, polyfills, SSR → `../browser-compatibility/`
+- Debugging LLM-specific mistakes → `../common-pitfalls/`
+
+**Read `../common-pitfalls/` before generating rikka code** — it aggregates the cross-cutting mistakes.

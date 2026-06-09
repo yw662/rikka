@@ -2,13 +2,13 @@ import type { Locale } from "./i18n";
 
 export const homeContent = {
   // Hero
-  heroBadgeTC39: { en: "TC39 Signals", zh: "TC39 Signals" } as Record<Locale, string>,
-  heroBadgeZeroVDOM: { en: "Zero VDOM", zh: "零虚拟DOM" } as Record<Locale, string>,
-  heroBadgeZeroRuntime: { en: "Zero Runtime", zh: "零运行时" } as Record<Locale, string>,
+  heroBadgeTC39: { en: "AI Coding First", zh: "AI Coding First" } as Record<Locale, string>,
+  heroBadgeZeroVDOM: { en: "TC39 Signals", zh: "TC39 Signals" } as Record<Locale, string>,
+  heroBadgeZeroRuntime: { en: "Zero VDOM", zh: "零虚拟DOM" } as Record<Locale, string>,
   heroTagline: { en: "Native Reactivity for the Web", zh: "为 Web 而生的原生响应式" } as Record<Locale, string>,
   heroDesc: {
-    en: "Build Web Components with fine-grained signals. No virtual DOM, no framework overhead — just standards-based, LLM-friendly code that runs once and updates surgically.",
-    zh: "用细粒度信号构建 Web Components。无虚拟DOM，无框架开销——只有基于标准、对 LLM 友好的代码，一次运行，精准更新。",
+    en: "Function-based defineElement, no decorators, full TypeScript inference. The first frontend library to ship llms.txt + Agent Skills as part of the project structure.",
+    zh: "函数式 defineElement，无需装饰器，完整 TypeScript 推断。首个将 llms.txt + Agent Skills 内置进项目结构的前端库。",
   } as Record<Locale, string>,
   heroCtaGetStarted: { en: "Get Started →", zh: "开始使用 →" } as Record<Locale, string>,
   heroCtaViewExamples: { en: "View Examples", zh: "查看示例" } as Record<Locale, string>,
@@ -17,6 +17,16 @@ export const homeContent = {
   heroStatStandards: { en: "Standards based", zh: "基于标准" } as Record<Locale, string>,
   heroStatTypeScript: { en: "TypeScript", zh: "TypeScript" } as Record<Locale, string>,
 
+  // AI section
+  aiEyebrow: { en: "For AI Agents", zh: "面向 AI 智能体" } as Record<Locale, string>,
+  aiTitle: { en: "Built for the AI coding era", zh: "为 AI 编程时代而生" } as Record<Locale, string>,
+  aiDesc: {
+    en: "Rikka ships llms.txt + Agent Skills + AGENTS.md as part of the project structure. Tested in Cursor and Claude Code — agents write correct Rikka code on the first try.",
+    zh: "Rikka 把 llms.txt + Agent Skills + AGENTS.md 内置进项目结构。在 Cursor 和 Claude Code 中实测通过——AI 智能体一次写出正确的 Rikka 代码。",
+  } as Record<Locale, string>,
+  aiCtaSkills: { en: "Read the skills →", zh: "阅读 Skills →" } as Record<Locale, string>,
+  aiCtaPlayground: { en: "Try the playground →", zh: "试用 Playground →" } as Record<Locale, string>,
+
   // Features section
   featuresEyebrow: { en: "Why Rikka", zh: "为什么选择 Rikka" } as Record<Locale, string>,
   featuresTitle: { en: "Built for the modern web", zh: "为现代 Web 而构建" } as Record<Locale, string>,
@@ -24,20 +34,20 @@ export const homeContent = {
     en: "Simple primitives, predictable mental model, and surgical updates — no framework tax.",
     zh: "简单的原语、可预测的心智模型、精准更新——零框架税。",
   } as Record<Locale, string>,
-  featureFineGrainedTitle: { en: "Fine-Grained Reactivity", zh: "细粒度响应式" } as Record<Locale, string>,
+  featureFineGrainedTitle: { en: "TC39 Signals", zh: "TC39 Signals" } as Record<Locale, string>,
   featureFineGrainedDesc: {
-    en: "Signals drive surgical DOM updates. No virtual DOM diffing, no re-renders — just the minimal changes, instantly.",
-    zh: "信号驱动精准的 DOM 更新。无虚拟DOM Diff，无重渲染——只有最小化的即时变更。",
+    en: "Built on the standard proposal for fine-grained reactivity. When browsers ship it, Rikka drops the polyfill without changing your code.",
+    zh: "基于细粒度响应式的标准提案。浏览器原生支持时，Rikka 可直接去掉垫片，无需改动用户代码。",
   } as Record<Locale, string>,
-  featureLLMTitle: { en: "LLM-Friendly", zh: "对 LLM 友好" } as Record<Locale, string>,
+  featureLLMTitle: { en: "AI Coding First", zh: "AI Coding First" } as Record<Locale, string>,
   featureLLMDesc: {
-    en: "Native HTML/CSS/JS patterns are more predictable for AI code generation than complex framework abstractions.",
-    zh: "原生 HTML/CSS/JS 模式比复杂的框架抽象更易于 AI 代码生成。",
+    en: "The first frontend library to ship llms.txt + 14 Agent Skills + AGENTS.md as part of the project structure. Agents write correct Rikka code on the first try.",
+    zh: "首个将 llms.txt + 14 个 Agent Skills + AGENTS.md 内置到项目结构的前端库。AI 智能体一次写出正确的 Rikka 代码。",
   } as Record<Locale, string>,
-  featureZeroRuntimeTitle: { en: "Zero Runtime Tax", zh: "零运行时税" } as Record<Locale, string>,
+  featureZeroRuntimeTitle: { en: "Function-Based API", zh: "函数式 API" } as Record<Locale, string>,
   featureZeroRuntimeDesc: {
-    en: "No framework runtime in your bundle. Direct browser APIs with tree-shakeable packages.",
-    zh: "你的包中没有框架运行时。直接使用浏览器 API，支持 tree-shaking。",
+    en: "defineElement(\"tag\", { ... }) is a function, not a class. No @customElement decorator, no global type augmentation, no class fields.",
+    zh: "defineElement(\"tag\", { ... }) 是函数，不是 class。无需 @customElement 装饰器，无需全局类型扩展，无需 class 字段。",
   } as Record<Locale, string>,
   featureTemplateTitle: { en: "Template System", zh: "模板系统" } as Record<Locale, string>,
   featureTemplateDescAnd: { en: " and ", zh: " 和 " } as Record<Locale, string>,
@@ -45,15 +55,15 @@ export const homeContent = {
     en: " tag templates with slots. Declarative, reactive, and type-safe styling.",
     zh: " 标签模板，支持插槽。声明式、响应式、类型安全的样式。",
   } as Record<Locale, string>,
-  featureTypeSafeTitle: { en: "Type Safe", zh: "类型安全" } as Record<Locale, string>,
+  featureTypeSafeTitle: { en: "Full TS Inference", zh: "完整 TS 推断" } as Record<Locale, string>,
   featureTypeSafeDesc: {
-    en: "Full TypeScript inference for signals and DOM helpers. Catch errors at compile time, not at runtime.",
-    zh: "信号和 DOM 助手的完整 TypeScript 推断。在编译时而非运行时捕获错误。",
+    en: "Attributes, signals, and DOM helpers all infer types. No any, no manual casts, no JSDoc gymnastics.",
+    zh: "属性、信号、DOM 助手全部类型推断。无需 any，无需手动断言，无需 JSDoc 取巧。",
   } as Record<Locale, string>,
   featureWebStandardsTitle: { en: "Web Standards", zh: "Web 标准" } as Record<Locale, string>,
   featureWebStandardsDesc: {
-    en: "Built on Custom Elements, Shadow DOM, and the TC39 Signals proposal. Future-proof by design.",
-    zh: "基于 Custom Elements、Shadow DOM 和 TC39 Signals 提案构建。设计上面向未来。",
+    en: "Custom Elements, Shadow DOM, CSS\\`\\`, h\\`\\`. No virtual DOM, no framework runtime, no proprietary abstractions.",
+    zh: "Custom Elements、Shadow DOM、CSS\\`\\`、h\\`\\`。无虚拟DOM，无框架运行时，无私有抽象。",
   } as Record<Locale, string>,
 
   // Demo section
@@ -100,6 +110,9 @@ export const homeContent = {
   comparisonBuildStep: { en: "Build Step", zh: "构建步骤" } as Record<Locale, string>,
   comparisonWebStandards: { en: "Web Standards", zh: "Web 标准" } as Record<Locale, string>,
   comparisonTypeSafe: { en: "Type Safe", zh: "类型安全" } as Record<Locale, string>,
+  comparisonAgentDocs: { en: "AI / LLM docs", zh: "AI / LLM 文档" } as Record<Locale, string>,
+  comparisonAgentDocsRikka: { en: "llms.txt + skills + AGENTS.md", zh: "llms.txt + skills + AGENTS.md" } as Record<Locale, string>,
+  comparisonAgentDocsNone: { en: "—", zh: "—" } as Record<Locale, string>,
   comparisonOptional: { en: "Optional", zh: "可选" } as Record<Locale, string>,
   comparisonRequired: { en: "Required", zh: "必需" } as Record<Locale, string>,
   comparisonPartial: { en: "Partial", zh: "部分" } as Record<Locale, string>,

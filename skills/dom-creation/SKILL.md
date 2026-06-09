@@ -1,3 +1,8 @@
+---
+name: dom-creation
+description: How to create DOM elements in rikka — `h()` function, 200+ tag helpers (`div`, `p`, `button`, …), and the `h\`html\`` template literal. Load this when the task is about constructing elements, the `h` API, mounting elements into the document, or HTML/SVG namespace handling.
+---
+
 # DOM Creation
 
 `h()` and tag helpers create **real `Element` objects** — no virtual DOM, no factory, no second call. Append the result directly to the DOM.
@@ -22,7 +27,7 @@ document.body.appendChild(el);
 The first argument can be:
 
 - A string tag name (`"div"`, `"my-element"`, …)
-- A custom element constructor (see [composition.md](./composition.md))
+- A custom element constructor (see [../composition/](../composition/))
 
 The optional second argument is an attrs object. Remaining arguments are children.
 
@@ -54,7 +59,7 @@ The full set:
 
 > `var_`, `switch_` use a trailing underscore because `var` and `switch` are JavaScript reserved words. Use `import { var_ as v } from "@takanashi/rikka-dom"` if you need the un-suffixed name.
 
-See [svg.md](./svg.md) for namespace handling.
+See [../svg/](../svg/) for namespace handling.
 
 ## `h\`html\`: Element[]` (template literal)
 
@@ -142,7 +147,7 @@ if (container) applyChild(container, app);
 
 The `Child` type accepts: `null | string | number | Element | DocumentFragment | ReactiveRange | Signal.State<Child> | Signal.Computed<Child> | Child[] | Signal.State<Child[]> | Signal.Computed<Child[]> | (() => Child)`.
 
-The interesting case is the function — it's auto-wrapped as `computed` so any `.get()` inside is tracked. See [signal-binding.md](./signal-binding.md#function-children) for details.
+The interesting case is the function — it's auto-wrapped as `computed` so any `.get()` inside is tracked. See [../signal-binding/#function-children](../signal-binding/SKILL.md#function-children) for details.
 
 ```typescript
 const count = signal(0);
@@ -164,7 +169,7 @@ rikka-dom auto-selects the namespace based on tag name:
 - MathML-only tags → `http://www.w3.org/1998/Math/MathML`
 - Name-collision tags (`a`, `script`, `style`, `title`, `text`, `span`, `textPath`) → use the `svg` prefix in SVG context: `svga`, `svgscript`, `svgstyle`, `svgtitle`, `svgtext`, `svgspan`, `svgtextPath`
 
-See [svg.md](./svg.md).
+See [../svg/](../svg/).
 
 ## Pitfalls
 
@@ -223,12 +228,12 @@ div({ style: { color: () => count.get() % 2 ? "red" : "blue" } });
 div({ style: { color: computed(() => count.get() % 2 ? "red" : "blue") } });
 ```
 
-See [signal-binding.md](./signal-binding.md#function-values-vs-computed).
+See [../signal-binding/#function-values-vs-computed](../signal-binding/SKILL.md#function-values-vs-computed).
 
 ## See also
 
-- [signal-binding.md](./signal-binding.md) — putting signals into the DOM
-- [control-flow.md](./control-flow.md) — `For`, `Show`, `When`, `Switch`
-- [form-binding.md](./form-binding.md) — two-way binding inputs
-- [svg.md](./svg.md) — SVG markup
-- [common-pitfalls.md](./common-pitfalls.md)
+- [../signal-binding/](../signal-binding/) — putting signals into the DOM
+- [../control-flow/](../control-flow/) — `For`, `Show`, `When`, `Switch`
+- [../form-binding/](../form-binding/) — two-way binding inputs
+- [../svg/](../svg/) — SVG markup
+- [../common-pitfalls/](../common-pitfalls/)

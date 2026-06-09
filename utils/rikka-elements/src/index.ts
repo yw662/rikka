@@ -25,6 +25,12 @@
 
 export {
   defineElement,
+  BuilderFresh,
+  BuilderWithBindings,
+  BuilderWithMethods,
+  BuilderWithTemplate,
+  BuilderWithRender,
+  type AnyBuilder,
   StringAttr,
   NumberAttr,
   BooleanAttr,

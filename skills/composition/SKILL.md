@@ -1,3 +1,8 @@
+---
+name: composition
+description: Composing rikka components — composable functions vs custom elements, and the `MyElement.h(...)` bridge that lets a custom element be embedded like a tag helper. Load this when the task is about splitting UI into reusable pieces, choosing between function components and `<my-tag>` elements, or embedding one custom element inside another.
+---
+
 # Composition
 
 rikka has two complementary component styles, with a clean bridge between them.
@@ -211,6 +216,6 @@ For stateful components that need lifecycle, use `defineElement` with attributes
 
 ## See also
 
-- [custom-element.md](./custom-element.md) — full `defineElement` reference
-- [dom-creation.md](./dom-creation.md)
-- [reactive-state.md](./reactive-state.md) — signals in components
+- [../custom-element/](../custom-element/) — full `defineElement` reference
+- [../dom-creation/](../dom-creation/)
+- [../reactive-state/](../reactive-state/) — signals in components

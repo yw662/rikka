@@ -1,3 +1,8 @@
+---
+name: form-binding
+description: Two-way binding for `<input>`, `<textarea>`, `<select>` via writable signals. Load this when the task is about wiring a form field to a signal — text input, checkbox, or select — or doing derived validation that updates as the user types.
+---
+
 # Form Two-Way Binding
 
 For specific properties of `<input>`, `<textarea>`, and `<select>`, passing a writable signal (`Signal.State`) **automatically** sets up two-way binding. The DOM event syncs back to the signal.
@@ -113,7 +118,7 @@ div({},
 
 The same rule does **not** apply to attributes defined via `defineElement`. The `value` / `checked` / `selectedIndex` two-way binding is a feature of `rikka-dom`'s input handling, not of `defineElement` attributes.
 
-For custom elements with form-like behavior, use a declared `attributes` entry plus an `events` entry. See [custom-element.md](./custom-element.md).
+For custom elements with form-like behavior, use a declared `attributes` entry plus an `events` entry. See [../custom-element/](../custom-element/).
 
 ## Pitfalls
 
@@ -161,7 +166,7 @@ You don't need to add manual event listeners — just declare the property and t
 
 ## See also
 
-- [dom-creation.md](./dom-creation.md)
-- [signal-binding.md](./signal-binding.md)
-- [control-flow.md](./control-flow.md)
-- [common-pitfalls.md](./common-pitfalls.md)
+- [../dom-creation/](../dom-creation/)
+- [../signal-binding/](../signal-binding/)
+- [../control-flow/](../control-flow/)
+- [../common-pitfalls/](../common-pitfalls/)

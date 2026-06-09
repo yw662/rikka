@@ -1,3 +1,8 @@
+---
+name: control-flow
+description: Reactive ranges for lists and conditionals — `For` (lists), `Show` (visibility), `When` (binary branches), `Switch` / `Match` (multi-way). Load this when the task is about rendering a list of items, conditionally showing/hiding elements, or pattern-matching on a value to render different branches.
+---
+
 # Control Flow
 
 rikka-dom ships four reactive range helpers: `For` for lists, `Show` for visibility, `When` for binary branches, `Switch` / `Match` for multi-way. All cache their DOM so toggling does not rebuild elements.
@@ -156,6 +161,6 @@ When(cond, () => A(), () => B());
 
 ## See also
 
-- [dom-creation.md](./dom-creation.md)
-- [signal-binding.md](./signal-binding.md)
-- [common-pitfalls.md](./common-pitfalls.md)
+- [../dom-creation/](../dom-creation/)
+- [../signal-binding/](../signal-binding/)
+- [../common-pitfalls/](../common-pitfalls/)

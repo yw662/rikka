@@ -1,3 +1,8 @@
+---
+name: signal-binding
+description: How to bind signals into the DOM — text nodes, attributes, template slots. Fine-grained vs coarse-grained. The single most important rule: pass the signal, not `.get()`. Load this when the task is about putting reactive state into elements, understanding why a value is "static", or choosing between `${signal}` and `computed(() => h\`…\`)`.
+---
+
 # Signal Binding
 
 The single most important rule: **pass the signal itself, not the result of `.get()`**. This is the difference between a live, fine-grained binding and a static value.
@@ -129,7 +134,7 @@ const tmpl = computed(() => {
 });
 ```
 
-See [common-pitfalls.md § Signal interpolation modes](./common-pitfalls.md#signal-interpolation-modes).
+See [../common-pitfalls/#signal-interpolation-modes](../common-pitfalls/SKILL.md#signal-interpolation-modes).
 
 ## `defineElement` template binding — `{{name}}` auto-resolves to `$name`
 
@@ -146,7 +151,7 @@ defineElement("my-counter", {
 
 This is equivalent to manually writing `p({}, this.$clickCount)` in a `render()` function.
 
-For attribute and event bindings in templates, see [template-binding.md](./template-binding.md).
+For attribute and event bindings in templates, see [../template-binding/](../template-binding/).
 
 ## Function values vs `computed`
 
@@ -168,7 +173,7 @@ This was the #1 LLM error in the rikka benchmark (Task 7, Theme Switcher). See [
 
 `effect`s created by DOM bindings (signals as children, signals as attrs, function children) are tied to the element via `WeakRef` + `FinalizationRegistry`. When the element is garbage-collected, the effect is automatically disposed. You don't need to manage disposal.
 
-If you create `effect`s manually (e.g. for non-DOM side effects), call the returned dispose function explicitly. See [reactive-state.md § `effect`](./reactive-state.md#effectfn---void).
+If you create `effect`s manually (e.g. for non-DOM side effects), call the returned dispose function explicitly. See [../reactive-state/#effectfn---void](../reactive-state/SKILL.md#effectfn---void).
 
 ## Pitfalls
 
@@ -195,8 +200,8 @@ Wrapping a tiny template in `computed` rebuilds the whole element on every chang
 
 ## See also
 
-- [reactive-state.md](./reactive-state.md) — creating signals
-- [dom-creation.md](./dom-creation.md) — `h`, tag helpers
-- [template-binding.md](./template-binding.md) — `{{name}}` / `{{@event}}` in templates
-- [form-binding.md](./form-binding.md) — two-way binding inputs
-- [common-pitfalls.md](./common-pitfalls.md)
+- [../reactive-state/](../reactive-state/) — creating signals
+- [../dom-creation/](../dom-creation/) — `h`, tag helpers
+- [../template-binding/](../template-binding/) — `{{name}}` / `{{@event}}` in templates
+- [../form-binding/](../form-binding/) — two-way binding inputs
+- [../common-pitfalls/](../common-pitfalls/)

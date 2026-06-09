@@ -1291,7 +1291,7 @@ function applyButtonStates(
 ): void {
   const header = self.shadowRoot?.querySelector(".header");
   if (!header) return;
-  header.querySelectorAll<HTMLElement>("[data-action]").forEach((btn) => {
+  header.querySelectorAll<HTMLElement>("[data-action]").forEach((btn: HTMLElement) => {
     const action = btn.dataset.action;
     if (action === "layout-vertical" || action === "layout-horizontal") {
       btn.classList.toggle("active", action === `layout-${layout}`);

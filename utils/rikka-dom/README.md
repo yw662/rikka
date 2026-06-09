@@ -115,11 +115,13 @@ document.body.appendChild(h`<div>Hello</div>`[0]);
 
 ## Full Documentation
 
-- [Skills Index](https://yw662.github.io/rikka/skills/README.md) — start here
-- [Overview](https://yw662.github.io/rikka/skills/overview.md)
-- [DOM Creation](https://yw662.github.io/rikka/skills/dom-creation.md)
-- [Signal Binding](https://yw662.github.io/rikka/skills/signal-binding.md)
-- [Control Flow](https://yw662.github.io/rikka/skills/control-flow.md)
-- [Form Binding](https://yw662.github.io/rikka/skills/form-binding.md)
-- [SVG](https://yw662.github.io/rikka/skills/svg.md)
-- [Common Pitfalls](https://yw662.github.io/rikka/skills/common-pitfalls.md)
+- [Skills (umbrella)](https://github.com/yw662/rikka/tree/main/skills/rikka/SKILL.md) — start here
+- [Overview](https://github.com/yw662/rikka/tree/main/skills/overview/SKILL.md)
+- [DOM Creation](https://github.com/yw662/rikka/tree/main/skills/dom-creation/SKILL.md)
+- [Signal Binding](https://github.com/yw662/rikka/tree/main/skills/signal-binding/SKILL.md)
+- [Control Flow](https://github.com/yw662/rikka/tree/main/skills/control-flow/SKILL.md)
+- [Form Binding](https://github.com/yw662/rikka/tree/main/skills/form-binding/SKILL.md)
+- [SVG](https://github.com/yw662/rikka/tree/main/skills/svg/SKILL.md)
+- [Common Pitfalls](https://github.com/yw662/rikka/tree/main/skills/common-pitfalls/SKILL.md)
+
+Install all 14 skills at once: `npx skills add yw662/rikka`
