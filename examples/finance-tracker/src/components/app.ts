@@ -1,5 +1,4 @@
-import { div, h1, span, button, select, option } from '@takanashi/rikka-dom';
-import { computed } from '@takanashi/rikka-signal';
+import { div, h1, span, select, option } from '@takanashi/rikka-dom';
 import { t, locale, setLocale, type Locale } from '../i18n.js';
 import { content } from '../content.js';
 import { TransactionForm } from './transaction-form';
