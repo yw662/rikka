@@ -39,3 +39,12 @@ export {
 } from "./defineElement.js";
 export { type PascalCase, toPascalCase } from "./utils.js";
 export { css } from "@takanashi/rikka-dom";
+export {
+  type ToolDefinition,
+  type ToolContextMapping,
+  getDomPath,
+  resolveInstance,
+  listInstances,
+  getModelContext,
+  isWebMCPSupported,
+} from "./webmcp.js";

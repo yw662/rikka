@@ -42,14 +42,28 @@ interface ModelContextRegisterToolOptions {
   exposedTo?: string[];
 }
 
+interface ModelContextProvideContextOptions {
+  signal?: AbortSignal;
+}
+
+interface ModelContextContextEntry {
+  name: string;
+  description?: string;
+  content: unknown;
+}
+
 interface ModelContext extends EventTarget {
   registerTool(
     tool: ModelContextTool,
     options?: ModelContextRegisterToolOptions,
   ): void;
   unregisterTool(name: string): void;
-  listTools(): ModelContextTool[];
+  provideContext(
+    context: ModelContextContextEntry,
+    options?: ModelContextProvideContextOptions,
+  ): void;
   callTool(name: string, input?: object): Promise<unknown>;
+  listTools(): ModelContextTool[];
   ontoolchange: ((this: ModelContext, ev: Event) => void) | null;
   addEventListener(
     type: "toolchange",
@@ -70,11 +84,4 @@ interface Document {
 interface Navigator {
   /** @deprecated Use document.modelContext instead (WebMCP spec May 2026). */
   readonly modelContext: ModelContext;
-}
-
-/**
- * Type declaration for @mcp-b/webmcp-polyfill.
- */
-declare module "@mcp-b/webmcp-polyfill" {
-  export function initializeWebMCPPolyfill(): void;
 }

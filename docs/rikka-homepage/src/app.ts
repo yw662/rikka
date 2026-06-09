@@ -211,6 +211,162 @@ const RikkaApp = defineElement('rikka-app', {
           return Object.keys(routes).map(p => ({ path: p, title: routes[p].title }));
         },
       });
+
+      mc.registerTool({
+        name: 'readDocs',
+        description: 'Read the text content of a documentation page. Returns the visible text (no HTML tags).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            path: {
+              type: 'string',
+              description: 'Doc page path, e.g. /docs/@takanashi/rikka-signal/signal or /docs/@takanashi/rikka-dom/h',
+            },
+          },
+          required: ['path'],
+        },
+        execute: async (input: { path: string }) => {
+          const route = routes[input.path];
+          if (!route) return { error: `Page not found: ${input.path}. Use listPages to see available pages.` };
+          // Navigate first so the content renders
+          window.location.hash = input.path;
+          // Wait for render
+          await new Promise((r) => setTimeout(r, 200));
+          const contentEl = document.querySelector('.content') as HTMLElement;
+          if (!contentEl) return { error: 'Content area not found' };
+          const text = contentEl.innerText || contentEl.textContent || '';
+          // Truncate very long docs
+          const maxLen = 8000;
+          const truncated = text.length > maxLen ? text.slice(0, maxLen) + '\n... (truncated)' : text;
+          return { path: input.path, title: route.title, content: truncated };
+        },
+      });
+
+      mc.registerTool({
+        name: 'searchDocs',
+        description: 'Search documentation pages by keyword. Returns matching pages with snippets.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search keyword, e.g. "signal", "defineElement", "css"' },
+          },
+          required: ['query'],
+        },
+        execute: async (input: { query: string }) => {
+          const q = input.query.toLowerCase();
+          const results: { path: string; title: string }[] = [];
+          for (const [path, route] of Object.entries(routes)) {
+            if (path === '/playground') continue;
+            const title = route.title.toLowerCase();
+            const pathLower = path.toLowerCase();
+            if (title.includes(q) || pathLower.includes(q)) {
+              results.push({ path, title: route.title });
+            }
+          }
+          return { query: input.query, matches: results.length, results };
+        },
+      });
+
+      mc.registerTool({
+        name: 'runPlayground',
+        description: 'Run code in the Rikka Playground. Navigates to /playground if not already there, sets the code, and executes it.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            code: { type: 'string', description: 'TypeScript code to run. rikka-signal, rikka-dom, and rikka-elements are available as globals.' },
+          },
+          required: ['code'],
+        },
+        execute: async (input: { code: string }) => {
+          // Navigate to playground if not there
+          if (currentPath.get() !== '/playground') {
+            window.location.hash = '/playground';
+            await new Promise((r) => setTimeout(r, 300));
+          }
+          const pg = document.querySelector('rikka-live-playground') as any;
+          if (!pg) return { error: 'Playground element not found' };
+          // Set code and run
+          pg.setAttribute('code', input.code);
+          // Reset re-reads code attribute and runs
+          pg.reset();
+          await new Promise((r) => setTimeout(r, 500));
+          return { status: 'executed', code: input.code };
+        },
+      });
+
+      mc.registerTool({
+        name: 'getPlaygroundCode',
+        description: 'Get the current code in the Rikka Playground editor.',
+        inputSchema: { type: 'object', properties: {} },
+        execute: async () => {
+          const pg = document.querySelector('rikka-live-playground') as any;
+          if (!pg) return { error: 'Playground not found. Navigate to /playground first.' };
+          return { code: pg.code || '' };
+        },
+      });
+
+      mc.registerTool({
+        name: 'getTheme',
+        description: 'Get the current site theme (light, dark, or auto).',
+        inputSchema: { type: 'object', properties: {} },
+        execute: async () => {
+          const theme = document.documentElement.getAttribute('data-theme') || 'auto';
+          return { theme };
+        },
+      });
+
+      mc.registerTool({
+        name: 'setTheme',
+        description: 'Set the site theme.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            theme: { type: 'string', description: 'Theme mode: "light", "dark", or "auto"' },
+          },
+          required: ['theme'],
+        },
+        execute: async (input: { theme: string }) => {
+          const valid = ['light', 'dark', 'auto'];
+          if (!valid.includes(input.theme)) return { error: `Invalid theme "${input.theme}". Use: ${valid.join(', ')}` };
+          document.documentElement.setAttribute('data-theme', input.theme);
+          localStorage.setItem('rikka-theme', input.theme);
+          return { theme: input.theme };
+        },
+      });
+
+      mc.registerTool({
+        name: 'getApiReference',
+        description: 'Get the API reference for a specific rikka package or function.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            package: {
+              type: 'string',
+              description: 'Package name: "rikka-signal", "rikka-dom", or "rikka-elements"',
+            },
+          },
+        },
+        execute: async (input: { package?: string }) => {
+          const apiDocs: Record<string, { exports: string[]; description: string }> = {
+            'rikka-signal': {
+              description: 'Reactive primitives: signal, computed, effect',
+              exports: ['signal<T>(initial): Signal.State<T>', 'computed<T>(fn): Signal.Computed<T>', 'effect(fn): () => void', 'Signal.State<T> { get(), set(), peek() }', 'Signal.Computed<T> { get() }'],
+            },
+            'rikka-dom': {
+              description: 'DOM creation: h, tag helpers, For, Show, Switch, css',
+              exports: ['h(tag, attrs?, ...children)', 'div, span, button, input, ... (50+ tag helpers)', 'For({ each, key?, fallback? }, (item, index) => Child)', 'Show({ when, fallback? }, () => Child)', 'Switch({ on }, ...Case)', 'css`...` → CSSStyleSheet', 'inlineStyle`...` → () => string'],
+            },
+            'rikka-elements': {
+              description: 'Custom Elements: defineElement, event, attribute specs, WebMCP tools',
+              exports: ['defineElement(tagName, config?)', 'StringAttr, NumberAttr, BooleanAttr', 'event<T>()', 'css`...`', 'ToolDefinition<TInstance>', 'toolContext mapping'],
+            },
+          };
+          if (input.package && apiDocs[input.package]) {
+            return apiDocs[input.package];
+          }
+          return apiDocs;
+        },
+      });
     }
 
     const fabEl = button(

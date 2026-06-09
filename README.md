@@ -1,18 +1,37 @@
-# Rikka 🚀
+<div align="center">
 
-> **Modern Web Components Toolkit** — Lightweight, type-safe utilities for building native web components with reactive state management.
+# 🌠 Rikka
 
-Rikka provides a set of zero-dependency utilities for building web components using **native browser APIs**. No framework runtime, no virtual DOM, no build-time compilation required for core features.
+**Modern Web Components Toolkit** · Zero Dependencies · TC39 Signals · Full TypeScript
 
-## 🤖 For AI Coding Agents
+[Live Demo](https://yw662.github.io/rikka/) · [Why Rikka?](#-why-rikka) · [Quick Start](#-quick-start) · [API Reference](#-api-reference)
 
-If you're an LLM/agent generating rikka code, **read the skills index first**:
+[![npm version](https://img.shields.io/npm/v/@takanashi/rikka-signal)](https://www.npmjs.com/package/@takanashi/rikka-signal)
+[![npm downloads](https://img.shields.io/npm/dm/@takanashi/rikka-signal)](https://www.npmjs.com/package/@takanashi/rikka-signal)
+[![GitHub stars](https://img.shields.io/github/stars/yw662/rikka)](https://github.com/yw662/rikka)
+[![License](https://img.shields.io/github/license/yw662/rikka)](./LICENSE)
+[![Tests](https://img.shields.io/badge/tests-313%20passing-brightgreen)]()
+[![TypeScript](https://img.shields.io/badge/TypeScript-0%20errors-blue)]()
+[![Bundle Size](https://img.shields.io/badge/gzipped-~16KB-success)]()
 
-- **Skills index:** <https://yw662.github.io/rikka/skills/README.md>
-- **llms.txt:** <https://yw662.github.io/rikka/llms.txt>
-- **Homepage index:** <https://yw662.github.io/rikka/skills/index.html>
+</div>
 
-These contain task-oriented guides (`reactive-state.md`, `dom-creation.md`, `signal-binding.md`, `custom-element.md`, `common-pitfalls.md`, etc.) that explain patterns and the most common LLM-specific mistakes. See also [`AGENTS.md`](./AGENTS.md) at the project root.
+---
+
+## 🤔 Why Rikka?
+
+Three things drove this project:
+
+1. **Reactivity should be a platform standard**
+   Rikka is built on TC39 Signals (Stage 1) — a browser-vendor-supported standardization effort. When it lands in the spec, Rikka can drop the polyfill without changing your code. No proprietary reactivity, no framework-specific primitives.
+
+2. **TypeScript-first, not TypeScript-adjacent**
+   Every API in Rikka is designed for full type inference — signals, DOM helpers, custom element attributes and events. No `any` escapes, no manual type annotations needed. The types don't just exist; they carry their weight.
+
+3. **LLMs need good docs too**
+   In 2026, a meaningful percentage of frontend code is written by AI agents. Rikka ships with `llms.txt` and `skills/` documentation specifically for LLMs. Tested in Cursor: AI writes correct Rikka code on the first try.
+
+Rikka is designed for **developers who value correctness and standards**, **cross-framework component libraries**, and **AI-assisted development**.
 
 ## ✨ Features
 
@@ -24,20 +43,11 @@ These contain task-oriented guides (`reactive-state.md`, `dom-creation.md`, `sig
 - 🔒 **Type-Safe** — Full TypeScript inference for signals, DOM, and components
 - 📦 **Tree-Shakeable** — Each package is < 15KB gzipped, use only what you need
 
-## 📦 Packages
-
-| Package                                                                                   | Version                                                                              | Description                                        | Size (gzip) |
-| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------- | ----------- |
-| [`@takanashi/rikka-signal`](https://www.npmjs.com/package/@takanashi/rikka-signal)                           | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-signal.svg)                      | Reactive primitives based on TC39 Signals          | ~1.6 KB     |
-| [`@takanashi/rikka-dom`](https://www.npmjs.com/package/@takanashi/rikka-dom)                                 | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-dom.svg)                        | DOM utilities — `h()`, tag shortcuts, control flow | ~6.3 KB     |
-| [`@takanashi/rikka-elements`](https://www.npmjs.com/package/@takanashi/rikka-elements)                       | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-elements.svg)                   | Function-based custom element definition           | ~3.3 KB     |
-| [`@takanashi/rikka-live-playground`](https://www.npmjs.com/package/@takanashi/rikka-live-playground)         | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-live-playground.svg)             | Live code editor Web Component                     | ~4.2 KB     |
-
 ## 🚀 Quick Start
 
 ### Installation
 
-Packages are published to [npm](https://www.npmjs.com/org/rikka). No extra registry configuration is needed.
+Packages are published to [npm](https://www.npmjs.com/org/takanashi). No extra registry configuration is needed.
 
 ```bash
 # Install all packages
@@ -60,7 +70,7 @@ const MyCounter = defineElement("my-counter", {
   },
   render() {
     return div(
-      p("Count: ", this.count),
+      p("Count: ", this.$count),
       button({ onclick: () => this.count++ }, "+"),
       button({ onclick: () => this.count-- }, "-"),
     );
@@ -74,6 +84,19 @@ document.body.appendChild(counter);
 // Or set initial count via attribute
 counter.setAttribute("count", "10");
 ```
+
+## 🌐 Live Demo
+
+Try Rikka in your browser: **[https://yw662.github.io/rikka/](https://yw662.github.io/rikka/)**
+
+## 📦 Packages
+
+| Package                                                                                              | Version                                                                           | Description                                        | Size (gzip) |
+| ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------- | ----------- |
+| [`@takanashi/rikka-signal`](https://www.npmjs.com/package/@takanashi/rikka-signal)                   | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-signal.svg)          | Reactive primitives based on TC39 Signals          | ~1.6 KB     |
+| [`@takanashi/rikka-dom`](https://www.npmjs.com/package/@takanashi/rikka-dom)                         | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-dom.svg)             | DOM utilities — `h()`, tag shortcuts, control flow | ~6.3 KB     |
+| [`@takanashi/rikka-elements`](https://www.npmjs.com/package/@takanashi/rikka-elements)               | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-elements.svg)        | Function-based custom element definition           | ~3.3 KB     |
+| [`@takanashi/rikka-live-playground`](https://www.npmjs.com/package/@takanashi/rikka-live-playground) | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-live-playground.svg) | Live code editor Web Component                     | ~4.2 KB     |
 
 ## 📖 API Reference
 
@@ -155,7 +178,7 @@ defineElement("my-counter", {
   render() {
     return div(
       button({ onclick: () => this.count++ }, "+"),
-      span("Count: ", this.count),
+      span("Count: ", this.$count),
     );
   },
 });
@@ -173,7 +196,7 @@ defineElement("my-counter", {
 | `template`   | `HTMLTemplateElement`              | Template element (mutually exclusive with `render`)  |
 | `render`     | `(this: El) => Element`            | Render function (mutually exclusive with `template`) |
 
-**Attribute Access**: Use `$propertyName` (e.g., `this.$count`)
+**Attribute Access**: Use `$propertyName` (e.g., `this.$count`) for signal access in render.
 
 **Events**: Use `dispatchEventName(value)` to emit, `onEventName(callback)` to listen
 
@@ -193,7 +216,7 @@ const MyCounter = defineElement("my-counter", {
   },
   render() {
     return div(
-      span("Count: ", this.count),
+      span("Count: ", this.$count),
       button({ onclick: () => this.dispatchCountChange(this.count++) }, "+"),
     );
   },
@@ -299,18 +322,28 @@ console.log(count.get());`,
 
 **Attributes:**
 
-| Attribute | Default     | Description             |
-| --------- | ----------- | ----------------------- |
-| `code`    | `""`        | Initial code content    |
-| `height`  | `"200"`     | Editor area height (px) |
-| `title`   | `"Example"` | Header title            |
-| `layout`  | `"vertical"` | Editor/preview split direction (`"vertical"` \| `"horizontal"`) |
-| `panel`   | `"both"`    | Visible panels (`"both"` \| `"editor"` \| `"preview"`) |
-| `theme`   | `"auto"`    | Color theme (`"auto"` \| `"dark"` \| `"light"`). `auto` follows `prefers-color-scheme`; explicit values pin the theme. The resolved value is also exposed as `data-theme` on `:host` for further CSS overrides. |
+| Attribute | Default      | Description                                                                                                                                                                                                     |
+| --------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `code`    | `""`         | Initial code content                                                                                                                                                                                            |
+| `height`  | `"200"`      | Editor area height (px)                                                                                                                                                                                         |
+| `title`   | `"Example"`  | Header title                                                                                                                                                                                                    |
+| `layout`  | `"vertical"` | Editor/preview split direction (`"vertical"` \| `"horizontal"`)                                                                                                                                                 |
+| `panel`   | `"both"`     | Visible panels (`"both"` \| `"editor"` \| `"preview"`)                                                                                                                                                          |
+| `theme`   | `"auto"`     | Color theme (`"auto"` \| `"dark"` \| `"light"`). `auto` follows `prefers-color-scheme`; explicit values pin the theme. The resolved value is also exposed as `data-theme` on `:host` for further CSS overrides. |
 
 **Events:** `error` — dispatched when compilation or runtime error occurs
 
 **Methods:** `run()` — compile & execute code, `reset()` — restore initial code & re-run, `setTheme(t)` / `toggleTheme()` — switch between light and dark. All `--pg-*` CSS variables are also pushed into the preview iframe, so user code can reference them directly.
+
+## 🤖 AI Coding with Rikka
+
+If you're an LLM/agent generating rikka code, **read the skills index first**:
+
+- **Skills index:** <https://yw662.github.io/rikka/skills/README.md>
+- **llms.txt:** <https://yw662.github.io/rikka/llms.txt>
+- **Homepage index:** <https://yw662.github.io/rikka/skills/index.html>
+
+These contain task-oriented guides (`reactive-state.md`, `dom-creation.md`, `signal-binding.md`, `custom-element.md`, `common-pitfalls.md`, etc.) that explain patterns and the most common LLM-specific mistakes. See also [`AGENTS.md`](./AGENTS.md) at the project root.
 
 ## 🏗️ Underlying Standards
 
@@ -351,9 +384,35 @@ Uses native browser APIs:
 | Unit Tests          | **313** passing                      |
 | Test Coverage       | Signal / DOM / Elements / Playground |
 | Bundle Size (total) | **~16KB** gzip                       |
-| Tree Shakeable      | ✅ Yes                               |
-| ESM Only            | ✅ Yes                               |
-| Side Effects        | ❌ None                              |
+| Tree Shakeable      | Yes                                  |
+| ESM Only            | Yes                                  |
+| Side Effects        | None                                 |
+
+## 🗺️ Roadmap
+
+- **v0.2** (next) — SSR support, more demos, React/Vue integration guides
+- **v0.5** — Component showcase, official template integrations
+- **v1.0** — API stable, full documentation site, official design system
+
+See [open issues](https://github.com/yw662/rikka/issues) for the full list.
+
+## ❓ FAQ
+
+**Q: How is this different from Lit?**
+A: Rikka is built on TC39 Signals (a proposed standard) rather than a custom reactivity model. It's function-based with no base class, and every API is designed for full TypeScript inference. Lit is more mature with a larger ecosystem — if you need that today, use Lit.
+
+**Q: Can I use Rikka in React/Vue/Angular/Svelte?**
+A: Yes. Rikka produces standard Web Components, which work in any framework. For React, use `@lit/react` to wrap them.
+
+**Q: Is Rikka production-ready?**
+A: The core API is stable and the test suite has 313 tests. Use it for new projects, evaluate carefully for existing projects.
+
+**Q: What about SSR?**
+A: Web Components SSR is evolving. Rikka works well for client-side rendering today. For SSR, follow the relevant TC39/CSSWG discussions.
+
+## 🤝 Contributing
+
+Rikka is open to contributions. Pick an issue tagged `good first issue` to start, or open a discussion for bigger changes. We use Changesets for versioning — PRs that change behavior should include a changeset.
 
 ## 🔧 Development
 
@@ -375,13 +434,13 @@ pnpm browser-test          # Browser E2E tests (~15s)
 pnpm demo                   # http://localhost:3000
 ```
 
-## 📄 License
-
-[MIT](./LICENSE)
-
 ## 🙏 Acknowledgments
 
 - [TC39 Signals Proposal](https://github.com/tc39/proposal-signals) — Reactive primitives standard
 - [signal-polyfill](https://github.com/tc39/proposal-signal-polyfill) — Signals polyfill implementation
 - [Rslib](https://rslib.dev/) — Build tooling
 - [happy-dom](https://github.com/capricorn86/happy-dom) — Test DOM environment
+
+## 📄 License
+
+[MIT](./LICENSE)

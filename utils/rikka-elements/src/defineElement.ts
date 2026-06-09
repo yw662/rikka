@@ -3,6 +3,14 @@ import { h } from "@takanashi/rikka-dom";
 import type { Child, CommonHTMLAttributes } from "@takanashi/rikka-dom";
 import type { CamelCase, PascalCase } from "./utils.js";
 import { toCamelCase, toKebabCase, toPascalCase } from "./utils.js";
+import {
+  registerInstance,
+  unregisterInstance,
+  registerToolsToWebMCP,
+  provideInstanceContext,
+  isWebMCPSupported,
+} from "./webmcp.js";
+import type { ToolDefinition, ToolContextMapping } from "./webmcp.js";
 
 // Extended isPlainObject that also excludes Element and DocumentFragment,
 // since defineElement deals with DOM APIs where these are common.
@@ -109,7 +117,16 @@ type BaseConfig = {
   dataset?: Record<string, DatasetSpec>;
   events?: Record<string, EventSpec>;
   methods?: Record<string, (...args: any[]) => any>;
+  /** WebMCP tool definitions. Registered once at class level. execute receives the element instance as first argument. */
+  tools?: Record<string, ToolDefinition<any>>;
+  /** WebMCP context mapping. Keys become context fields; values reference instance properties (e.g. "$count" for the count signal, "id" for this.id). */
+  toolContext?: ToolContextMapping;
 };
+
+/** Resolve the tools type so that execute receives the fully-typed RikkaElement<C>. */
+type ResolvedTools<C extends BaseConfig> = C["tools"] extends Record<string, ToolDefinition<any>>
+  ? { [K in keyof C["tools"]]: ToolDefinition<RikkaElement<C>> }
+  : never;
 
 export type ElementConfig<C extends BaseConfig = BaseConfig> =
   | (BaseConfig & { template: HTMLTemplateElement; render?: never })
@@ -749,6 +766,8 @@ export function defineElement<C extends BaseConfig = BaseConfig>(
   const attributes = config?.attributes ?? {};
   const dataset = config?.dataset ?? {};
   const events = config?.events ?? {};
+  const tools = config?.tools;
+  const toolContext = config?.toolContext;
   const shadowOptions =
     config?.shadow === false
       ? null
@@ -769,6 +788,8 @@ export function defineElement<C extends BaseConfig = BaseConfig>(
     static tagName: string = tagName;
 
     #initialized = false;
+    #domPath = "";
+    #contextDispose: (() => void) | null = null;
 
     constructor() {
       super();
@@ -783,6 +804,20 @@ export function defineElement<C extends BaseConfig = BaseConfig>(
     connectedCallback() {
       if (this.#initialized) return;
       this.#initialized = true;
+
+      // WebMCP: register instance and provide context
+      if (tools || toolContext) {
+        this.#domPath = registerInstance(tagName, this);
+        if (toolContext && Object.keys(toolContext).length > 0) {
+          this.#contextDispose = provideInstanceContext(
+            tagName,
+            this,
+            this.#domPath,
+            toolContext,
+            (fn) => trackDisposable(this, effect(fn)),
+          );
+        }
+      }
 
       if (shadowOptions) {
         const shadow = this.shadowRoot ?? this.attachShadow(shadowOptions);
@@ -804,6 +839,14 @@ export function defineElement<C extends BaseConfig = BaseConfig>(
     }
 
     disconnectedCallback() {
+      // WebMCP: unregister instance
+      if (tools || toolContext) {
+        unregisterInstance(tagName, this);
+        if (this.#contextDispose) {
+          this.#contextDispose();
+          this.#contextDispose = null;
+        }
+      }
       runDisposables(this);
       this.#initialized = false;
     }
@@ -848,6 +891,11 @@ export function defineElement<C extends BaseConfig = BaseConfig>(
       tagName,
       RikkaElementInner as unknown as CustomElementConstructor,
     );
+  }
+
+  // WebMCP: register tools at class level (once per tagName)
+  if (tools && Object.keys(tools).length > 0) {
+    registerToolsToWebMCP(tagName, tools);
   }
 
   const tagHelper = (...args: unknown[]) => {

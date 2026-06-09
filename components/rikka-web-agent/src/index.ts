@@ -5,16 +5,7 @@ import {
   event,
   type ElementConstructor,
 } from "@takanashi/rikka-elements";
-import {
-  h,
-  div,
-  button,
-  span,
-  pre,
-  section,
-  input,
-  label,
-} from "@takanashi/rikka-dom";
+import { div, button, span, pre, input, label } from "@takanashi/rikka-dom";
 import { signal, computed, effect } from "@takanashi/rikka-signal";
 import { initializeWebMCPPolyfill } from "@mcp-b/webmcp-polyfill";
 
@@ -22,7 +13,7 @@ import { initializeWebMCPPolyfill } from "@mcp-b/webmcp-polyfill";
 // Types
 // ---------------------------------------------------------------------------
 
-/** A tool definition that can be registered with WebMCP. */
+/** A tool definition that can be registered with WebMCP manually. */
 export interface ToolDefinition {
   name: string;
   title?: string;
@@ -136,7 +127,7 @@ function ensurePolyfill(): void {
   }
 }
 
-function getModelContext(): ModelContext | null {
+function getMC(): ModelContext | null {
   ensurePolyfill();
   if (typeof document !== "undefined" && "modelContext" in document) {
     return (document as unknown as { modelContext: ModelContext }).modelContext;
@@ -148,8 +139,7 @@ function getModelContext(): ModelContext | null {
   return null;
 }
 
-const isWebMCPSupported = computed(() => getModelContext() !== null);
-const hasPendingCalls = computed(() => pendingCalls.get().length > 0);
+const webMCPSupported = computed(() => getMC() !== null);
 const activeToolCount = computed(
   () => registeredTools.get().filter((t) => t.status === "active").length,
 );
@@ -175,19 +165,26 @@ function nextCallId(): string {
   return `call-${++callIdCounter}`;
 }
 
-function toolToInfo(
-  tool: ToolDefinition,
-  status: ToolInfo["status"],
-): ToolInfo {
-  return {
-    name: tool.name,
-    title: tool.title ?? null,
-    description: tool.description,
-    inputSchema: tool.inputSchema ?? null,
-    readOnlyHint: tool.readOnlyHint ?? false,
-    untrustedContentHint: tool.untrustedContentHint ?? false,
-    status,
-  };
+/** Sync the registeredTools signal from WebMCP's listTools(). */
+function syncToolsFromWebMCP(): void {
+  const mc = getMC();
+  if (!mc) return;
+  try {
+    const tools = mc.listTools();
+    registeredTools.set(
+      tools.map((t) => ({
+        name: t.name,
+        title: t.title ?? null,
+        description: t.description,
+        inputSchema: t.inputSchema ?? null,
+        readOnlyHint: t.annotations?.readOnlyHint ?? false,
+        untrustedContentHint: t.annotations?.untrustedContentHint ?? false,
+        status: "active" as const,
+      })),
+    );
+  } catch {
+    /* listTools may not be supported */
+  }
 }
 
 type LayoutMode = "floating" | "sidebar" | "popup" | "embedded" | "headless";
@@ -211,13 +208,17 @@ function isValidTheme(v: unknown): v is ThemeMode {
 }
 
 // ---------------------------------------------------------------------------
-// WebMCP bridge
+// WebMCP bridge (consumer — reads from WebMCP, does not register tools)
 // ---------------------------------------------------------------------------
 
 const abortControllers = new Map<string, AbortController>();
 
+/**
+ * Manually register a tool to WebMCP.
+ * Prefer using defineElement({ tools }) instead — this is for ad-hoc tools.
+ */
 function registerToolToWebMCP(tool: ToolDefinition): void {
-  const mc = getModelContext();
+  const mc = getMC();
   if (!mc)
     throw new Error(
       "WebMCP is not supported in this browser and the polyfill failed to install",
@@ -238,6 +239,17 @@ function registerToolToWebMCP(tool: ToolDefinition): void {
       },
       execute: needConfirm
         ? async (input: object, client: ModelContextClient) => {
+            // Try native elicit first
+            if (client.elicit) {
+              const result = await client.elicit({
+                message: `Allow "${tool.name}" with input ${JSON.stringify(input)}?`,
+                type: "confirmation",
+              });
+              if (result.action !== "accept") {
+                return { content: [{ type: "text", text: "User rejected" }] };
+              }
+            }
+            // Fallback: pending confirmation UI
             const id = nextCallId();
             callLog.set([
               ...callLog.get(),
@@ -328,19 +340,27 @@ function registerToolToWebMCP(tool: ToolDefinition): void {
     },
     { signal: ac.signal, exposedTo: tool.exposedTo },
   );
-  registeredTools.set([...registeredTools.get(), toolToInfo(tool, "active")]);
+  syncToolsFromWebMCP();
 }
 
 function unregisterToolFromWebMCP(name: string): void {
+  const mc = getMC();
   const ac = abortControllers.get(name);
   if (ac) {
     ac.abort();
     abortControllers.delete(name);
   }
-  registeredTools.set(registeredTools.get().filter((t) => t.name !== name));
+  if (mc) {
+    try {
+      mc.unregisterTool(name);
+    } catch {
+      /* unregisterTool may not be supported */
+    }
+  }
+  syncToolsFromWebMCP();
 }
 
-function unregisterAllTools(): void {
+function unregisterAllManualTools(): void {
   for (const [, ac] of abortControllers) ac.abort();
   abortControllers.clear();
   registeredTools.set([]);
@@ -468,7 +488,7 @@ async function runChatLoop(self: any): Promise<void> {
       status: string;
     }[] = [];
     if (response.toolCalls && response.toolCalls.length > 0) {
-      const mc = getModelContext();
+      const mc = getMC();
       for (const tc of response.toolCalls) {
         try {
           let result: unknown;
@@ -1212,8 +1232,6 @@ function watchPageTheme(cb: () => void): () => void {
   return () => obs.disconnect();
 }
 
-type DatasetSpec = { default?: string };
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -1287,7 +1305,7 @@ const RikkaWebAgent: ElementConstructor<any> = defineElement(
         return callLog.get();
       },
       isSupported(this: any): boolean {
-        return isWebMCPSupported.get();
+        return webMCPSupported.get();
       },
       sendMessage(this: any, text: string) {
         const trimmed = text.trim();
@@ -1690,7 +1708,7 @@ const RikkaWebAgent: ElementConstructor<any> = defineElement(
       const panel = div(
         { class: "wa-panel", part: "panel" },
         computed(() => {
-          if (!isWebMCPSupported.get())
+          if (!webMCPSupported.get())
             return div(
               { class: "wa-unsupported", part: "unsupported" },
               "WebMCP is not available in this browser. Please use Chrome 146+ or enable the WebMCP flag.",
@@ -1729,20 +1747,22 @@ function wirePostMount(self: any): void {
   });
 
   let unlistenToolChange: (() => void) | null = null;
-  const mc = getModelContext();
+  const mc = getMC();
   if (mc) {
     const handler = () => {
-      /* external tool change */
+      syncToolsFromWebMCP();
     };
     mc.addEventListener("toolchange", handler);
     unlistenToolChange = () => mc.removeEventListener("toolchange", handler);
+    // Initial sync
+    syncToolsFromWebMCP();
   }
 
   registerDisposable(self, () => {
     unwatchSystem();
     unwatchPage();
     unlistenToolChange?.();
-    unregisterAllTools();
+    unregisterAllManualTools();
     pendingCalls.set([]);
     callLog.set([]);
     messages.set([]);
