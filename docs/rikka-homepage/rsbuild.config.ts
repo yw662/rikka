@@ -139,18 +139,32 @@ export default defineConfig({
       {
         from: resolve(workspaceRoot, "examples/pomodoro-timer/dist"),
         to: "examples/pomodoro-timer",
+        globOptions: { ignore: ["**/*.LICENSE.txt"] },
       },
       {
         from: resolve(workspaceRoot, "examples/bookmark-manager/dist"),
         to: "examples/bookmark-manager",
+        globOptions: { ignore: ["**/*.LICENSE.txt"] },
       },
       {
         from: resolve(workspaceRoot, "examples/code-editor/dist"),
         to: "examples/code-editor",
+        globOptions: { ignore: ["**/*.LICENSE.txt"] },
       },
       {
         from: resolve(workspaceRoot, "examples/finance-tracker/dist"),
         to: "examples/finance-tracker",
+        globOptions: { ignore: ["**/*.LICENSE.txt"] },
+      },
+      {
+        from: resolve(workspaceRoot, "examples/todo-list/dist"),
+        to: "examples/todo-list",
+        globOptions: { ignore: ["**/*.LICENSE.txt"] },
+      },
+      {
+        from: resolve(workspaceRoot, "examples/drawing-pad/dist"),
+        to: "examples/drawing-pad",
+        globOptions: { ignore: ["**/*.LICENSE.txt"] },
       },
     ],
   },
