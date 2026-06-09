@@ -247,6 +247,37 @@ function getProjectStructure(slug: string): string {
         ├── transaction-list.ts # Transaction table
         ├── category-chart.ts # Category breakdown chart
         └── time-chart.ts   # Timeline visualization`,
+    "todo-list": `todo-list/
+├── index.html              # Entry HTML
+├── package.json            # Dependencies & scripts
+├── tsconfig.json           # TypeScript config
+├── rsbuild.config.ts       # Rsbuild config
+└── src/
+    ├── index.ts            # App bootstrap
+    ├── store.ts            # Reactive state store
+    ├── i18n.ts             # Internationalization
+    ├── content.ts          # Text content
+    └── components/
+        ├── app.ts          # Root component
+        ├── todo-input.ts   # Add new todo input
+        ├── filter-bar.ts   # View filter selector
+        └── todo-list.ts    # List display`,
+    "drawing-pad": `drawing-pad/
+├── index.html              # Entry HTML
+├── package.json            # Dependencies & scripts
+├── tsconfig.json           # TypeScript config
+├── rsbuild.config.ts       # Rsbuild config
+└── src/
+    ├── index.ts            # App bootstrap
+    ├── store.ts            # Reactive state store
+    ├── i18n.ts             # Internationalization
+    ├── content.ts          # Text content
+    └── components/
+        ├── app.ts          # Root component
+        ├── toolbar.ts      # Drawing tool selector
+        ├── color-picker.ts # Color palette
+        ├── canvas.ts       # Drawing canvas
+        └── export-panel.ts # Save/load/export`,
   };
   return structures[slug] || "";
 }
@@ -316,6 +347,38 @@ function getDeepDiveSection(slug: string): HTMLElement {
         p({}, "The category chart demonstrates reactive CSS with computed values:"),
         div({ class: "arch-section" },
           pre({ class: "code-block" }, code({}, financeChartCode))
+        )
+      ),
+    ),
+    "todo-list": () => div({},
+      div({ class: "explanation" },
+        h2({}, "Reactive Todo State"),
+        p({}, "The todo store demonstrates core reactive patterns with signal-based state management:"),
+        div({ class: "arch-section" },
+          pre({ class: "code-block" }, code({}, todoStoreCode))
+        )
+      ),
+      div({ class: "explanation" },
+        h2({}, "Filter & Search Implementation"),
+        p({}, "The filter bar shows how computed values can be composed for complex filtering:"),
+        div({ class: "arch-section" },
+          pre({ class: "code-block" }, code({}, todoFilterCode))
+        )
+      ),
+    ),
+    "drawing-pad": () => div({},
+      div({ class: "explanation" },
+        h2({}, "Canvas & Tool State"),
+        p({}, "The drawing pad uses reactive state to manage tools, colors and canvas content:"),
+        div({ class: "arch-section" },
+          pre({ class: "code-block" }, code({}, drawingStoreCode))
+        )
+      ),
+      div({ class: "explanation" },
+        h2({}, "Canvas Drawing Implementation"),
+        p({}, "The canvas component demonstrates event handling with reactive tool selection:"),
+        div({ class: "arch-section" },
+          pre({ class: "code-block" }, code({}, drawingCanvasCode))
         )
       ),
     ),
@@ -907,5 +970,278 @@ export const CategoryChart = defineElement('finance-category-chart', {
         )
       )
     );
+  }
+});`;
+
+const todoStoreCode = `// src/store.ts
+import { signal, computed, effect } from '@takanashi/rikka-signal';
+
+export type Priority = 'low' | 'medium' | 'high';
+export type Filter = 'all' | 'active' | 'completed';
+
+export interface Todo {
+  id: string;
+  text: string;
+  completed: boolean;
+  priority: Priority;
+  tags: string[];
+  createdAt: number;
+}
+
+// Reactive state
+export const todos = signal<Todo[]>([]);
+export const filter = signal<Filter>('all');
+export const searchText = signal('');
+export const activePriority = signal<Priority | 'all'>('all');
+export const activeTag = signal<string | 'all'>('all');
+
+// Computed: filtered todos
+export const filteredTodos = computed(() => {
+  let result = todos();
+  if (filter() === 'active') result = result.filter(t => !t.completed);
+  if (filter() === 'completed') result = result.filter(t => t.completed);
+  if (activePriority() !== 'all') result = result.filter(t => t.priority === activePriority());
+  if (activeTag() !== 'all') result = result.filter(t => t.tags.includes(activeTag() as string));
+  const query = searchText().toLowerCase();
+  if (query) result = result.filter(t => t.text.toLowerCase().includes(query));
+  return result;
+});
+
+// Computed: stats
+export const activeCount = computed(() => todos().filter(t => !t.completed).length);
+export const completedCount = computed(() => todos().filter(t => t.completed).length);
+export const allTags = computed(() => {
+  const set = new Set<string>();
+  todos().forEach(t => t.tags.forEach(tag => set.add(tag)));
+  return Array.from(set).sort();
+});
+
+// Actions
+export function addTodo(text: string, priority: Priority = 'medium', tags: string[] = []) {
+  todos.set(ts => [...ts, {
+    id: crypto.randomUUID(),
+    text, completed: false, priority, tags,
+    createdAt: Date.now(),
+  }]);
+}
+
+export function toggleTodo(id: string) {
+  todos.set(ts => ts.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+}
+
+export function deleteTodo(id: string) {
+  todos.set(ts => ts.filter(t => t.id !== id));
+}
+
+export function editTodo(id: string, text: string) {
+  todos.set(ts => ts.map(t => t.id === id ? { ...t, text } : t));
+}
+
+export function clearCompleted() {
+  todos.set(ts => ts.filter(t => !t.completed));
+}
+
+// Persistence
+effect(() => {
+  localStorage.setItem('todo:data', JSON.stringify(todos()));
+});
+
+if (typeof window !== 'undefined') {
+  const saved = localStorage.getItem('todo:data');
+  if (saved) todos.set(JSON.parse(saved));
+}`;
+
+const todoFilterCode = `// src/components/filter-bar.ts
+import { defineElement } from '@takanashi/rikka-dom';
+import { div, button, span, select, option } from '@takanashi/rikka-dom';
+import { filter, activePriority, activeTag, allTags, activeCount, completedCount } from '../store';
+import { locale } from '../i18n';
+
+export const FilterBar = defineElement('todo-filter-bar', {
+  render() {
+    return div({ class: 'filter-bar' },
+      // Status filter
+      div({ class: 'filter-group' },
+        button({
+          class: computed(() => 'filter-btn ' + (filter() === 'all' ? 'active' : ''),
+          onClick: () => filter.set('all'),
+        }, t('All (\${todos().length})'),
+        button({
+          class: computed(() => 'filter-btn ' + (filter() === 'active' ? 'active' : ''),
+          onClick: () => filter.set('active'),
+        }, 'Active (' + activeCount + ')'),
+        button({
+          class: computed(() => 'filter-btn ' + (filter() === 'completed' ? 'active' : ''),
+          onClick: () => filter.set('completed'),
+        }, 'Completed (' + completedCount + ')'),
+      ),
+      // Priority filter
+      div({ class: 'filter-group' },
+        select({
+          class: 'priority-select',
+          onChange: (e: Event) => activePriority.set((e.target as HTMLSelectElement).value as any),
+        },
+          option({ value: 'all' }, 'All priorities'),
+          option({ value: 'high' }, '🔴 High'),
+          option({ value: 'medium' }, '🟡 Medium'),
+          option({ value: 'low' }, '🟢 Low'),
+        ),
+      ),
+      // Tag filter
+      div({ class: 'filter-group' },
+        select({
+          class: 'tag-select',
+          onChange: (e: Event) => activeTag.set((e.target as HTMLSelectElement).value),
+        },
+          option({ value: 'all' }, 'All tags'),
+          ...allTags().map(tag => option({ value: tag }, '#\${tag}')),
+      ),
+    );
+  }
+});`;
+
+const drawingStoreCode = `// src/store.ts
+import { signal, computed, effect } from '@takanashi/rikka-signal';
+
+export type Tool = 'pen' | 'eraser' | 'line' | 'rect' | 'circle';
+
+export interface Point { x: number; y: number; }
+export interface Shape {
+  type: Tool;
+  points: Point[];
+  color: string;
+  size: number;
+}
+
+// Canvas state
+export const activeTool = signal<Tool>('pen');
+export const activeColor = signal('#000000');
+export const brushSize = signal(4);
+export const canvasBg = signal('#ffffff');
+
+// Undo/redo history
+export const history = signal<Shape[]>([]);
+export const historyIndex = signal(0);
+
+// Computed: current shapes on canvas
+export const currentShapes = computed(() => history().slice(0, historyIndex()));
+export const canUndo = computed(() => historyIndex() > 0);
+export const canRedo = computed(() => historyIndex() < history().length);
+
+// Color palette
+export const PALETTE = [
+  '#000000', '#ef4444', '#f59e0b', '#10b981',
+  '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6',
+];
+
+// Brush sizes
+export const SIZES = [2, 4, 8, 16, 32];
+
+// Actions
+export function addShape(shape: Shape) {
+  const newHistory = [...history().slice(0, historyIndex());
+  newHistory.push(shape);
+  history.set(newHistory);
+  historyIndex.set(newHistory.length);
+}
+
+export function undo() {
+  if (historyIndex.set(Math.max(0, historyIndex() - 1));
+}
+
+export function redo() {
+  historyIndex.set(Math.min(history().length, historyIndex() + 1));
+}
+
+export function clearCanvas() {
+  history.set([]);
+  historyIndex.set(0);
+}
+
+// Persistence (optional)
+effect(() => {
+  localStorage.setItem('drawing:shapes', JSON.stringify(history()));
+});
+
+if (typeof window !== 'undefined') {
+  const saved = localStorage.getItem('drawing:shapes');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    history.set(parsed);
+    historyIndex.set(parsed.length);
+  }
+}`;
+
+const drawingCanvasCode = `// src/components/canvas.ts
+import { defineElement } from '@takanashi/rikka-dom';
+import { canvas, div, button } from '@takanashi/rikka-dom';
+import {
+  activeTool, activeColor, brushSize, currentShapes,
+  addShape,
+} from '../store';
+
+export const DrawingCanvas = defineElement('drawing-canvas', {
+  render() {
+    let ctx = null;
+    let isDrawing = false;
+    let currentShape = null;
+    const canvasEl = canvas({
+      class: 'drawing-canvas' });
+    canvasEl.width = 800;
+    canvasEl.height = 600;
+
+    function getPos(e) {
+      const rect = canvasEl.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    function redraw() {
+      if (!ctx) return;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
+      for (const shape of currentShapes()) {
+        ctx.strokeStyle = shape.color;
+        ctx.lineWidth = shape.size;
+        ctx.beginPath();
+        if (shape.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+        ctx.stroke();
+      }
+    }
+
+    canvasEl.addEventListener('pointerdown', (e) => {
+      isDrawing = true;
+      currentShape = {
+        type: activeTool(), points: [getPos(e)],
+        color: activeColor(), size: brushSize(),
+      };
+    });
+
+    canvasEl.addEventListener('pointermove', (e) => {
+      if (!isDrawing || !currentShape) return;
+      currentShape.points.push(getPos(e));
+      redraw();
+      // Draw preview
+      ctx.strokeStyle = currentShape.color;
+      ctx.lineWidth = currentShape.size;
+      ctx.beginPath();
+      const pts = currentShape.points;
+      for (let i = 0; i < pts.length; i++) {
+        if (i === 0) ctx.moveTo(pts[i].x, pts[i].y);
+        else ctx.lineTo(pts[i].x, pts[i].y);
+      }
+      ctx.stroke();
+    });
+
+    canvasEl.addEventListener('pointerup', () => {
+      if (currentShape && currentShape.points.length > 1) {
+        addShape(currentShape);
+      }
+      isDrawing = false;
+      currentShape = null;
+    });
+
+    effect(redraw());
+
+    return div({ class: 'canvas-wrapper' }, canvasEl);
   }
 });`;
