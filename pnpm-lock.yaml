@@ -209,6 +209,25 @@ importers:
         specifier: 'catalog:'
         version: 6.0.3
 
+  examples/drawing-pad:
+    dependencies:
+      '@takanashi/rikka-dom':
+        specifier: workspace:*
+        version: link:../../utils/rikka-dom
+      '@takanashi/rikka-elements':
+        specifier: workspace:*
+        version: link:../../utils/rikka-elements
+      '@takanashi/rikka-signal':
+        specifier: workspace:*
+        version: link:../../utils/rikka-signal
+    devDependencies:
+      '@rsbuild/core':
+        specifier: 'catalog:'
+        version: 1.7.5
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   examples/finance-tracker:
     dependencies:
       '@takanashi/rikka-dom':
