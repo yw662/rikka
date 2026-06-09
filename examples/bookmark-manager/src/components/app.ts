@@ -1,7 +1,7 @@
 import { defineElement } from '@takanashi/rikka-elements';
-import { div, h1, p, svg, path, css } from '@takanashi/rikka-dom';
+import { div, h1, p, button, svg, path, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
-import { t } from '../i18n.js';
+import { t, locale, setLocale } from '../i18n.js';
 import { content } from '../content.js';
 import { statsCard } from './stats-card.js';
 import { searchBar } from './search-bar.js';
@@ -15,19 +15,45 @@ export const app = defineElement('bookmark-app', {
     :host {
       display: block;
       width: 100%;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     }
-    
+
     .app-container {
-      max-width: 800px;
+      max-width: 900px;
       margin: 0 auto;
       padding: 2rem 1rem;
     }
-    
+
+    .top-bar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .lang-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 0.4rem 0.85rem;
+      border-radius: 0.5rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .lang-btn:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
     .app-header {
       text-align: center;
       margin-bottom: 2rem;
     }
-    
+
     .app-title {
       display: flex;
       align-items: center;
@@ -38,12 +64,12 @@ export const app = defineElement('bookmark-app', {
       font-weight: 700;
       margin: 0 0 0.5rem 0;
     }
-    
+
     .app-title svg {
       width: 32px;
       height: 32px;
     }
-    
+
     .app-subtitle {
       color: rgba(255, 255, 255, 0.7);
       font-size: 1rem;
@@ -51,6 +77,11 @@ export const app = defineElement('bookmark-app', {
     }
   `,
   render() {
+    const langBtn = button({ class: 'lang-btn' }, locale.get() === 'en' ? '中文' : 'EN');
+    langBtn.addEventListener('click', () => {
+      setLocale(locale.get() === 'en' ? 'zh' : 'en');
+    });
+
     const titleEl = h1(
       { class: 'app-title' },
       svg(
@@ -62,17 +93,18 @@ export const app = defineElement('bookmark-app', {
     const subtitleEl = p({ class: 'app-subtitle' }, t(content.appSubtitle));
 
     effect(() => {
-      titleEl.lastChild!.textContent = t(content.appTitle);
+      const newLang = locale.get() === 'en' ? '中文' : 'EN';
+      langBtn.textContent = newLang;
+      if (titleEl.childNodes.length > 1) {
+        const last = titleEl.childNodes[titleEl.childNodes.length - 1];
+        if (last.nodeType === Node.TEXT_NODE) last.textContent = t(content.appTitle);
+      }
       subtitleEl.textContent = t(content.appSubtitle);
     });
 
-    return div(
-      { class: 'app-container' },
-      div(
-        { class: 'app-header' },
-        titleEl,
-        subtitleEl
-      ),
+    return div({ class: 'app-container' },
+      div({ class: 'top-bar' }, langBtn),
+      div({ class: 'app-header' }, titleEl, subtitleEl),
       statsCard.h({}),
       searchBar.h({}),
       tagFilter.h({}),
