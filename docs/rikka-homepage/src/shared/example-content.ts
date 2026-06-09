@@ -1316,6 +1316,630 @@ The app needs:
       },
     ],
   },
+  {
+    slug: "todo-list",
+    title: "✅ Todo List",
+    description: {
+      en: "A beautifully designed task management app built with Rikka through vibe coding. Create tasks with priorities, tags, and filters to organize your day with clarity.",
+      zh: "一个精美的任务管理应用，通过 Rikka 的 Vibe Coding 构建。创建带优先级、标签和筛选的任务，让你的一天井井有条。",
+    },
+    tags: ["State Management", "Filters", "Signals"],
+    features: {
+      en: ["Priorities", "Tags", "Filters"],
+      zh: ["优先级", "标签", "筛选器"],
+    },
+    vibe: {
+      heading: { en: "Vibe Coding Guide", zh: "Vibe Coding 构建指南" },
+      intro: {
+        en: "Todo List demonstrates how to build interactive list apps through vibe coding. Here are the core prompts we used:",
+        zh: "Todo List 展示了如何通过 vibe coding 构建交互式列表应用。以下是我们使用的核心提示词：",
+      },
+      steps: [
+        {
+          title: {
+            en: "🚀 Step 1: Design Task Data Model",
+            zh: "🚀 第一步：设计任务数据模型",
+          },
+          prompt: {
+            en: `# Start like this:
+
+"Create a Todo List app using Rikka Web Components.
+The app needs:
+- Create, edit, delete tasks with checkboxes for completion
+- Priority levels: high/medium/low with visual indicators
+- Tag system: add custom tags to any task
+- Filter views: all / active / completed / by priority / by tag
+- Data persistence to localStorage
+- Compact stats: active count, completed count"
+
+# AI will then:
+1. Design Todo and Tag data structures
+2. Create reactive state with signal and computed
+3. Build task list with CRUD operations
+4. Implement filter and search UI`,
+            zh: `# 你可以这样开始：
+
+"创建一个 Todo List 应用，使用 Rikka Web Components。
+应用需要：
+- 创建、编辑、删除任务，支持勾选完成
+- 优先级：高/中/低，带视觉指示
+- 标签系统：为任务添加自定义标签
+- 筛选视图：全部 / 进行中 / 已完成 / 按优先级 / 按标签
+- 数据持久化到 localStorage
+- 精简统计：进行中数量、已完成数量"
+
+# AI 接下来会帮你：
+1. 设计 Todo 和 Tag 数据结构
+2. 用 signal 和 computed 创建响应式状态
+3. 构建任务列表，支持增删改操作
+4. 实现筛选和搜索 UI`,
+          },
+        },
+        {
+          title: {
+            en: "🔧 Step 2: Implement Task State",
+            zh: "🔧 第二步：实现任务状态",
+          },
+          prompt: {
+            en: `# Tell AI how to implement task state:
+
+"In store.ts:
+- Define Todo interface (id, text, completed, priority, tags, createdAt)
+- Define todos and activeFilter signals
+- Use computed for: activeTodos, completedTodos, filteredTodos
+- Implement addTodo, toggleTodo, deleteTodo, editTodo operations"
+
+# Rikka advantages:
+- computed auto-recalculates filtered list as data changes
+- effect auto-persists to localStorage
+- Filter switching updates UI reactively`,
+            zh: `# 告诉 AI 如何实现任务状态：
+
+"在 store.ts 中：
+- 定义 Todo 接口（id, text, completed, priority, tags, createdAt）
+- 定义 todos 和 activeFilter 信号
+- 使用 computed 计算：activeTodos, completedTodos, filteredTodos
+- 实现 addTodo, toggleTodo, deleteTodo, editTodo 操作"
+
+# Rikka 优势：
+- 当数据变化时，computed 自动重算筛选列表
+- effect 自动持久化到 localStorage
+- 筛选器切换即响应式更新 UI`,
+          },
+        },
+        {
+          title: {
+            en: "🏷️ Step 3: Add Priority & Tags",
+            zh: "🏷️ 第三步：添加优先级和标签",
+          },
+          prompt: {
+            en: `# Let AI implement priority and tags:
+
+"Add priority levels and tags:
+- Define Priority type: 'low' | 'medium' | 'high'
+- Create priority selector with color-coded UI
+- Implement tag chips with add/remove capability
+- Use computed to build filter by priority and by tag"
+
+# Rikka implementation:
+- Signals store UI state for form inputs
+- Computed handles multi-criteria filtering
+- Effects sync data to localStorage`,
+            zh: `# 让 AI 实现优先级和标签：
+
+"添加优先级和标签：
+- 定义 Priority 类型：'low' | 'medium' | 'high'
+- 创建带颜色标识的优先级选择器
+- 实现标签芯片（chip），支持添加和删除
+- 使用 computed 构建按优先级和标签的筛选"
+
+# Rikka 实现：
+- signals 存储表单输入的 UI 状态
+- computed 处理多条件筛选
+- effects 同步数据到 localStorage`,
+          },
+        },
+        {
+          title: {
+            en: "🔍 Step 4: Build Filter & Search",
+            zh: "🔍 第四步：构建筛选和搜索",
+          },
+          prompt: {
+            en: `# Let AI implement filtering:
+
+"Add filter bar and search:
+- Define searchQuery signal for input
+- Define viewFilter signal: 'all' | 'active' | 'completed'
+- Combine in filteredTodos computed: filter by view + text search + priority
+- Display count badges next to each filter option"
+
+# Rikka workflow:
+- Multiple signals combine declaratively in computed
+- Real-time UI updates on filter change
+- Zero manual re-render calls`,
+            zh: `# 让 AI 实现筛选：
+
+"添加筛选栏和搜索：
+- 定义 searchQuery 信号用于输入
+- 定义 viewFilter 信号：'all' | 'active' | 'completed'
+- 在 filteredTodos computed 中组合：按视图 + 文本搜索 + 优先级筛选
+- 为每个筛选选项显示数量徽章"
+
+# Rikka 工作流程：
+- 多个信号在 computed 中声明式组合
+- 筛选变化即实时更新 UI
+- 零手动 re-render 调用`,
+          },
+        },
+      ],
+    },
+    coreFeatures: [
+      {
+        title: { en: "📋 Reactive Task State", zh: "📋 响应式任务状态" },
+        description: {
+          en: "Use signal to manage an array of tasks; each edit, toggle, or deletion triggers automatic UI updates across all components.",
+          zh: "使用 signal 管理任务数组；每次编辑、勾选或删除都会自动更新所有相关组件的 UI。",
+        },
+      },
+      {
+        title: { en: "🔍 Multi-criteria Filtering", zh: "🔍 多条件筛选" },
+        description: {
+          en: "Use computed to combine status filter, priority filter, tag filter, and text search into a single reactive list.",
+          zh: "使用 computed 将状态筛选、优先级筛选、标签筛选和文本搜索组合为单一响应式列表。",
+        },
+      },
+      {
+        title: { en: "🏷️ Priority & Tag System", zh: "🏷️ 优先级和标签系统" },
+        description: {
+          en: "Color-coded priority levels and a flexible tag chip system, all implemented with declarative signal bindings.",
+          zh: "带颜色标识的优先级和灵活的标签芯片系统，全部通过声明式 signal 绑定实现。",
+        },
+      },
+      {
+        title: { en: "💾 Auto Persistence", zh: "💾 自动持久化" },
+        description: {
+          en: "effect watches the todos signal and writes to localStorage on every change. Data is restored on page load.",
+          zh: "effect 监听 todos 信号，每次变化即写入 localStorage。页面加载时自动恢复数据。",
+        },
+      },
+      {
+        title: { en: "📊 Live Stats Badges", zh: "📊 实时统计徽章" },
+        description: {
+          en: "Computed properties track active vs completed counts and update badge numbers reactively.",
+          zh: "computed 属性追踪进行中与已完成数量，响应式更新徽章数字。",
+        },
+      },
+      {
+        title: { en: "🎯 Inline Edit Experience", zh: "🎯 内联编辑体验" },
+        description: {
+          en: "Click a task to edit inline; Rikka signals handle form state and commit without any boilerplate.",
+          zh: "点击任务即可内联编辑；Rikka signals 处理表单状态和提交，无需任何样板代码。",
+        },
+      },
+    ],
+    workflow: {
+      heading: { en: "Vibe Coding Workflow", zh: "Vibe Coding 工作流程" },
+      intro: {
+        en: "Step-by-step strategy for building task management apps:",
+        zh: "构建任务管理应用的分步策略：",
+      },
+      steps: [
+        {
+          title: { en: "1. Start with Basic List", zh: "1. 从基础列表开始" },
+          description: {
+            en: 'Start with a task list, e.g. "Create a list of tasks with checkbox completion"',
+            zh: '先实现任务列表，如 "创建一个带勾选框的任务列表"',
+          },
+        },
+        {
+          title: { en: "2. Add CRUD & Stats", zh: "2. 添加 CRUD 和统计" },
+          description: {
+            en: 'Add task form and stats, e.g. "Add an input to create tasks and counters for active/completed"',
+            zh: '添加任务表单和统计，如 "添加一个输入框创建任务，显示进行中/已完成数量"',
+          },
+        },
+        {
+          title: { en: "3. Implement Priority & Tags", zh: "3. 实现优先级和标签" },
+          description: {
+            en: 'Add richer metadata, e.g. "Add priority selector and tag chips to tasks"',
+            zh: '添加丰富的元数据，如 "为任务添加优先级选择器和标签芯片"',
+          },
+        },
+        {
+          title: { en: "4. Add Filtering & Search", zh: "4. 添加筛选和搜索" },
+          description: {
+            en: 'Add filter bar, e.g. "Add filter tabs (all/active/completed) and a search input"',
+            zh: '添加筛选栏，如 "添加筛选标签（全部/进行中/已完成）和搜索输入框"',
+          },
+        },
+      ],
+    },
+    buildSteps: {
+      heading: { en: "Build Steps", zh: "构建步骤" },
+      intro: {
+        en: "This app demonstrates the vibe coding workflow for task management applications:",
+        zh: "这个应用展示了任务管理应用的 vibe coding 工作流程：",
+      },
+      steps: {
+        en: [
+          "Step 1: Design data model — Define Todo interface with priority and tags, create store with signal",
+          "Step 2: Build task list — Use component + signal binding for list rendering with checkboxes",
+          "Step 3: Add inline edit — Toggle between display and edit mode with per-task signal state",
+          "Step 4: Implement filters — Combine view filter, priority filter, tag filter, and search in computed",
+          "Step 5: Add badge counts — Use computed for reactive active/completed counters",
+          "Step 6: Persist data — Use effect to auto-save and restore tasks from localStorage",
+        ],
+        zh: [
+          "Step 1: 设计数据模型 - 定义带优先级和标签的 Todo 接口，用 signal 创建 store",
+          "Step 2: 构建任务列表 - 使用组件 + signal 绑定渲染带勾选框的列表",
+          "Step 3: 添加内联编辑 - 通过 per-task signal 状态切换显示和编辑模式",
+          "Step 4: 实现筛选 - 在 computed 中组合视图筛选、优先级筛选、标签筛选和搜索",
+          "Step 5: 添加徽章统计 - 使用 computed 响应式计算进行中/已完成数量",
+          "Step 6: 数据持久化 - 使用 effect 自动保存和恢复 localStorage 中的任务",
+        ],
+      },
+    },
+    keyFeatures: [
+      {
+        title: "✅ Full CRUD Operations",
+        description: {
+          en: "Create, edit, complete, and delete tasks with fluid keyboard-friendly interactions",
+          zh: "创建、编辑、完成和删除任务，流畅且支持键盘交互",
+        },
+      },
+      {
+        title: "🎯 Priority Levels",
+        description: {
+          en: "Color-coded high/medium/low priorities with one-click switching",
+          zh: "带颜色标识的高/中/低优先级，一键切换",
+        },
+      },
+      {
+        title: "🏷️ Flexible Tag System",
+        description: {
+          en: "Add custom tags to any task; filter by tag with a single click",
+          zh: "为任务添加自定义标签；一键按标签筛选",
+        },
+      },
+      {
+        title: "🔍 Smart Filtering",
+        description: {
+          en: "Filter by status, priority, and tag; live text search across all tasks",
+          zh: "按状态、优先级、标签筛选；实时文本搜索所有任务",
+        },
+      },
+      {
+        title: "📊 Live Counters",
+        description: {
+          en: "Active and completed count badges that update in real-time",
+          zh: "进行中和已完成数量徽章，实时更新",
+        },
+      },
+      {
+        title: "💾 Auto Save",
+        description: {
+          en: "Every change persists to localStorage; restore on reload",
+          zh: "每次更改自动持久化到 localStorage；重新加载即恢复",
+        },
+      },
+    ],
+  },
+  {
+    slug: "drawing-pad",
+    title: "🎨 Drawing Pad",
+    description: {
+      en: "A creative canvas drawing app built with Rikka through vibe coding. Freehand sketch, use shapes, pick colors, undo/redo, and export to PNG.",
+      zh: "一个创意画板应用，通过 Rikka 的 Vibe Coding 构建。自由涂鸦、绘制图形、选择颜色、撤销重做，并导出为 PNG。",
+    },
+    tags: ["Canvas API", "Events", "Shapes"],
+    features: {
+      en: ["Pen/Shapes", "Palette", "Undo/Redo"],
+      zh: ["画笔/图形", "调色板", "撤销/重做"],
+    },
+    vibe: {
+      heading: { en: "Vibe Coding Guide", zh: "Vibe Coding 构建指南" },
+      intro: {
+        en: "Drawing Pad demonstrates how to build canvas-based creative apps through vibe coding. Here are the core prompts we used:",
+        zh: "Drawing Pad 展示了如何通过 vibe coding 构建基于 Canvas 的创意应用。以下是我们使用的核心提示词：",
+      },
+      steps: [
+        {
+          title: {
+            en: "🚀 Step 1: Design Canvas Architecture",
+            zh: "🚀 第一步：设计画布架构",
+          },
+          prompt: {
+            en: `# Start like this:
+
+"Create a drawing pad app using Rikka Web Components.
+The app needs:
+- A Canvas element as the drawing surface
+- Drawing tools: pen, eraser, line, rectangle, circle
+- Color palette and brush size selector
+- Background color picker
+- Undo/redo history stack
+- Save to PNG and JSON export/import
+- Mouse and touch input support"
+
+# AI will then:
+1. Create canvas element and context initialization
+2. Create reactive state for tools, colors, sizes
+3. Build toolbar with buttons for mode switching
+4. Implement pointer event handlers for drawing`,
+            zh: `# 你可以这样开始：
+
+"创建一个画板应用，使用 Rikka Web Components。
+应用需要：
+- 一个 Canvas 元素作为绘图画布
+- 绘图工具：画笔、橡皮、直线、矩形、圆形
+- 调色板和笔刷尺寸选择器
+- 背景颜色选择器
+- 撤销/重做历史栈
+- 保存为 PNG 和 JSON 导入导出
+- 支持鼠标和触摸输入"
+
+# AI 接下来会帮你：
+1. 创建 canvas 元素和 context 初始化
+2. 用 signal 创建工具、颜色、尺寸的响应式状态
+3. 构建工具栏，支持模式切换按钮
+4. 实现指针事件处理用于绘制`,
+          },
+        },
+        {
+          title: {
+            en: "🔧 Step 2: Implement Drawing State",
+            zh: "🔧 第二步：实现绘制状态",
+          },
+          prompt: {
+            en: `# Tell AI how to implement drawing state:
+
+"In store.ts:
+- Define Tool type: 'pen' | 'eraser' | 'line' | 'rect' | 'circle'
+- Define currentTool, currentColor, currentSize signals
+- Define undoStack and redoStack arrays with ImageData snapshots
+- Define bgColor signal for background
+- Implement pushUndo, popUndo, pushRedo, popRedo operations"
+
+# Rikka advantages:
+- Toolbar buttons bind directly to tool signal
+- Current active tool drives canvas behavior
+- Snapshot-based undo is simple and reliable`,
+            zh: `# 告诉 AI 如何实现绘制状态：
+
+"在 store.ts 中：
+- 定义 Tool 类型：'pen' | 'eraser' | 'line' | 'rect' | 'circle'
+- 定义 currentTool, currentColor, currentSize 信号
+- 定义 undoStack 和 redoStack 数组存储 ImageData 快照
+- 定义 bgColor 信号控制背景
+- 实现 pushUndo, popUndo, pushRedo, popRedo 操作"
+
+# Rikka 优势：
+- 工具栏按钮直接绑定到 tool signal
+- 当前激活的工具驱动画布行为
+- 基于快照的撤销简单可靠`,
+          },
+        },
+        {
+          title: {
+            en: "✏️ Step 3: Implement Drawing Logic",
+            zh: "✏️ 第三步：实现绘制逻辑",
+          },
+          prompt: {
+            en: `# Let AI implement drawing handlers:
+
+"Add drawing event handlers:
+- On pointer down: snapshot canvas to undo stack, mark start point
+- On pointer move for pen/eraser: draw segments with currentColor/currentSize
+- On pointer move for shapes: restore snapshot + draw shape from start to current
+- On pointer up: finalize
+- Use lineCap='round' and lineJoin='round' for smooth pen strokes"
+
+# Rikka implementation:
+- Canvas API + Rikka signals for tool state
+- Toolbar buttons toggle active tool reactively
+- Keyboard shortcuts trigger undo/redo`,
+            zh: `# 让 AI 实现绘制处理：
+
+"添加绘制事件处理：
+- 指针按下：保存画布快照到撤销栈，记录起点
+- 画笔/橡皮移动：用 currentColor/currentSize 绘制线段
+- 图形移动：恢复快照 + 从起点到当前点绘制图形
+- 指针松开：完成
+- 使用 lineCap='round' 和 lineJoin='round' 让笔画更平滑"
+
+# Rikka 实现：
+- Canvas API + Rikka signals 管理工具状态
+- 工具栏按钮响应式切换激活工具
+- 键盘快捷键触发撤销/重做`,
+          },
+        },
+        {
+          title: {
+            en: "📤 Step 4: Add Export & Undo/Redo",
+            zh: "📤 第四步：添加导出与撤销重做",
+          },
+          prompt: {
+            en: `# Let AI implement export and history:
+
+"Add file operations:
+- Save PNG: draw to temp canvas with bg fill, call toDataURL, download via anchor
+- Save JSON: serialize bg + image data
+- Load JSON: parse, set bg, draw image onto canvas
+- Keyboard Ctrl+Z / Ctrl+Shift+Z for undo/redo
+- Ctrl+S to save PNG"
+
+# Rikka workflow:
+- Stack-based history with simple push/pop
+- Export operations driven by signal tool state
+- Clean event listener integration`,
+            zh: `# 让 AI 实现导出和历史：
+
+"添加文件操作：
+- 保存 PNG：绘制到带背景填充的临时 canvas，调用 toDataURL，通过链接下载
+- 保存 JSON：序列化背景 + 图像数据
+- 加载 JSON：解析、设置背景、在 canvas 上绘制图像
+- 键盘 Ctrl+Z / Ctrl+Shift+Z 触发撤销/重做
+- Ctrl+S 保存 PNG"
+
+# Rikka 工作流程：
+- 基于栈的历史，用简单的 push/pop
+- 导出操作由 signal 工具状态驱动
+- 清晰的事件监听器集成`,
+          },
+        },
+      ],
+    },
+    coreFeatures: [
+      {
+        title: { en: "🎨 Canvas + Signal Integration", zh: "🎨 Canvas + Signal 集成" },
+        description: {
+          en: "Native HTML Canvas API wrapped in a Rikka component. Signal state drives the active tool, color, and brush size.",
+          zh: "原生 HTML Canvas API 包装在 Rikka 组件中。Signal 状态驱动激活的工具、颜色和笔刷尺寸。",
+        },
+      },
+      {
+        title: { en: "🖌️ Multiple Drawing Tools", zh: "🖌️ 多种绘图工具" },
+        description: {
+          en: "Freehand pen, eraser, straight line, rectangle, and ellipse — each tool changes event handling reactively.",
+          zh: "自由画笔、橡皮、直线、矩形、椭圆 — 每种工具响应式地改变事件处理。",
+        },
+      },
+      {
+        title: { en: "🎨 Color & Size Palette", zh: "🎨 颜色和尺寸调色板" },
+        description: {
+          en: "Click-to-select color swatches and size chips; all driven by signal bindings with zero boilerplate.",
+          zh: "点击选择的色块和尺寸芯片；全部由 signal 绑定驱动，零样板代码。",
+        },
+      },
+      {
+        title: { en: "↩️ Snapshot Undo/Redo", zh: "↩️ 快照式撤销/重做" },
+        description: {
+          en: "ImageData snapshots capture canvas state before each stroke. Undo pops a snapshot; redo restores it.",
+          zh: "ImageData 快照在每笔前捕获画布状态。撤销弹出一个快照；重做恢复它。",
+        },
+      },
+      {
+        title: { en: "📤 PNG & JSON Export", zh: "📤 PNG & JSON 导出" },
+        description: {
+          en: "Export drawings as PNG images or as JSON (bg + base64 image data) with load/restore capability.",
+          zh: "将画作导出为 PNG 图片或 JSON（背景 + base64 图像数据），支持加载/恢复。",
+        },
+      },
+      {
+        title: { en: "📱 Mouse & Touch Support", zh: "📱 鼠标与触摸支持" },
+        description: {
+          en: "Unified pointer handling for mouse and touch events. Works on desktop, tablets, and mobile devices.",
+          zh: "统一的指针事件处理，同时支持鼠标和触摸。适用于桌面、平板和移动设备。",
+        },
+      },
+    ],
+    workflow: {
+      heading: { en: "Vibe Coding Workflow", zh: "Vibe Coding 工作流程" },
+      intro: {
+        en: "Step-by-step strategy for building canvas-based creative apps:",
+        zh: "构建基于 Canvas 的创意应用的分步策略：",
+      },
+      steps: [
+        {
+          title: { en: "1. Start with Canvas Setup", zh: "1. 从设置画布开始" },
+          description: {
+            en: 'Start with a basic canvas, e.g. "Create a canvas element with a toolbar containing a clear button"',
+            zh: '从基础画布开始，如 "创建一个带工具栏（含清空按钮）的 canvas 元素"',
+          },
+        },
+        {
+          title: { en: "2. Implement Pen Tool", zh: "2. 实现画笔工具" },
+          description: {
+            en: 'Add drawing, e.g. "Implement pointer handlers to draw lines on the canvas with the mouse"',
+            zh: '添加绘制功能，如 "实现指针处理，用鼠标在画布上绘制线条"',
+          },
+        },
+        {
+          title: { en: "3. Add Shapes & Tools", zh: "3. 添加图形和工具" },
+          description: {
+            en: 'Add more tools, e.g. "Add line, rectangle, and ellipse tools with live preview"',
+            zh: '添加更多工具，如 "添加直线、矩形、椭圆工具并支持实时预览"',
+          },
+        },
+        {
+          title: { en: "4. Implement History & Export", zh: "4. 实现历史与导出" },
+          description: {
+            en: 'Add save/load, e.g. "Add undo/redo stack, PNG export, and JSON save/restore"',
+            zh: '添加保存/加载，如 "添加撤销/重做栈、PNG 导出、JSON 保存/恢复"',
+          },
+        },
+      ],
+    },
+    buildSteps: {
+      heading: { en: "Build Steps", zh: "构建步骤" },
+      intro: {
+        en: "This app demonstrates the vibe coding workflow for creative canvas applications:",
+        zh: "这个应用展示了创意画布应用的 vibe coding 工作流程：",
+      },
+      steps: {
+        en: [
+          "Step 1: Set up canvas — Create a canvas element with fixed dimensions and get the 2D context",
+          "Step 2: Build state store — Use signals to track current tool, color, size, and background",
+          "Step 3: Implement tool handlers — Add pointer down/move/up listeners that dispatch based on active tool",
+          "Step 4: Add shape preview — Use ImageData snapshots to preview shape on move without leaving trails",
+          "Step 5: Build toolbar UI — Buttons and swatches that bind to signal state with active highlighting",
+          "Step 6: Implement history & export — Undo/redo stacks, PNG toDataURL export, JSON serialize/load",
+        ],
+        zh: [
+          "Step 1: 设置画布 - 创建固定尺寸的 canvas 元素，获取 2D context",
+          "Step 2: 构建状态 store - 使用 signals 追踪当前工具、颜色、尺寸和背景",
+          "Step 3: 实现工具处理 - 添加指针按下/移动/松开监听器，根据激活的工具分发",
+          "Step 4: 添加图形预览 - 使用 ImageData 快照在移动时预览图形，不留痕迹",
+          "Step 5: 构建工具栏 UI - 按钮和色块绑定到 signal 状态，带激活高亮",
+          "Step 6: 实现历史与导出 - 撤销/重做栈、PNG toDataURL 导出、JSON 序列化/加载",
+        ],
+      },
+    },
+    keyFeatures: [
+      {
+        title: "🖌️ Multiple Drawing Tools",
+        description: {
+          en: "Pen, eraser, line, rectangle, and ellipse tools with live preview for shapes",
+          zh: "画笔、橡皮、直线、矩形、椭圆工具，支持图形实时预览",
+        },
+      },
+      {
+        title: "🎨 Color Palette",
+        description: {
+          en: "Curated palette swatches plus a custom background color picker",
+          zh: "精选调色板色块 + 自定义背景颜色选择器",
+        },
+      },
+      {
+        title: "📐 Adjustable Brush Size",
+        description: {
+          en: "Multiple brush sizes from thin to thick, previewed as chip size indicators",
+          zh: "从细到粗的多个笔刷尺寸，以芯片尺寸指示预览",
+        },
+      },
+      {
+        title: "↩️ Undo & Redo",
+        description: {
+          en: "Full snapshot-based history with keyboard shortcuts (Ctrl+Z / Ctrl+Shift+Z)",
+          zh: "基于完整快照的历史，支持键盘快捷键（Ctrl+Z / Ctrl+Shift+Z）",
+        },
+      },
+      {
+        title: "📥 PNG & JSON Export",
+        description: {
+          en: "Export to PNG image or save/load drawings as JSON with background data",
+          zh: "导出为 PNG 图片，或将画作保存/加载为带背景数据的 JSON",
+        },
+      },
+      {
+        title: "📱 Touch & Mouse",
+        description: {
+          en: "Works seamlessly with mouse, touch, and stylus input across devices",
+          zh: "无缝支持鼠标、触摸、触笔输入，跨设备使用",
+        },
+      },
+    ],
+  },
 ];
 
 /** Labels used across example pages */

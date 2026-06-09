@@ -3,14 +3,13 @@ import { showcasePageStyles } from "../../shared/page-styles";
 import { renderExamplePage } from "../../shared/example-renderer";
 import { examples } from "../../shared/example-content";
 
-const FinanceTracker = defineElement("rikka-example-finance-tracker", {
+const DrawingPad = defineElement("rikka-example-drawing-pad", {
   styles: showcasePageStyles,
   render() {
-    return renderExamplePage(examples[3], {
-      prev: { slug: "code-editor", title: "Code Editor" },
-      next: { slug: "todo-list", title: "Todo List" },
+    return renderExamplePage(examples[5], {
+      prev: { slug: "todo-list", title: "Todo List" },
     });
   }
 });
 
-export { FinanceTracker as ExampleFinanceTracker };
+export { DrawingPad as ExampleDrawingPad };
