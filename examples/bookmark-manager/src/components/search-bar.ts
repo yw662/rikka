@@ -21,10 +21,12 @@ export const searchBar = defineElement('search-bar', {
       display: flex;
       gap: 0.75rem;
       margin-bottom: 1rem;
+      align-items: stretch;
     }
     
     .search-input-wrapper {
-      flex: 1;
+      flex: 1 1 auto;
+      min-width: 0;
       position: relative;
     }
     
@@ -48,6 +50,8 @@ export const searchBar = defineElement('search-bar', {
       color: white;
       font-size: 1rem;
       outline: none;
+      box-sizing: border-box;
+      height: 100%;
       transition: all 0.3s ease;
     }
     
@@ -61,6 +65,7 @@ export const searchBar = defineElement('search-bar', {
     }
     
     .add-btn {
+      flex: 0 0 auto;
       padding: 0.875rem 1.5rem;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       border: none;
@@ -73,6 +78,7 @@ export const searchBar = defineElement('search-bar', {
       display: flex;
       align-items: center;
       gap: 0.5rem;
+      white-space: nowrap;
     }
     
     .add-btn:hover {
