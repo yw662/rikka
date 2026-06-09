@@ -1,5 +1,6 @@
 import { defineElement } from '@takanashi/rikka-elements';
 import { div, button, span, css, input, select, option } from '@takanashi/rikka-dom';
+import { type Locale } from '../i18n.js';
 import { effect } from '@takanashi/rikka-signal';
 import {
   currentColor, currentSize, currentTool, bgColor,
@@ -179,9 +180,17 @@ export const drawingCanvas = defineElement('drawing-canvas', {
       font-size: 0.8rem;
       font-weight: 600;
       cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      min-width: 80px;
     }
 
     .lang-btn:hover { background: rgba(255, 255, 255, 0.25); }
+
+    .lang-btn option {
+      background: #1e293b;
+      color: white;
+    }
 
     .app-shell {
       background: white;
@@ -194,14 +203,21 @@ export const drawingCanvas = defineElement('drawing-canvas', {
     // 顶部栏（标题 + 语言切换）
     const titleEl = span({ class: 'header-title' }, t(content.appTitle));
     const subEl = span({ class: 'header-sub' }, t(content.appSubtitle));
-    const langBtn = button({ class: 'lang-btn' }, locale.get() === 'en' ? '中文' : 'EN');
+    const langSelect = select(
+      { class: 'lang-btn' },
+      option({ value: 'en' }, 'English'),
+      option({ value: 'zh' }, '中文')
+    );
+    langSelect.value = locale.get();
+    langSelect.addEventListener('change', (e) => {
+      setLocale((e.target as HTMLSelectElement).value as Locale);
+    });
 
     effect(() => {
       titleEl.textContent = t(content.appTitle);
       subEl.textContent = t(content.appSubtitle);
-      langBtn.textContent = locale.get() === 'en' ? '中文' : 'EN';
+      langSelect.value = locale.get();
     });
-    langBtn.addEventListener('click', () => setLocale(locale.get() === 'en' ? 'zh' : 'en'));
 
     // 工具按钮
     const tools: { key: Tool; label: keyof typeof content }[] = [
@@ -591,7 +607,7 @@ export const drawingCanvas = defineElement('drawing-canvas', {
     return div({ class: 'wrap' },
       div({ class: 'top-bar' },
         div({ class: 'header-left' }, titleEl, subEl),
-        langBtn
+        langSelect
       ),
       div({ class: 'app-shell' }, toolbar, container)
     );
