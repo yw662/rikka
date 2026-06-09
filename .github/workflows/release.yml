@@ -51,3 +51,27 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
+
+      - name: Enable auto-merge on Version PR
+        if: steps.changesets.outputs.published == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          PR_NUMBER=$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${REPO}/pulls?state=open&head=${REPO##*/}:changeset-release/default" \
+            | node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{const a=JSON.parse(d); process.stdout.write(a[0]?.number ? String(a[0].number) : '');})")
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No open Version PR found, skipping auto-merge."
+            exit 0
+          fi
+          echo "Enabling auto-merge on PR #${PR_NUMBER}"
+          curl -fsSL \
+            -X PUT \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${REPO}/pulls/${PR_NUMBER}/auto-merge" \
+            -d '{"merge_method":"squash"}'
