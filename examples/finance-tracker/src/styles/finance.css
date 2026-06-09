@@ -43,11 +43,19 @@ body {
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 80px;
 }
 
 .locale-toggle:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.25);
+  color: #e2e8f0;
+}
+
+.locale-toggle option {
+  background: #1a1a2e;
   color: #e2e8f0;
 }
 
