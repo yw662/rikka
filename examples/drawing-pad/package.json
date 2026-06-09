@@ -1,0 +1,22 @@
+{
+  "name": "drawing-pad",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Drawing Pad built with Rikka Web Components",
+  "scripts": {
+    "dev": "rsbuild dev",
+    "build": "rsbuild build",
+    "preview": "rsbuild preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@takanashi/rikka-signal": "workspace:*",
+    "@takanashi/rikka-dom": "workspace:*",
+    "@takanashi/rikka-elements": "workspace:*"
+  },
+  "devDependencies": {
+    "@rsbuild/core": "catalog:",
+    "typescript": "catalog:"
+  }
+}

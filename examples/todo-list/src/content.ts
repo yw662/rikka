@@ -1,0 +1,27 @@
+import type { Locale } from './i18n';
+
+export const content = {
+  appTitle: { en: '✅ Tasks', zh: '✅ 任务' },
+  appSubtitle: { en: 'Stay organized, get things done', zh: '保持条理，高效完成' },
+  addPlaceholder: { en: 'What needs to be done?', zh: '有什么需要做的？' },
+  addTask: { en: 'Add Task', zh: '添加' },
+  all: { en: 'All', zh: '全部' },
+  active: { en: 'Active', zh: '进行中' },
+  completed: { en: 'Completed', zh: '已完成' },
+  clearCompleted: { en: 'Clear Completed', zh: '清除已完成' },
+  itemsLeft: { en: 'item left', zh: '项待办' },
+  edit: { en: 'Edit', zh: '编辑' },
+  delete: { en: 'Delete', zh: '删除' },
+  save: { en: 'Save', zh: '保存' },
+  cancel: { en: 'Cancel', zh: '取消' },
+  priority: { en: 'Priority', zh: '优先级' },
+  priorityLow: { en: 'Low', zh: '低' },
+  priorityMedium: { en: 'Medium', zh: '中' },
+  priorityHigh: { en: 'High', zh: '高' },
+  tagInput: { en: 'Add tag + Enter', zh: '添加标签，回车确认' },
+  noTasks: { en: 'No tasks yet. Add one above!', zh: '暂无任务，先添加一个吧！' },
+  search: { en: 'Search tasks...', zh: '搜索任务...' },
+  switchLang: { en: '中文', zh: 'EN' },
+  exportData: { en: 'Export', zh: '导出' },
+  importData: { en: 'Import', zh: '导入' },
+} satisfies Record<string, Record<Locale, string>>;
