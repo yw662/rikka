@@ -156,10 +156,10 @@ function printFinalReport(results, startTime) {
   // 下一步建议
   if (allPassed) {
     log('green', '\n✨ 接下来可以:');
-    log('green', '   • git add . && git commit -m "chore: pass all checks"');
+    log('green', '   • git add <files> && git commit -m "chore: pass all checks"');
     log('green', '   • git push');
-    log('green', '   • npm version patch/minor/major && git push --follow-tags');
-    log('green', '\n🚀 项目已准备好发布到 npm！');
+    log('green', '   • pnpm changeset && git add . && git commit -m "chore: add changeset" && git push');
+    log('green', '\n🚀 GitHub Actions 将自动创建 Version PR、发布到 npm 并推送 git tag！');
   } else {
     const failedStages = results.filter(r => !r.success).map(r => r.name);
     log('red', '\n⚠️  请修复以下失败阶段:');

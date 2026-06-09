@@ -2,6 +2,7 @@ import { effect, computed, Signal } from "@takanashi/rikka-signal";
 import { isSignal } from "./signal-utils.js";
 import { ReactiveRange } from "./h.js";
 import { registerDisposable } from "./h.js";
+import type { StyleRecord } from "./attributes.js";
 
 type SignalLike = Signal.State<any> | Signal.Computed<any>;
 
@@ -58,7 +59,7 @@ export function css(
 export function inlineStyle(
   strings: TemplateStringsArray,
   ...values: (string | number | SignalLike)[]
-): Record<string, unknown> {
+): StyleRecord {
   const SIGNAL_MARKER = "__RIKKA_SIG_";
   const signalMap = new Map<string, SignalLike>();
 
@@ -77,7 +78,7 @@ export function inlineStyle(
     }
   }
 
-  const result: Record<string, unknown> = {};
+  const result: StyleRecord = {};
   const declarations = splitDeclarations(cssText);
 
   for (const decl of declarations) {
@@ -164,17 +165,26 @@ function isInAttributeValue(
   return inSingle || inDouble;
 }
 
+// Template cache: avoids repeated innerHTML parsing for the same HTML string.
+// Keyed by the full HTML string. Cloned on hit so the cached template stays pristine.
+const templateCache = new Map<string, HTMLTemplateElement>();
+const MAX_CACHE_SIZE = 256;
+
+// Regex for detecting attr signal markers in attribute values.
+const ATTR_MARKER_RE = /__rk_attr_\d+__/g;
+
+// Beacon attribute injected on tags that contain attr signal markers,
+// so we can find them with querySelector instead of scanning all elements.
+const ATTR_BEACON = "data-rk-bind";
+
 export function hTemplate(
   strings: TemplateStringsArray,
   ...values: any[]
 ): Element[] {
-  const container = document.createElement("div");
-
   let html = "";
   const textSignals = new Map<string, any>();
   const attrSignals = new Map<string, any>();
   const elementBindings = new Map<string, Element>();
-  const ATTR_BEACON = "data-rk-bind";
 
   for (let i = 0; i < strings.length; i++) {
     html += strings[i];
@@ -209,8 +219,28 @@ export function hTemplate(
     );
   }
 
-  container.innerHTML = html;
+  // Use <template> for correct parsing of table/SVG/MathML elements.
+  // Cache parsed templates to avoid repeated innerHTML parsing.
+  // Skip caching for templates containing <template> — cloneNode may not
+  // correctly deep-clone nested template.content in all environments.
+  const hasNestedTemplate = /<template[\s>]/i.test(html);
 
+  let container: DocumentFragment;
+  const cached = !hasNestedTemplate && templateCache.get(html);
+  if (cached) {
+    container = (cached.cloneNode(true) as HTMLTemplateElement).content;
+  } else {
+    const tpl = document.createElement("template");
+    tpl.innerHTML = html;
+    if (!hasNestedTemplate && templateCache.size < MAX_CACHE_SIZE) {
+      templateCache.set(html, tpl);
+      container = (tpl.cloneNode(true) as HTMLTemplateElement).content;
+    } else {
+      container = tpl.content;
+    }
+  }
+
+  // Process comment markers (text signals and element bindings)
   const comments: Comment[] = [];
   const commentWalker = document.createTreeWalker(
     container,
@@ -256,27 +286,32 @@ export function hTemplate(
     }
   }
 
+  // Process attr signals: use beacon attribute to find only relevant elements,
+  // then use regex to efficiently locate markers within their attribute values.
   if (attrSignals.size > 0) {
     const bindableElements = container.querySelectorAll(`[${ATTR_BEACON}]`);
     for (const el of bindableElements) {
       el.removeAttribute(ATTR_BEACON);
       for (const attr of Array.from(el.attributes)) {
         const attrBindings: Array<{ marker: string; signal: any }> = [];
-        for (const [marker, signal] of attrSignals) {
-          if (attr.value.includes(marker)) {
-            attrBindings.push({ marker, signal });
+        ATTR_MARKER_RE.lastIndex = 0;
+        let match: RegExpExecArray | null;
+        while ((match = ATTR_MARKER_RE.exec(attr.value)) !== null) {
+          const signal = attrSignals.get(match[0]);
+          if (signal) {
+            attrBindings.push({ marker: match[0], signal });
           }
         }
         if (attrBindings.length === 0) continue;
 
         const attrName = attr.name;
-        const template = attr.value;
+        const attrTemplate = attr.value;
         const weakEl = new WeakRef(el);
 
         const dispose = effect(() => {
           const target = weakEl.deref();
           if (!target) return;
-          let value = template;
+          let value = attrTemplate;
           for (const { marker, signal } of attrBindings) {
             value = value.replaceAll(marker, String(signal.get()));
           }
@@ -288,6 +323,7 @@ export function hTemplate(
     }
   }
 
+  // Extract top-level elements
   const elements: Element[] = [];
   while (container.firstChild) {
     const child = container.firstChild;

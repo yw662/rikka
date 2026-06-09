@@ -273,8 +273,8 @@ const hContent = {
  */
 const tagHelpersContent = {
   desc: {
-    en: "Pre-built factory functions for every HTML element.",
-    zh: "为每个 HTML 元素预构建的工厂函数。",
+    en: "Pre-built factory functions for every HTML, SVG, and MathML element.",
+    zh: "为每个 HTML、SVG 和 MathML 元素预构建的工厂函数。",
   } as Record<Locale, string>,
   keyConcepts: { en: "Key Concepts", zh: "关键概念" } as Record<Locale, string>,
   bullet1: {
@@ -317,6 +317,10 @@ const tagHelpersContent = {
     en: ", etc.",
     zh: " 等。",
   } as Record<Locale, string>,
+  bullet7: {
+    en: "Also covers media, metadata, embedded content, MathML, and the full SVG element set.",
+    zh: "还涵盖媒体、元数据、嵌入内容、MathML 以及完整的 SVG 元素集。",
+  } as Record<Locale, string>,
   availableHelpers: {
     en: "Available Tag Helpers",
     zh: "可用的标签助手",
@@ -327,6 +331,11 @@ const tagHelpersContent = {
     zh: "SVG 元素自动使用 SVG 命名空间：",
   } as Record<Locale, string>,
   example: { en: "Example:", zh: "示例：" } as Record<Locale, string>,
+  mathmlHelpers: { en: "MathML Tag Helpers", zh: "MathML 标签助手" } as Record<Locale, string>,
+  mathmlHelpersDesc: {
+    en: "MathML elements automatically use the MathML namespace:",
+    zh: "MathML 元素自动使用 MathML 命名空间：",
+  } as Record<Locale, string>,
   namespace: { en: "Namespace Behavior", zh: "命名空间行为" } as Record<Locale, string>,
   namespaceDesc: {
     en: "Each tag helper resolves its namespace based on the tag name itself (not parent context):",
@@ -383,6 +392,22 @@ const tagHelpersContent = {
   nsBullet6: {
     en: " is an SVG element that serves as an HTML integration point — place standard HTML helpers inside it.",
     zh: " 是一个 SVG 元素，作为 HTML 集成点 —— 在其中放置标准 HTML 助手。",
+  } as Record<Locale, string>,
+  nsBullet7: {
+    en: "Reserved words ",
+    zh: "保留字 ",
+  } as Record<Locale, string>,
+  nsBullet7Mid: {
+    en: " and ",
+    zh: " 和 ",
+  } as Record<Locale, string>,
+  nsBullet7End: {
+    en: " are exported as ",
+    zh: " 以 ",
+  } as Record<Locale, string>,
+  nsBullet7Final: {
+    en: " — import with rename if you prefer the bare name.",
+    zh: " 形式导出 —— 如果你更喜欢裸名，可以用 import 时的 rename。",
   } as Record<Locale, string>,
   usageExample: { en: "Usage Example", zh: "使用示例" } as Record<Locale, string>,
   prevH: { en: "← h()", zh: "← h()" } as Record<Locale, string>,

@@ -4,15 +4,16 @@ export type AttrValue =
   | string
   | number
   | boolean
-  | Signal.State<string>
-  | Signal.Computed<string>;
+  | Signal.State<string | number | boolean>
+  | Signal.Computed<string | number | boolean>;
 
 export type StyleValue =
   | string
   | number
+  | null
   | undefined
-  | Signal.State<string | number | undefined>
-  | Signal.Computed<string | number | undefined>;
+  | Signal.State<string | number | null | undefined>
+  | Signal.Computed<string | number | null | undefined>;
 
 export type StyleRecord = Record<string, StyleValue>;
 

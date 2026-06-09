@@ -53,7 +53,7 @@ Signal interpolation modes:
 
 ### Tag Helpers
 
-69 predefined tag functions (`div`, `span`, `p`, `a`, `button`, `input`, `form`, `ul`, `ol`, `li`, `h1`–`h6`, `svg`, `circle`, `path`, etc.) — same signature as `h()` but without the tag parameter. All return `Element` directly.
+Over 200 predefined tag functions covering every HTML, SVG, and MathML element (`div`, `span`, `p`, `a`, `button`, `input`, `form`, `ul`, `ol`, `li`, `h1`–`h6`, `svg`, `circle`, `path`, `math`, `mrow`, etc.) — same signature as `h()` but without the tag parameter. All return `Element` directly. HTML/SVG name collisions (`a`, `script`, `style`, `title`, `text`, `tspan`, `textPath`) have `svg`-prefixed variants for the SVG namespace.
 
 ### `For(source, render, keyFn?): ReactiveRange`
 

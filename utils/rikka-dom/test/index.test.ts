@@ -26,11 +26,160 @@ import {
   circle as tagCircle,
   svga,
   svgtitle,
+  svgscript,
+  svgstyle,
   text as tagText,
   tspan as tagTspan,
   textPath as tagTextPath,
+  abbr,
+  address,
+  area,
+  audio,
+  b,
+  base,
+  bdi,
+  bdo,
+  blockquote,
+  body,
+  canvas,
+  caption,
+  cite,
+  col,
+  colgroup,
+  data,
+  datalist,
+  dd,
+  del,
+  details,
+  dfn,
+  dialog,
+  dl,
+  dt,
+  em,
+  embed,
+  fieldset,
+  figcaption,
+  figure,
+  head,
+  hgroup,
+  html,
+  i,
+  iframe,
+  ins,
+  kbd,
+  legend,
+  link,
+  map,
+  mark,
+  menu,
+  meta,
+  meter,
+  noscript,
+  object,
+  optgroup,
+  output,
+  picture,
+  progress,
+  q,
+  rp,
+  rt,
+  ruby,
+  s,
+  samp,
+  script,
+  search,
+  small,
+  source,
+  strong,
+  style,
+  sub,
+  summary,
+  sup,
+  tfoot,
+  time,
+  title,
+  track,
+  u,
+  var_,
+  video,
+  wbr,
+  animate,
+  animateMotion,
+  animateTransform,
+  desc,
+  feBlend,
+  feColorMatrix,
+  feComponentTransfer,
+  feComposite,
+  feConvolveMatrix,
+  feDiffuseLighting,
+  feDisplacementMap,
+  feDistantLight,
+  feDropShadow,
+  feFlood,
+  feFuncA,
+  feFuncB,
+  feFuncG,
+  feFuncR,
+  feGaussianBlur,
+  feImage,
+  feMerge,
+  feMergeNode,
+  feMorphology,
+  feOffset,
+  fePointLight,
+  feSpecularLighting,
+  feSpotLight,
+  feTile,
+  feTurbulence,
+  metadata,
+  mpath,
+  set,
+  switch_,
+  view,
+  math,
+  annotation,
+  annotationXml,
+  maction,
+  menclose,
+  merror,
+  mfenced,
+  mfrac,
+  mglyph,
+  mi,
+  mlabeledtr,
+  maligngroup,
+  malignmark,
+  mmultiscripts,
+  mn,
+  mo,
+  mpadded,
+  mphantom,
+  mprescripts,
+  mroot,
+  mrow,
+  ms,
+  mspace,
+  msqrt,
+  mstyle,
+  msub,
+  msubsup,
+  msup,
+  mtable,
+  mtd,
+  mtext,
+  mtr,
+  munder,
+  munderover,
+  none,
+  semantics,
 } from "../src/tags.js";
-import { isPlainObject, isSignal, isWritableSignal, unwrapSignal } from "../src/signal-utils.js";
+import {
+  isPlainObject,
+  isSignal,
+  isWritableSignal,
+  unwrapSignal,
+} from "../src/signal-utils.js";
 import { signal, computed, effect, Signal } from "@takanashi/rikka-signal";
 
 describe("h()", () => {
@@ -462,6 +611,18 @@ describe("SVG namespaced tag shortcuts", () => {
     expect(el.tagName).toBe("title");
   });
 
+  it("svgscript() creates an element with SVG namespace", () => {
+    const el = svgscript("console.log(1)");
+    expect(el.namespaceURI).toBe("http://www.w3.org/2000/svg");
+    expect(el.tagName).toBe("script");
+  });
+
+  it("svgstyle() creates an element with SVG namespace", () => {
+    const el = svgstyle("circle { fill: red; }");
+    expect(el.namespaceURI).toBe("http://www.w3.org/2000/svg");
+    expect(el.tagName).toBe("style");
+  });
+
   it("text() is exported and creates an SVG text element", () => {
     const el = tagText("hello");
     expect(el.tagName).toBe("text");
@@ -638,11 +799,7 @@ describe("When", () => {
 
   it("accepts static Elements directly", async () => {
     const cond = signal(true);
-    const content = When(
-      cond,
-      h("span", "yes"),
-      h("span", "no"),
-    );
+    const content = When(cond, h("span", "yes"), h("span", "no"));
     const container = h("div", content);
     expect(container.textContent).toBe("yes");
     cond.set(false);
@@ -684,13 +841,18 @@ describe("Switch", () => {
   });
 
   it("accepts static Element in Match and fallback", () => {
-    const content = Switch("b", [
-      Match("a", h("span", "A")),
-      Match("b", h("span", "B")),
-    ], h("span", "default"));
+    const content = Switch(
+      "b",
+      [Match("a", h("span", "A")), Match("b", h("span", "B"))],
+      h("span", "default"),
+    );
     const container = h("div", content);
     expect(container.textContent).toBe("B");
-    const fallbackContent = Switch("z", [Match("a", h("span", "A"))], h("span", "default"));
+    const fallbackContent = Switch(
+      "z",
+      [Match("a", h("span", "A"))],
+      h("span", "default"),
+    );
     const fallbackContainer = h("div", fallbackContent);
     expect(fallbackContainer.textContent).toBe("default");
   });
@@ -713,10 +875,11 @@ describe("Switch", () => {
 
   it("accepts null in Match and fallback", async () => {
     const val = signal("b");
-    const content = Switch(val, [
-      Match("a", h("span", "A")),
-      Match("b", null),
-    ], h("span", "default"));
+    const content = Switch(
+      val,
+      [Match("a", h("span", "A")), Match("b", null)],
+      h("span", "default"),
+    );
     const container = h("div", content);
     expect(container.textContent).toBe("");
     val.set("a");
@@ -1122,26 +1285,9 @@ describe("h`` template tag", () => {
   it("does not leave data-rk-bind beacon attribute in DOM", async () => {
     const color = signal("red");
     const elements = h`<div style="color: ${color}">Text</div>`;
-    const div = elements[0];
+    const div = elements[0] as HTMLElement;
     expect(div.hasAttribute("data-rk-bind")).toBe(false);
     expect(div.style.color).toBe("red");
-  });
-
-  it("finds beacon attribute via querySelectorAll in happy-dom", () => {
-    const container = document.createElement("div");
-    container.innerHTML = '<div data-rk-bind="" data-color="__rk_attr_0__">test</div>';
-    const found = container.querySelectorAll("[data-rk-bind]");
-    expect(found.length).toBe(1);
-    expect(found[0].getAttribute("data-color")).toBe("__rk_attr_0__");
-  });
-
-  it("beacon regex injects data-rk-bind for tags with __rk_attr_ markers", () => {
-    const html = '<div data-color="__rk_attr_0__" title="__rk_attr_1__">Text</div>';
-    const result = html.replace(
-      /(<[a-zA-Z][a-zA-Z0-9-]*[^>]*__rk_attr_[^>]*?)(\s*\/?>)/g,
-      '$1 data-rk-bind=""$2',
-    );
-    expect(result).toContain('data-rk-bind=""');
   });
 
   it("binds multiple signal attributes in template on same element", async () => {
@@ -1164,7 +1310,7 @@ describe("h`` template tag", () => {
     const color = signal("red");
     const elements = h`<span>static</span><div style="color: ${color}">dynamic</div>`;
     const span = elements[0];
-    const div = elements[1];
+    const div = elements[1] as HTMLElement;
     expect(span.hasAttribute("data-rk-bind")).toBe(false);
     expect(div.hasAttribute("data-rk-bind")).toBe(false);
     expect(div.style.color).toBe("red");
@@ -1761,7 +1907,12 @@ describe("Two-way binding", () => {
 
   it("keeps numeric signal a number when bound to type=range input", async () => {
     const value = signal(0);
-    const el = h("input", { type: "range", min: "0", max: "255", value }) as HTMLInputElement;
+    const el = h("input", {
+      type: "range",
+      min: "0",
+      max: "255",
+      value,
+    }) as HTMLInputElement;
     document.body.appendChild(el);
     el.value = "200";
     el.dispatchEvent(new Event("input"));
@@ -1783,7 +1934,7 @@ describe("Two-way binding", () => {
 
   it("binds Signal.State to checkbox checked and syncs back on change event", async () => {
     const checked = signal(false);
-    const el = h("input", { type: "checkbox", checked }) as HTMLInputElement;
+    const el = h("input", { type: "checkbox", checked });
     document.body.appendChild(el);
     expect(el.checked).toBe(false);
     checked.set(true);
@@ -1969,7 +2120,11 @@ describe("h() edge cases", () => {
   it("renders Signal<Child[]> whose array contains non-Element items", async () => {
     // When the array contains non-Element items, the non-Every-Element branch
     // in the signal child binding falls through to insertChildBefore per item.
-    const s = signal<unknown[]>([h("span", "A"), "text-between", h("span", "B")]);
+    const s = signal<unknown[]>([
+      h("span", "A"),
+      "text-between",
+      h("span", "B"),
+    ]);
     const container = h("div", s as any);
     expect(container.querySelectorAll("span").length).toBe(2);
     expect(container.textContent).toContain("A");
@@ -2304,7 +2459,11 @@ describe("Batched two-way binding", () => {
   it("syncs back checkbox checked when batched with another signal attribute", async () => {
     const checked = signal(false);
     const title = signal("cb");
-    const el = h("input", { type: "checkbox", checked, title }) as HTMLInputElement;
+    const el = h("input", {
+      type: "checkbox",
+      checked,
+      title,
+    }) as HTMLInputElement;
     document.body.appendChild(el);
     await new Promise((r) => setTimeout(r, 10));
     expect(el.checked).toBe(false);
@@ -2323,7 +2482,11 @@ describe("Batched two-way binding", () => {
   it("handles batched value + checked on same input", async () => {
     const value = signal("a");
     const checked = signal(true);
-    const el = h("input", { type: "checkbox", value, checked }) as HTMLInputElement;
+    const el = h("input", {
+      type: "checkbox",
+      value,
+      checked,
+    }) as HTMLInputElement;
     document.body.appendChild(el);
     await new Promise((r) => setTimeout(r, 10));
     expect(el.value).toBe("a");
@@ -2374,7 +2537,7 @@ describe("h`` template tag: attribute binding edge cases", () => {
   it("binds signal attribute with static prefix and suffix", async () => {
     const size = signal("16");
     const elements = h`<div style="font-size: ${size}px; color: red">Text</div>`;
-    const div = elements[0];
+    const div = elements[0] as HTMLElement;
     expect(div.style.fontSize).toBe("16px");
     expect(div.style.color).toBe("red");
     size.set("20");
@@ -2386,7 +2549,7 @@ describe("h`` template tag: attribute binding edge cases", () => {
     const x = signal("10");
     const y = signal("20");
     const elements = h`<div style="top: ${x}px; left: ${y}px">Pos</div>`;
-    const div = elements[0];
+    const div = elements[0] as HTMLElement;
     expect(div.style.top).toBe("10px");
     expect(div.style.left).toBe("20px");
     x.set("30");
@@ -2527,5 +2690,642 @@ describe("Signal child with nested signal in style object", () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(el.style.color).toBe("blue");
     expect(el.style.fontSize).toBe("16px");
+  });
+});
+
+describe("Comprehensive HTML tag helpers", () => {
+  const cases: Array<
+    [
+      string,
+      (attrs?: Record<string, unknown>, ...children: unknown[]) => Element,
+      string,
+    ]
+  > = [
+    ["abbr", (a, ...c) => abbr(a as never, ...(c as never[])), "abbr"],
+    ["address", (a, ...c) => address(a as never, ...(c as never[])), "address"],
+    ["area", (a, ...c) => area(a as never, ...(c as never[])), "area"],
+    ["audio", (a, ...c) => audio(a as never, ...(c as never[])), "audio"],
+    ["b", (a, ...c) => b(a as never, ...(c as never[])), "b"],
+    ["base", (a, ...c) => base(a as never, ...(c as never[])), "base"],
+    ["bdi", (a, ...c) => bdi(a as never, ...(c as never[])), "bdi"],
+    ["bdo", (a, ...c) => bdo(a as never, ...(c as never[])), "bdo"],
+    [
+      "blockquote",
+      (a, ...c) => blockquote(a as never, ...(c as never[])),
+      "blockquote",
+    ],
+    ["body", (a, ...c) => body(a as never, ...(c as never[])), "body"],
+    ["canvas", (a, ...c) => canvas(a as never, ...(c as never[])), "canvas"],
+    ["caption", (a, ...c) => caption(a as never, ...(c as never[])), "caption"],
+    ["cite", (a, ...c) => cite(a as never, ...(c as never[])), "cite"],
+    ["col", (a, ...c) => col(a as never, ...(c as never[])), "col"],
+    [
+      "colgroup",
+      (a, ...c) => colgroup(a as never, ...(c as never[])),
+      "colgroup",
+    ],
+    ["data", (a, ...c) => data(a as never, ...(c as never[])), "data"],
+    [
+      "datalist",
+      (a, ...c) => datalist(a as never, ...(c as never[])),
+      "datalist",
+    ],
+    ["dd", (a, ...c) => dd(a as never, ...(c as never[])), "dd"],
+    ["del", (a, ...c) => del(a as never, ...(c as never[])), "del"],
+    ["details", (a, ...c) => details(a as never, ...(c as never[])), "details"],
+    ["dfn", (a, ...c) => dfn(a as never, ...(c as never[])), "dfn"],
+    ["dialog", (a, ...c) => dialog(a as never, ...(c as never[])), "dialog"],
+    ["dl", (a, ...c) => dl(a as never, ...(c as never[])), "dl"],
+    ["dt", (a, ...c) => dt(a as never, ...(c as never[])), "dt"],
+    ["em", (a, ...c) => em(a as never, ...(c as never[])), "em"],
+    ["embed", (a, ...c) => embed(a as never, ...(c as never[])), "embed"],
+    [
+      "fieldset",
+      (a, ...c) => fieldset(a as never, ...(c as never[])),
+      "fieldset",
+    ],
+    [
+      "figcaption",
+      (a, ...c) => figcaption(a as never, ...(c as never[])),
+      "figcaption",
+    ],
+    ["figure", (a, ...c) => figure(a as never, ...(c as never[])), "figure"],
+    ["head", (a, ...c) => head(a as never, ...(c as never[])), "head"],
+    ["hgroup", (a, ...c) => hgroup(a as never, ...(c as never[])), "hgroup"],
+    ["html", (a, ...c) => html(a as never, ...(c as never[])), "html"],
+    ["i", (a, ...c) => i(a as never, ...(c as never[])), "i"],
+    ["iframe", (a, ...c) => iframe(a as never, ...(c as never[])), "iframe"],
+    ["ins", (a, ...c) => ins(a as never, ...(c as never[])), "ins"],
+    ["kbd", (a, ...c) => kbd(a as never, ...(c as never[])), "kbd"],
+    ["legend", (a, ...c) => legend(a as never, ...(c as never[])), "legend"],
+    ["link", (a, ...c) => link(a as never, ...(c as never[])), "link"],
+    ["map", (a, ...c) => map(a as never, ...(c as never[])), "map"],
+    ["mark", (a, ...c) => mark(a as never, ...(c as never[])), "mark"],
+    ["menu", (a, ...c) => menu(a as never, ...(c as never[])), "menu"],
+    ["meta", (a, ...c) => meta(a as never, ...(c as never[])), "meta"],
+    ["meter", (a, ...c) => meter(a as never, ...(c as never[])), "meter"],
+    [
+      "noscript",
+      (a, ...c) => noscript(a as never, ...(c as never[])),
+      "noscript",
+    ],
+    ["object", (a, ...c) => object(a as never, ...(c as never[])), "object"],
+    [
+      "optgroup",
+      (a, ...c) => optgroup(a as never, ...(c as never[])),
+      "optgroup",
+    ],
+    ["output", (a, ...c) => output(a as never, ...(c as never[])), "output"],
+    ["picture", (a, ...c) => picture(a as never, ...(c as never[])), "picture"],
+    [
+      "progress",
+      (a, ...c) => progress(a as never, ...(c as never[])),
+      "progress",
+    ],
+    ["q", (a, ...c) => q(a as never, ...(c as never[])), "q"],
+    ["rp", (a, ...c) => rp(a as never, ...(c as never[])), "rp"],
+    ["rt", (a, ...c) => rt(a as never, ...(c as never[])), "rt"],
+    ["ruby", (a, ...c) => ruby(a as never, ...(c as never[])), "ruby"],
+    ["s", (a, ...c) => s(a as never, ...(c as never[])), "s"],
+    ["samp", (a, ...c) => samp(a as never, ...(c as never[])), "samp"],
+    ["script", (a, ...c) => script(a as never, ...(c as never[])), "script"],
+    ["search", (a, ...c) => search(a as never, ...(c as never[])), "search"],
+    ["small", (a, ...c) => small(a as never, ...(c as never[])), "small"],
+    ["source", (a, ...c) => source(a as never, ...(c as never[])), "source"],
+    ["strong", (a, ...c) => strong(a as never, ...(c as never[])), "strong"],
+    ["style", (a, ...c) => style(a as never, ...(c as never[])), "style"],
+    ["sub", (a, ...c) => sub(a as never, ...(c as never[])), "sub"],
+    ["summary", (a, ...c) => summary(a as never, ...(c as never[])), "summary"],
+    ["sup", (a, ...c) => sup(a as never, ...(c as never[])), "sup"],
+    ["tfoot", (a, ...c) => tfoot(a as never, ...(c as never[])), "tfoot"],
+    ["time", (a, ...c) => time(a as never, ...(c as never[])), "time"],
+    ["title", (a, ...c) => title(a as never, ...(c as never[])), "title"],
+    ["track", (a, ...c) => track(a as never, ...(c as never[])), "track"],
+    ["u", (a, ...c) => u(a as never, ...(c as never[])), "u"],
+    ["var_", (a, ...c) => var_(a as never, ...(c as never[])), "var"],
+    ["video", (a, ...c) => video(a as never, ...(c as never[])), "video"],
+    ["wbr", (a, ...c) => wbr(a as never, ...(c as never[])), "wbr"],
+  ];
+
+  for (const [name, factory, expectedTag] of cases) {
+    it(`creates ${name} element with the correct tag name`, () => {
+      const el = factory();
+      expect(el.tagName.toLowerCase()).toBe(expectedTag);
+      expect(el.namespaceURI).toBe("http://www.w3.org/1999/xhtml");
+    });
+
+    it(`${name} supports attrs and children`, () => {
+      const child = tagDiv("child");
+      const el = factory({ class: "x" }, child);
+      expect(el.getAttribute("class")).toBe("x");
+      expect(el.children.length).toBe(1);
+      expect(el.firstElementChild).toBe(child);
+    });
+  }
+});
+
+describe("Comprehensive SVG tag helpers", () => {
+  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  const cases: Array<
+    [
+      string,
+      (attrs?: Record<string, unknown>, ...children: unknown[]) => Element,
+      string,
+    ]
+  > = [
+    ["animate", (a, ...c) => animate(a as never, ...(c as never[])), "animate"],
+    [
+      "animateMotion",
+      (a, ...c) => animateMotion(a as never, ...(c as never[])),
+      "animatemotion",
+    ],
+    [
+      "animateTransform",
+      (a, ...c) => animateTransform(a as never, ...(c as never[])),
+      "animatetransform",
+    ],
+    ["desc", (a, ...c) => desc(a as never, ...(c as never[])), "desc"],
+    ["feBlend", (a, ...c) => feBlend(a as never, ...(c as never[])), "feblend"],
+    [
+      "feColorMatrix",
+      (a, ...c) => feColorMatrix(a as never, ...(c as never[])),
+      "fecolormatrix",
+    ],
+    [
+      "feComponentTransfer",
+      (a, ...c) => feComponentTransfer(a as never, ...(c as never[])),
+      "fecomponenttransfer",
+    ],
+    [
+      "feComposite",
+      (a, ...c) => feComposite(a as never, ...(c as never[])),
+      "fecomposite",
+    ],
+    [
+      "feConvolveMatrix",
+      (a, ...c) => feConvolveMatrix(a as never, ...(c as never[])),
+      "feconvolvematrix",
+    ],
+    [
+      "feDiffuseLighting",
+      (a, ...c) => feDiffuseLighting(a as never, ...(c as never[])),
+      "fediffuselighting",
+    ],
+    [
+      "feDisplacementMap",
+      (a, ...c) => feDisplacementMap(a as never, ...(c as never[])),
+      "fedisplacementmap",
+    ],
+    [
+      "feDistantLight",
+      (a, ...c) => feDistantLight(a as never, ...(c as never[])),
+      "fedistantlight",
+    ],
+    [
+      "feDropShadow",
+      (a, ...c) => feDropShadow(a as never, ...(c as never[])),
+      "fedropshadow",
+    ],
+    ["feFlood", (a, ...c) => feFlood(a as never, ...(c as never[])), "feflood"],
+    ["feFuncA", (a, ...c) => feFuncA(a as never, ...(c as never[])), "fefunca"],
+    ["feFuncB", (a, ...c) => feFuncB(a as never, ...(c as never[])), "fefuncb"],
+    ["feFuncG", (a, ...c) => feFuncG(a as never, ...(c as never[])), "fefuncg"],
+    ["feFuncR", (a, ...c) => feFuncR(a as never, ...(c as never[])), "fefuncr"],
+    [
+      "feGaussianBlur",
+      (a, ...c) => feGaussianBlur(a as never, ...(c as never[])),
+      "fegaussianblur",
+    ],
+    ["feImage", (a, ...c) => feImage(a as never, ...(c as never[])), "feimage"],
+    ["feMerge", (a, ...c) => feMerge(a as never, ...(c as never[])), "femerge"],
+    [
+      "feMergeNode",
+      (a, ...c) => feMergeNode(a as never, ...(c as never[])),
+      "femergenode",
+    ],
+    [
+      "feMorphology",
+      (a, ...c) => feMorphology(a as never, ...(c as never[])),
+      "femorphology",
+    ],
+    [
+      "feOffset",
+      (a, ...c) => feOffset(a as never, ...(c as never[])),
+      "feoffset",
+    ],
+    [
+      "fePointLight",
+      (a, ...c) => fePointLight(a as never, ...(c as never[])),
+      "fepointlight",
+    ],
+    [
+      "feSpecularLighting",
+      (a, ...c) => feSpecularLighting(a as never, ...(c as never[])),
+      "fespecularlighting",
+    ],
+    [
+      "feSpotLight",
+      (a, ...c) => feSpotLight(a as never, ...(c as never[])),
+      "fespotlight",
+    ],
+    ["feTile", (a, ...c) => feTile(a as never, ...(c as never[])), "fetile"],
+    [
+      "feTurbulence",
+      (a, ...c) => feTurbulence(a as never, ...(c as never[])),
+      "feturbulence",
+    ],
+    [
+      "metadata",
+      (a, ...c) => metadata(a as never, ...(c as never[])),
+      "metadata",
+    ],
+    ["mpath", (a, ...c) => mpath(a as never, ...(c as never[])), "mpath"],
+    ["set", (a, ...c) => set(a as never, ...(c as never[])), "set"],
+    ["switch_", (a, ...c) => switch_(a as never, ...(c as never[])), "switch"],
+    ["view", (a, ...c) => view(a as never, ...(c as never[])), "view"],
+  ];
+
+  for (const [name, factory, expectedTag] of cases) {
+    it(`creates ${name} element in SVG namespace`, () => {
+      const el = factory();
+      expect(el.tagName.toLowerCase()).toBe(expectedTag);
+      expect(el.namespaceURI).toBe(SVG_NS);
+    });
+  }
+});
+
+describe("Comprehensive MathML tag helpers", () => {
+  const MATHML_NS = "http://www.w3.org/1998/Math/MathML";
+
+  const cases: Array<
+    [
+      string,
+      (attrs?: Record<string, unknown>, ...children: unknown[]) => Element,
+      string,
+    ]
+  > = [
+    ["math", (a, ...c) => math(a as never, ...(c as never[])), "math"],
+    [
+      "annotation",
+      (a, ...c) => annotation(a as never, ...(c as never[])),
+      "annotation",
+    ],
+    [
+      "annotationXml",
+      (a, ...c) => annotationXml(a as never, ...(c as never[])),
+      "annotation-xml",
+    ],
+    ["maction", (a, ...c) => maction(a as never, ...(c as never[])), "maction"],
+    [
+      "menclose",
+      (a, ...c) => menclose(a as never, ...(c as never[])),
+      "menclose",
+    ],
+    ["merror", (a, ...c) => merror(a as never, ...(c as never[])), "merror"],
+    ["mfenced", (a, ...c) => mfenced(a as never, ...(c as never[])), "mfenced"],
+    ["mfrac", (a, ...c) => mfrac(a as never, ...(c as never[])), "mfrac"],
+    ["mglyph", (a, ...c) => mglyph(a as never, ...(c as never[])), "mglyph"],
+    ["mi", (a, ...c) => mi(a as never, ...(c as never[])), "mi"],
+    [
+      "mlabeledtr",
+      (a, ...c) => mlabeledtr(a as never, ...(c as never[])),
+      "mlabeledtr",
+    ],
+    [
+      "maligngroup",
+      (a, ...c) => maligngroup(a as never, ...(c as never[])),
+      "maligngroup",
+    ],
+    [
+      "malignmark",
+      (a, ...c) => malignmark(a as never, ...(c as never[])),
+      "malignmark",
+    ],
+    [
+      "mmultiscripts",
+      (a, ...c) => mmultiscripts(a as never, ...(c as never[])),
+      "mmultiscripts",
+    ],
+    ["mn", (a, ...c) => mn(a as never, ...(c as never[])), "mn"],
+    ["mo", (a, ...c) => mo(a as never, ...(c as never[])), "mo"],
+    ["mpadded", (a, ...c) => mpadded(a as never, ...(c as never[])), "mpadded"],
+    [
+      "mphantom",
+      (a, ...c) => mphantom(a as never, ...(c as never[])),
+      "mphantom",
+    ],
+    [
+      "mprescripts",
+      (a, ...c) => mprescripts(a as never, ...(c as never[])),
+      "mprescripts",
+    ],
+    ["mroot", (a, ...c) => mroot(a as never, ...(c as never[])), "mroot"],
+    ["mrow", (a, ...c) => mrow(a as never, ...(c as never[])), "mrow"],
+    ["ms", (a, ...c) => ms(a as never, ...(c as never[])), "ms"],
+    ["mspace", (a, ...c) => mspace(a as never, ...(c as never[])), "mspace"],
+    ["msqrt", (a, ...c) => msqrt(a as never, ...(c as never[])), "msqrt"],
+    ["mstyle", (a, ...c) => mstyle(a as never, ...(c as never[])), "mstyle"],
+    ["msub", (a, ...c) => msub(a as never, ...(c as never[])), "msub"],
+    ["msubsup", (a, ...c) => msubsup(a as never, ...(c as never[])), "msubsup"],
+    ["msup", (a, ...c) => msup(a as never, ...(c as never[])), "msup"],
+    ["mtable", (a, ...c) => mtable(a as never, ...(c as never[])), "mtable"],
+    ["mtd", (a, ...c) => mtd(a as never, ...(c as never[])), "mtd"],
+    ["mtext", (a, ...c) => mtext(a as never, ...(c as never[])), "mtext"],
+    ["mtr", (a, ...c) => mtr(a as never, ...(c as never[])), "mtr"],
+    ["munder", (a, ...c) => munder(a as never, ...(c as never[])), "munder"],
+    [
+      "munderover",
+      (a, ...c) => munderover(a as never, ...(c as never[])),
+      "munderover",
+    ],
+    ["none", (a, ...c) => none(a as never, ...(c as never[])), "none"],
+    [
+      "semantics",
+      (a, ...c) => semantics(a as never, ...(c as never[])),
+      "semantics",
+    ],
+  ];
+
+  for (const [name, factory, expectedTag] of cases) {
+    it(`creates ${name} element in MathML namespace`, () => {
+      const el = factory();
+      expect(el.tagName.toLowerCase()).toBe(expectedTag);
+      expect(el.namespaceURI).toBe(MATHML_NS);
+    });
+  }
+});
+
+describe("h`` template: <template> container", () => {
+  it("parses <tr> correctly (not mangled by <div> container)", () => {
+    const elements = h`<tr><td>cell</td></tr>`;
+    expect(elements.length).toBe(1);
+    expect(elements[0].tagName).toBe("TR");
+    const td = elements[0].querySelector("td");
+    expect(td).not.toBe(null);
+    expect(td?.textContent).toBe("cell");
+  });
+
+  it("parses <td> as standalone element", () => {
+    const elements = h`<td>data</td>`;
+    expect(elements.length).toBe(1);
+    expect(elements[0].tagName).toBe("TD");
+  });
+
+  it("parses <col> element", () => {
+    const elements = h`<col span="2" />`;
+    expect(elements.length).toBe(1);
+    expect(elements[0].tagName).toBe("COL");
+  });
+
+  it("parses <thead>, <tbody>, <tfoot> correctly", () => {
+    const elements = h`<thead><tr><td>h</td></tr></thead>`;
+    expect(elements.length).toBe(1);
+    expect(elements[0].tagName).toBe("THEAD");
+  });
+
+  it("creates <a> as SVGAElement inside <svg>", () => {
+    const elements = h`<svg><a href="#">link</a></svg>`;
+    const svg = elements[0];
+    expect(svg.namespaceURI).toBe("http://www.w3.org/2000/svg");
+    const a = svg.querySelector("a");
+    expect(a?.namespaceURI).toBe("http://www.w3.org/2000/svg");
+  });
+
+  it("creates nested SVG elements with correct namespace", () => {
+    const elements = h`<svg><g><circle cx="10" cy="10" r="5" /></g></svg>`;
+    const svg = elements[0];
+    const circle = svg.querySelector("circle");
+    expect(circle?.namespaceURI).toBe("http://www.w3.org/2000/svg");
+  });
+
+  it("parses <template> element inside template literal", () => {
+    const elements = h`<template><div>shadow</div></template>`;
+    expect(elements.length).toBe(1);
+    expect(elements[0].tagName).toBe("TEMPLATE");
+    const tpl = elements[0] as HTMLTemplateElement;
+    expect(tpl.content.querySelector("div")?.textContent).toBe("shadow");
+  });
+
+  it("parses nested <template> elements", () => {
+    const elements = h`<template><template id="inner"><span>deep</span></template></template>`;
+    expect(elements.length).toBe(1);
+    const outer = elements[0] as HTMLTemplateElement;
+    const inner = outer.content.querySelector("template") as HTMLTemplateElement;
+    expect(inner).not.toBe(null);
+    expect(inner.content.querySelector("span")?.textContent).toBe("deep");
+  });
+
+  it("repeated calls with nested <template> produce independent results", () => {
+    const els1 = h`<template><div>A</div></template>`;
+    const els2 = h`<template><div>B</div></template>`;
+    const tpl1 = els1[0] as HTMLTemplateElement;
+    const tpl2 = els2[0] as HTMLTemplateElement;
+    expect(tpl1.content.querySelector("div")?.textContent).toBe("A");
+    expect(tpl2.content.querySelector("div")?.textContent).toBe("B");
+  });
+});
+
+describe("h`` template: caching", () => {
+  it("returns independent elements on repeated calls with same template", () => {
+    const a = h`<div class="x">A</div>`;
+    const b = h`<div class="x">B</div>`;
+    expect(a[0]).not.toBe(b[0]);
+    expect(a[0].textContent).toBe("A");
+    expect(b[0].textContent).toBe("B");
+  });
+
+  it("correctly binds signals on cached template second invocation", async () => {
+    const color1 = signal("red");
+    const elements1 = h`<div style="color: ${color1}">First</div>`;
+    const color2 = signal("blue");
+    const elements2 = h`<div style="color: ${color2}">Second</div>`;
+    expect((elements1[0] as HTMLElement).style.color).toBe("red");
+    expect((elements2[0] as HTMLElement).style.color).toBe("blue");
+    color1.set("green");
+    await new Promise((r) => setTimeout(r, 50));
+    expect((elements1[0] as HTMLElement).style.color).toBe("green");
+    expect((elements2[0] as HTMLElement).style.color).toBe("blue");
+  });
+
+  it("correctly binds text signals on cached template second invocation", async () => {
+    const name1 = signal("Alice");
+    const els1 = h`<span>Hello ${name1}!</span>`;
+    const name2 = signal("Bob");
+    const els2 = h`<span>Hello ${name2}!</span>`;
+    const c1 = document.createElement("div");
+    const c2 = document.createElement("div");
+    for (const el of els1) c1.appendChild(el);
+    for (const el of els2) c2.appendChild(el);
+    expect(c1.textContent).toBe("Hello Alice!");
+    expect(c2.textContent).toBe("Hello Bob!");
+    name1.set("Carol");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(c1.textContent).toBe("Hello Carol!");
+    expect(c2.textContent).toBe("Hello Bob!");
+  });
+
+  it("correctly binds element interpolation on cached template", () => {
+    const child1 = document.createElement("em");
+    child1.textContent = "first";
+    const els1 = h`<p>${child1}</p>`;
+    const child2 = document.createElement("strong");
+    child2.textContent = "second";
+    const els2 = h`<p>${child2}</p>`;
+    const c1 = document.createElement("div");
+    const c2 = document.createElement("div");
+    for (const el of els1) c1.appendChild(el);
+    for (const el of els2) c2.appendChild(el);
+    expect(c1.querySelector("em")?.textContent).toBe("first");
+    expect(c2.querySelector("strong")?.textContent).toBe("second");
+  });
+
+  it("correctly binds mixed text + attr signals on cached template", async () => {
+    const name1 = signal("X");
+    const color1 = signal("red");
+    const els1 = h`<span style="color: ${color1}">${name1}</span>`;
+    const name2 = signal("Y");
+    const color2 = signal("blue");
+    const els2 = h`<span style="color: ${color2}">${name2}</span>`;
+    const c1 = document.createElement("div");
+    const c2 = document.createElement("div");
+    for (const el of els1) c1.appendChild(el);
+    for (const el of els2) c2.appendChild(el);
+    expect(c1.textContent).toBe("X");
+    expect(c2.textContent).toBe("Y");
+    expect((c1.firstChild as HTMLElement).style.color).toBe("red");
+    expect((c2.firstChild as HTMLElement).style.color).toBe("blue");
+    name1.set("Z");
+    color1.set("green");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(c1.textContent).toBe("Z");
+    expect((c1.firstChild as HTMLElement).style.color).toBe("green");
+    expect(c2.textContent).toBe("Y");
+    expect((c2.firstChild as HTMLElement).style.color).toBe("blue");
+  });
+
+  it("different template structures use separate cache entries", async () => {
+    const a = signal("1");
+    const els1 = h`<div>${a}</div>`;
+    const b = signal("2");
+    const els2 = h`<span>${b}</span>`;
+    const c1 = document.createElement("div");
+    const c2 = document.createElement("div");
+    for (const el of els1) c1.appendChild(el);
+    for (const el of els2) c2.appendChild(el);
+    expect(c1.firstChild?.nodeName).toBe("DIV");
+    expect(c2.firstChild?.nodeName).toBe("SPAN");
+    a.set("updated");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(c1.textContent).toBe("updated");
+    expect(c2.textContent).toBe("2");
+  });
+
+  it("cached template with multiple signals on same element", async () => {
+    const x = signal("a");
+    const y = signal("b");
+    const els1 = h`<div data-x="${x}" data-y="${y}">first</div>`;
+    const x2 = signal("c");
+    const y2 = signal("d");
+    const els2 = h`<div data-x="${x2}" data-y="${y2}">second</div>`;
+    expect(els1[0].getAttribute("data-x")).toBe("a");
+    expect(els1[0].getAttribute("data-y")).toBe("b");
+    expect(els2[0].getAttribute("data-x")).toBe("c");
+    expect(els2[0].getAttribute("data-y")).toBe("d");
+    x.set("updated");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(els1[0].getAttribute("data-x")).toBe("updated");
+    expect(els2[0].getAttribute("data-x")).toBe("c");
+  });
+
+  it("same template called N times with different signals all bind independently", async () => {
+    const names = ["Alice", "Bob", "Carol", "Dave", "Eve"];
+    const signals = names.map((n) => signal(n));
+    const containers = signals.map((s) => {
+      const els = h`<span>${s}</span>`;
+      const c = document.createElement("div");
+      for (const el of els) c.appendChild(el);
+      return c;
+    });
+    // Initial values correct
+    for (let i = 0; i < names.length; i++) {
+      expect(containers[i].textContent).toBe(names[i]);
+    }
+    // Update one signal, only its container changes
+    signals[2].set("Changed");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(containers[0].textContent).toBe("Alice");
+    expect(containers[1].textContent).toBe("Bob");
+    expect(containers[2].textContent).toBe("Changed");
+    expect(containers[3].textContent).toBe("Dave");
+    expect(containers[4].textContent).toBe("Eve");
+    // Update all signals
+    for (const s of signals) s.set("updated");
+    await new Promise((r) => setTimeout(r, 50));
+    for (const c of containers) {
+      expect(c.textContent).toBe("updated");
+    }
+  });
+
+  it("same template with attr signals called N times all bind independently", async () => {
+    const colors = ["red", "green", "blue"];
+    const signals = colors.map((c) => signal(c));
+    const elements = signals.map((s) => h`<div style="color: ${s}">item</div>`);
+    // Initial values
+    for (let i = 0; i < colors.length; i++) {
+      expect((elements[i][0] as HTMLElement).style.color).toBe(colors[i]);
+    }
+    // Change one
+    signals[1].set("orange");
+    await new Promise((r) => setTimeout(r, 50));
+    expect((elements[0][0] as HTMLElement).style.color).toBe("red");
+    expect((elements[1][0] as HTMLElement).style.color).toBe("orange");
+    expect((elements[2][0] as HTMLElement).style.color).toBe("blue");
+  });
+
+  it("same template with mixed signals called N times all bind independently", async () => {
+    const items = [
+      { name: signal("A"), color: signal("red") },
+      { name: signal("B"), color: signal("green") },
+      { name: signal("C"), color: signal("blue") },
+    ];
+    const containers = items.map(({ name, color }) => {
+      const els = h`<div style="color: ${color}">${name}</div>`;
+      const c = document.createElement("div");
+      for (const el of els) c.appendChild(el);
+      return c;
+    });
+    for (let i = 0; i < items.length; i++) {
+      expect(containers[i].textContent).toBe(["A", "B", "C"][i]);
+      expect((containers[i].firstChild as HTMLElement).style.color).toBe(["red", "green", "blue"][i]);
+    }
+    items[0].name.set("X");
+    items[1].color.set("yellow");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(containers[0].textContent).toBe("X");
+    expect((containers[0].firstChild as HTMLElement).style.color).toBe("red");
+    expect(containers[1].textContent).toBe("B");
+    expect((containers[1].firstChild as HTMLElement).style.color).toBe("yellow");
+    expect(containers[2].textContent).toBe("C");
+    expect((containers[2].firstChild as HTMLElement).style.color).toBe("blue");
+  });
+});
+
+describe("h`` template: no beacon attribute", () => {
+  it("does not leave data-rk-bind beacon on elements with signal attrs", async () => {
+    const color = signal("red");
+    const elements = h`<div style="color: ${color}">Text</div>`;
+    const div = elements[0];
+    expect(div.hasAttribute("data-rk-bind")).toBe(false);
+    expect((div as HTMLElement).style.color).toBe("red");
+    color.set("blue");
+    await new Promise((r) => setTimeout(r, 50));
+    expect((div as HTMLElement).style.color).toBe("blue");
+    expect(div.hasAttribute("data-rk-bind")).toBe(false);
+  });
+
+  it("does not leave beacon on elements without signal attrs", () => {
+    const elements = h`<div class="static">Text</div>`;
+    expect(elements[0].hasAttribute("data-rk-bind")).toBe(false);
   });
 });

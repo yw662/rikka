@@ -28,7 +28,7 @@ The optional second argument is an attrs object. Remaining arguments are childre
 
 ## Tag helpers
 
-69 pre-defined tag functions share the same signature as `h()` minus the tag parameter. They return real `Element`:
+Over 200 pre-defined tag functions share the same signature as `h()` minus the tag parameter. They return real `Element`:
 
 ```typescript
 import { div, p, button, span, input } from "@takanashi/rikka-dom";
@@ -47,9 +47,12 @@ The full set:
 
 | Group | Tags |
 |-------|------|
-| HTML | `div`, `span`, `p`, `a`, `button`, `input`, `form`, `ul`, `ol`, `li`, `h1`–`h6`, `header`, `footer`, `main`, `section`, `nav`, `article`, `aside`, `img`, `table`, `thead`, `tbody`, `tr`, `th`, `td`, `label`, `select`, `option`, `textarea`, `pre`, `code`, `br`, `hr`, `slot`, `template` |
-| SVG | `svg`, `circle`, `path`, `rect`, `line`, `polygon`, `polyline`, `g`, `defs`, `use`, `foreignObject`, `clipPath`, `pattern`, `marker`, `mask`, `image`, `linearGradient`, `radialGradient`, `stop`, `symbol`, `filter`, `ellipse` |
+| HTML | `a`, `abbr`, `address`, `area`, `article`, `aside`, `audio`, `b`, `base`, `bdi`, `bdo`, `blockquote`, `body`, `br`, `button`, `canvas`, `caption`, `cite`, `code`, `col`, `colgroup`, `data`, `datalist`, `dd`, `del`, `details`, `dfn`, `dialog`, `div`, `dl`, `dt`, `em`, `embed`, `fieldset`, `figcaption`, `figure`, `font`, `footer`, `form`, `h1`–`h6`, `head`, `header`, `hgroup`, `hr`, `html`, `i`, `iframe`, `img`, `input`, `ins`, `kbd`, `label`, `legend`, `li`, `link`, `main`, `map`, `mark`, `menu`, `meta`, `meter`, `nav`, `noscript`, `object`, `ol`, `optgroup`, `option`, `output`, `p`, `picture`, `pre`, `progress`, `q`, `rp`, `rt`, `ruby`, `s`, `samp`, `script`, `search`, `section`, `select`, `slot`, `small`, `source`, `span`, `strong`, `style`, `sub`, `summary`, `sup`, `table`, `tbody`, `td`, `template`, `textarea`, `tfoot`, `th`, `thead`, `time`, `title`, `tr`, `track`, `u`, `ul`, `var_`, `video`, `wbr` |
+| SVG (no prefix — auto-resolves namespace) | `svg`, `animate`, `animateMotion`, `animateTransform`, `circle`, `clipPath`, `defs`, `desc`, `ellipse`, `feBlend`, `feColorMatrix`, `feComponentTransfer`, `feComposite`, `feConvolveMatrix`, `feDiffuseLighting`, `feDisplacementMap`, `feDistantLight`, `feDropShadow`, `feFlood`, `feFuncA`, `feFuncB`, `feFuncG`, `feFuncR`, `feGaussianBlur`, `feImage`, `feMerge`, `feMergeNode`, `feMorphology`, `feOffset`, `fePointLight`, `feSpecularLighting`, `feSpotLight`, `feTile`, `feTurbulence`, `filter`, `foreignObject`, `g`, `image`, `line`, `linearGradient`, `marker`, `mask`, `metadata`, `mpath`, `path`, `pattern`, `polygon`, `polyline`, `radialGradient`, `rect`, `set`, `stop`, `switch_`, `symbol`, `text`, `textPath`, `tspan`, `use`, `view` |
+| MathML (no prefix — auto-resolves namespace) | `math`, `annotation`, `annotationXml`, `maction`, `menclose`, `merror`, `mfenced`, `mfrac`, `mglyph`, `mi`, `mlabeledtr`, `maligngroup`, `malignmark`, `mmultiscripts`, `mn`, `mo`, `mpadded`, `mphantom`, `mprescripts`, `mroot`, `mrow`, `ms`, `mspace`, `msqrt`, `mstyle`, `msub`, `msubsup`, `msup`, `mtable`, `mtd`, `mtext`, `mtr`, `munder`, `munderover`, `none`, `semantics` |
 | SVG-prefixed (HTML/SVG name collisions) | `svga`, `svgscript`, `svgstyle`, `svgtitle`, `svgtext`, `svgspan`, `svgtextPath` |
+
+> `var_`, `switch_` use a trailing underscore because `var` and `switch` are JavaScript reserved words. Use `import { var_ as v } from "@takanashi/rikka-dom"` if you need the un-suffixed name.
 
 See [svg.md](./svg.md) for namespace handling.
 
