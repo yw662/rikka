@@ -2,7 +2,7 @@ import { defineElement } from '@takanashi/rikka-elements';
 import { div, h1, p, button, svg, path, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
 import { resetAll } from '../editor-store.js';
-import { t, locale, setLocale, type Locale } from '../i18n.js';
+import { t, locale, setLocale } from '../i18n.js';
 import { content } from '../content.js';
 import { tabBar } from './tab-bar.js';
 import { codeEditor } from './code-editor.js';
