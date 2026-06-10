@@ -1,5 +1,16 @@
 # @takanashi/rikka-live-playground
 
+## 0.2.0
+
+### Minor Changes
+
+- 2a29b61: Change default layout from vertical (top-bottom) to horizontal (left-right) split.
+
+### Patch Changes
+
+- Updated dependencies [2a29b61]
+  - @takanashi/rikka-elements@0.2.1
+
 ## 0.1.2
 
 ### Patch Changes

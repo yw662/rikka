@@ -1,5 +1,11 @@
 # @takanashi/rikka-elements
 
+## 0.2.1
+
+### Patch Changes
+
+- 2a29b61: Fix event handler types: use `EventDetailOfNonVoid` so that `on*` handlers receive `CustomEvent<T>` instead of `CustomEvent<void | T>` when the event spec is non-void.
+
 ## 0.2.0
 
 ### Minor Changes

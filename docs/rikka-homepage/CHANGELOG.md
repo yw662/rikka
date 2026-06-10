@@ -1,5 +1,16 @@
 # rikka-homepage
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies [2a29b61]
+- Updated dependencies [2a29b61]
+- Updated dependencies [2a29b61]
+  - @takanashi/rikka-elements@0.2.1
+  - @takanashi/rikka-live-playground@0.2.0
+  - @takanashi/rikka-web-agent@0.1.2
+
 ## 0.1.2
 
 ### Patch Changes

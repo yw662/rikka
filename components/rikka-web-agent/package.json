@@ -1,6 +1,6 @@
 {
   "name": "@takanashi/rikka-web-agent",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "WebMCP agent component — expose tools to AI agents via the Web Model Context Protocol",
   "type": "module",
   "main": "./dist/index.js",
