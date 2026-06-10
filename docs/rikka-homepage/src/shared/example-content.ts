@@ -1940,6 +1940,522 @@ The app needs:
       },
     ],
   },
+  {
+    slug: "2048-game",
+    title: "🎮 2048 Game",
+    description: {
+      en: "The classic 2048 puzzle game built with Rikka through vibe coding. Slide tiles, merge numbers, and reach the elusive 2048 tile!",
+      zh: "经典的 2048 益智游戏，通过 Rikka 的 Vibe Coding 构建。滑动方块、合并数字，挑战神秘的 2048！",
+    },
+    tags: ["Game", "Animation", "Reactive State"],
+    features: {
+      en: ["Tile Merging", "Score Tracking", "Touch Support"],
+      zh: ["方块合并", "分数追踪", "触摸支持"],
+    },
+    vibe: {
+      heading: { en: "Vibe Coding Guide", zh: "Vibe Coding 构建指南" },
+      intro: {
+        en: "2048 Game demonstrates how to build reactive puzzle games through vibe coding. Here are the actual prompts I used during development:",
+        zh: "2048 游戏展示了如何通过 vibe coding 构建响应式益智游戏。以下是我在开发过程中使用的真实提示词：",
+      },
+      steps: [
+        {
+          title: {
+            en: "🚀 Step 1: Define Game Architecture",
+            zh: "🚀 第一步：定义游戏架构",
+          },
+          prompt: {
+            en: `"Create a 2048 game using Rikka Web Components.
+The app needs:
+- 4x4 grid with tiles that slide when arrow keys are pressed
+- Tiles merge when they touch (same numbers)
+- Score tracking with best score saved to localStorage
+- Game over detection when no moves are possible
+- Win detection when 2048 is reached
+- Touch swipe support for mobile
+
+# My actual development prompt was:
+"Build a 2048 puzzle game where tiles slide and merge. Use Rikka signals for state management. The game should have a grid that updates reactively when tiles move."`,
+            zh: `"创建一个 2048 游戏，使用 Rikka Web Components。
+应用需要：
+- 4x4 网格，按下方向键时方块滑动
+- 相同数字的方块相碰时合并
+- 分数追踪，最佳分数保存到 localStorage
+- 无法移动时游戏结束检测
+- 达到 2048 时胜利检测
+- 移动端触摸滑动支持
+
+# 我实际使用的开发提示词：
+"构建一个 2048 益智游戏，方块可以滑动和合并。使用 Rikka signals 管理状态。网格应该在方块移动时响应式更新。"`,
+          },
+        },
+        {
+          title: {
+            en: "🔧 Step 2: Implement Game Logic",
+            zh: "🔧 第二步：实现游戏逻辑",
+          },
+          prompt: {
+            en: `"Implement the core 2048 game logic:
+- Create a grid signal as a 2D array of numbers/null
+- Implement slideLeft/right/up/down functions
+- When sliding, merge adjacent equal numbers
+- Add random tiles after each move
+- Track score increment on merge
+
+# Key insight:
+I used computed signals to track game state and effects for localStorage persistence. The grid updates automatically when any signal changes.`,
+            zh: `"实现核心 2048 游戏逻辑：
+- 创建 grid signal 作为数字/null 的二维数组
+- 实现 slideLeft/right/up/down 函数
+- 滑动时合并相邻的相同数字
+- 每次移动后添加随机方块
+- 合并时追踪分数增加
+
+# 关键心得：
+我使用 computed signals 追踪游戏状态，用 effects 实现 localStorage 持久化。任何 signal 变化时网格自动更新。`,
+          },
+        },
+        {
+          title: {
+            en: "🎨 Step 3: Build UI Components",
+            zh: "🎨 第三步：构建 UI 组件",
+          },
+          prompt: {
+            en: `"Create the game board and score display:
+- Game board as a 4x4 grid with CSS grid
+- Tile colors based on value (2=light, 2048=gold)
+- Score board showing current and best score
+- Game over overlay with try again button
+- Win overlay with continue option
+
+# Development approach:
+I created separate components for the board and score, sharing state through signals. Each component reacts automatically to state changes.`,
+            zh: `"创建游戏面板和分数显示：
+- 游戏面板作为 4x4 CSS grid
+- 方块颜色根据值变化（2=浅色，2048=金色）
+- 分数板显示当前和最佳分数
+- 游戏结束覆盖层，带重新开始按钮
+- 胜利覆盖层，带继续选项
+
+# 开发方法：
+我为面板和分数创建了独立组件，通过 signals 共享状态。每个组件自动响应状态变化。`,
+          },
+        },
+        {
+          title: {
+            en: "⚡ Step 4: Add Interactions",
+            zh: "⚡ 第四步：添加交互",
+          },
+          prompt: {
+            en: `"Add keyboard and touch controls:
+- Arrow key handlers for desktop
+- Touch swipe detection for mobile
+- New game button
+- Language switcher
+
+# Pro tip:
+I used effect() to set up keyboard listeners and clean them up automatically. Touch events needed careful handling to prevent scrolling conflicts.`,
+            zh: `"添加键盘和触摸控制：
+- 桌面端方向键处理
+- 移动端触摸滑动检测
+- 新游戏按钮
+- 语言切换器
+
+# 实用技巧：
+我使用 effect() 设置键盘监听器并自动清理。触摸事件需要小心处理以防止滚动冲突。`,
+          },
+        },
+      ],
+    },
+    coreFeatures: [
+      {
+        title: { en: "🎮 Reactive Game State", zh: "🎮 响应式游戏状态" },
+        description: {
+          en: "Signals manage the grid, score, and game status. When any state changes, the UI updates automatically without manual DOM manipulation.",
+          zh: "Signals 管理网格、分数和游戏状态。任何状态变化时，UI 自动更新，无需手动操作 DOM。",
+        },
+      },
+      {
+        title: { en: "🔄 Computed Derived State", zh: "🔄 计算派生状态" },
+        description: {
+          en: "Computed signals track empty cells and game conditions. The game automatically detects when no moves are possible.",
+          zh: "Computed signals 追踪空单元格和游戏条件。游戏自动检测何时无法移动。",
+        },
+      },
+      {
+        title: { en: "💾 Auto Persistence", zh: "💾 自动持久化" },
+        description: {
+          en: "Effects save score and best score to localStorage. The game remembers progress across browser sessions.",
+          zh: "Effects 将分数和最佳分数保存到 localStorage。游戏在浏览器会话间记住进度。",
+        },
+      },
+      {
+        title: { en: "📱 Touch & Keyboard", zh: "📱 触摸与键盘" },
+        description: {
+          en: "Native keyboard events and touch swipe detection provide a seamless experience on all devices.",
+          zh: "原生键盘事件和触摸滑动检测在所有设备上提供无缝体验。",
+        },
+      },
+    ],
+    workflow: {
+      heading: { en: "Vibe Coding Workflow", zh: "Vibe Coding 工作流程" },
+      intro: {
+        en: "Building games with Rikka signals is incredibly satisfying. Here's my actual workflow:",
+        zh: "用 Rikka signals 构建游戏非常令人满意。以下是我的实际工作流程：",
+      },
+      steps: [
+        {
+          title: { en: "1. Start with Core Logic", zh: "1. 从核心逻辑开始" },
+          description: {
+            en: 'I began with just the grid logic: "Create a 4x4 grid and make tiles slide when pressing arrow keys"',
+            zh: '我从网格逻辑开始："创建一个 4x4 网格，按下方向键时方块滑动"',
+          },
+        },
+        {
+          title: { en: "2. Add State Management", zh: "2. 添加状态管理" },
+          description: {
+            en: 'Next: "Track score and best score, save to localStorage"',
+            zh: '接下来："追踪分数和最佳分数，保存到 localStorage"',
+          },
+        },
+        {
+          title: { en: "3. Build Visual UI", zh: "3. 构建可视化 UI" },
+          description: {
+            en: 'Then: "Create a beautiful game board with colored tiles based on values"',
+            zh: '然后："创建精美的游戏面板，根据值显示不同颜色的方块"',
+          },
+        },
+        {
+          title: { en: "4. Polish & Test", zh: "4. 完善与测试" },
+          description: {
+            en: 'Finally: "Add touch support, game over/win overlays, and language support"',
+            zh: '最后："添加触摸支持、游戏结束/胜利覆盖层、语言支持"',
+          },
+        },
+      ],
+    },
+    buildSteps: {
+      heading: { en: "Build Steps", zh: "构建步骤" },
+      intro: {
+        en: "This game demonstrates the vibe coding workflow for puzzle games:",
+        zh: "这个游戏展示了益智游戏的 vibe coding 工作流程：",
+      },
+      steps: {
+        en: [
+          "Step 1: Design state model — Define grid, score, bestScore, gameOver signals",
+          "Step 2: Implement game logic — slide functions, merge logic, random tile addition",
+          "Step 3: Add computed state — track empty cells, check win/lose conditions",
+          "Step 4: Build game board — CSS grid with reactive tile rendering",
+          "Step 5: Add score display — reactive score cards with animations",
+          "Step 6: Implement controls — keyboard events and touch swipe handlers",
+          "Step 7: Add overlays — game over and win modals with continue/try again",
+        ],
+        zh: [
+          "Step 1: 设计状态模型 - 定义 grid、score、bestScore、gameOver signals",
+          "Step 2: 实现游戏逻辑 - 滑动函数、合并逻辑、随机方块添加",
+          "Step 3: 添加计算状态 - 追踪空单元格、检查胜负条件",
+          "Step 4: 构建游戏面板 - CSS grid 带响应式方块渲染",
+          "Step 5: 添加分数显示 - 带动画的响应式分数卡片",
+          "Step 6: 实现控制 - 键盘事件和触摸滑动处理",
+          "Step 7: 添加覆盖层 - 游戏结束和胜利模态框，带继续/重试",
+        ],
+      },
+    },
+    keyFeatures: [
+      {
+        title: "🎯 Classic 2048 Gameplay",
+        description: {
+          en: "Slide tiles with arrow keys or swipe, merge matching numbers to reach 2048",
+          zh: "使用方向键或滑动移动方块，合并相同数字以达到 2048",
+        },
+      },
+      {
+        title: "📊 Score Tracking",
+        description: {
+          en: "Real-time score updates with best score persistence across sessions",
+          zh: "实时分数更新，最佳分数跨会话持久化",
+        },
+      },
+      {
+        title: "🎉 Win/Lose Detection",
+        description: {
+          en: "Automatic detection of win (2048 tile) and game over (no moves)",
+          zh: "自动检测胜利（达到 2048）和游戏结束（无法移动）",
+        },
+      },
+      {
+        title: "📱 Touch Friendly",
+        description: {
+          en: "Full touch swipe support for mobile devices",
+          zh: "完整的触摸滑动支持，适配移动设备",
+        },
+      },
+      {
+        title: "🌍 Multi-language",
+        description: {
+          en: "English and Chinese language support",
+          zh: "支持英语和中文",
+        },
+      },
+    ],
+  },
+  {
+    slug: "snake-game",
+    title: "🐍 Snake Game",
+    description: {
+      en: "The classic Snake game built with Rikka through vibe coding. Control the snake, eat food to grow, and avoid walls and yourself!",
+      zh: "经典的贪吃蛇游戏，通过 Rikka 的 Vibe Coding 构建。控制蛇、吃食物成长、避开墙壁和自己！",
+    },
+    tags: ["Game", "Animation", "Timer"],
+    features: {
+      en: ["Snake Movement", "Growth Mechanics", "Pause Support"],
+      zh: ["蛇移动", "成长机制", "暂停支持"],
+    },
+    vibe: {
+      heading: { en: "Vibe Coding Guide", zh: "Vibe Coding 构建指南" },
+      intro: {
+        en: "Snake Game demonstrates how to build real-time games with Rikka signals. Here are the actual prompts I used:",
+        zh: "贪吃蛇游戏展示了如何用 Rikka signals 构建实时游戏。以下是我使用的真实提示词：",
+      },
+      steps: [
+        {
+          title: {
+            en: "🚀 Step 1: Game Architecture",
+            zh: "🚀 第一步：游戏架构",
+          },
+          prompt: {
+            en: `"Create a Snake game using Rikka Web Components.
+The game needs:
+- Snake that moves continuously in a direction
+- Food that randomly appears on the grid
+- Score that increases when food is eaten
+- Game over when snake hits wall or itself
+- Pause/resume functionality
+
+# My actual prompt:
+"Build a classic Snake game where the snake moves automatically. Use signals for state and effects for the game loop."`,
+            zh: `"创建一个贪吃蛇游戏，使用 Rikka Web Components。
+游戏需要：
+- 蛇持续向一个方向移动
+- 食物随机出现在网格上
+- 吃到食物时分数增加
+- 蛇撞到墙壁或自己时游戏结束
+- 暂停/继续功能
+
+# 我实际使用的提示词：
+"构建经典贪吃蛇游戏，蛇自动移动。使用 signals 管理状态，effects 处理游戏循环。"`,
+          },
+        },
+        {
+          title: {
+            en: "🔧 Step 2: Snake Logic",
+            zh: "🔧 第二步：蛇逻辑",
+          },
+          prompt: {
+            en: `"Implement snake movement logic:
+- Snake as array of points (head + body segments)
+- Direction signal that determines movement
+- Collision detection with walls and self
+- Food spawning in random empty positions
+- Snake growth when food is eaten
+
+# Development note:
+I used effect() to run the game loop with setInterval. The effect automatically cleans up when the component unmounts.`,
+            zh: `"实现蛇移动逻辑：
+- 蛇作为点数组（头部 + 身体段）
+- 决定移动方向的 signal
+- 墙壁和自身碰撞检测
+- 食物在随机空位生成
+- 吃到食物时蛇成长
+
+# 开发笔记：
+我使用 effect() 通过 setInterval 运行游戏循环。组件卸载时 effect 自动清理。`,
+          },
+        },
+        {
+          title: {
+            en: "🎨 Step 3: Visual Design",
+            zh: "🎨 第三步：视觉设计",
+          },
+          prompt: {
+            en: `"Create the game visuals:
+- Dark theme with glowing snake segments
+- Animated food with pulsing effect
+- Score display with current and best score
+- Pause overlay with resume option
+
+# Styling approach:
+I used CSS grid for the board and gradient backgrounds for visual appeal. The snake head has a special glow effect.`,
+            zh: `"创建游戏视觉效果：
+- 深色主题，蛇身带发光效果
+- 带脉冲动画的食物
+- 显示当前和最佳分数
+- 带继续选项的暂停覆盖层
+
+# 样式方法：
+我使用 CSS grid 创建面板，渐变背景增强视觉吸引力。蛇头有特殊的发光效果。`,
+          },
+        },
+        {
+          title: {
+            en: "⚡ Step 4: Controls",
+            zh: "⚡ 第四步：控制",
+          },
+          prompt: {
+            en: `"Add game controls:
+- Arrow keys and WASD for direction control
+- Spacebar for pause/resume
+- Touch swipe support for mobile
+- New game button
+
+# Key insight:
+I debounced direction changes to prevent 180-degree turns that would immediately kill the snake.`,
+            zh: `"添加游戏控制：
+- 方向键和 WASD 控制方向
+- 空格键暂停/继续
+- 移动端触摸滑动支持
+- 新游戏按钮
+
+# 关键心得：
+我对方向变化进行了防抖处理，防止 180 度转向立即导致蛇死亡。`,
+          },
+        },
+      ],
+    },
+    coreFeatures: [
+      {
+        title: { en: "🐍 Reactive Snake State", zh: "🐍 响应式蛇状态" },
+        description: {
+          en: "The snake's position is stored as a signal array. When it changes, the board re-renders automatically through Rikka's reactive system.",
+          zh: "蛇的位置存储为 signal 数组。变化时，面板通过 Rikka 的响应式系统自动重新渲染。",
+        },
+      },
+      {
+        title: { en: "⏱️ Effect-based Game Loop", zh: "⏱️ 基于 Effect 的游戏循环" },
+        description: {
+          en: "The game loop runs inside an effect, which automatically starts, pauses, and stops based on game state signals.",
+          zh: "游戏循环在 effect 中运行，根据游戏状态 signals 自动启动、暂停和停止。",
+        },
+      },
+      {
+        title: { en: "💾 Score Persistence", zh: "💾 分数持久化" },
+        description: {
+          en: "Effects save scores to localStorage. Best score persists across browser sessions.",
+          zh: "Effects 将分数保存到 localStorage。最佳分数跨浏览器会话持久化。",
+        },
+      },
+      {
+        title: { en: "🎮 Multi-input Support", zh: "🎮 多输入支持" },
+        description: {
+          en: "Keyboard, WASD, touch swipe, and button controls all work seamlessly together.",
+          zh: "键盘、WASD、触摸滑动和按钮控制无缝配合。",
+        },
+      },
+    ],
+    workflow: {
+      heading: { en: "Vibe Coding Workflow", zh: "Vibe Coding 工作流程" },
+      intro: {
+        en: "Building real-time games with Rikka is straightforward. Here's my workflow:",
+        zh: "用 Rikka 构建实时游戏很简单。以下是我的工作流程：",
+      },
+      steps: [
+        {
+          title: { en: "1. Start Simple", zh: "1. 从简单开始" },
+          description: {
+            en: 'I started with: "Create a grid and make a snake move when pressing arrow keys"',
+            zh: '我从："创建网格，按下方向键时移动蛇"开始',
+          },
+        },
+        {
+          title: { en: "2. Add Collision", zh: "2. 添加碰撞" },
+          description: {
+            en: 'Next: "Add wall collision and self-collision detection with game over"',
+            zh: '接下来："添加墙壁碰撞和自身碰撞检测，游戏结束"',
+          },
+        },
+        {
+          title: { en: "3. Add Food & Score", zh: "3. 添加食物和分数" },
+          description: {
+            en: 'Then: "Add food that appears randomly and increases score when eaten"',
+            zh: '然后："添加随机出现的食物，吃到时增加分数"',
+          },
+        },
+        {
+          title: { en: "4. Polish Experience", zh: "4. 完善体验" },
+          description: {
+            en: 'Finally: "Add pause, animations, styling, and mobile support"',
+            zh: '最后："添加暂停、动画、样式和移动端支持"',
+          },
+        },
+      ],
+    },
+    buildSteps: {
+      heading: { en: "Build Steps", zh: "构建步骤" },
+      intro: {
+        en: "This game demonstrates the vibe coding workflow for real-time games:",
+        zh: "这个游戏展示了实时游戏的 vibe coding 工作流程：",
+      },
+      steps: {
+        en: [
+          "Step 1: Define state — snake array, food position, direction, score signals",
+          "Step 2: Implement movement — update snake position at regular intervals",
+          "Step 3: Add collision detection — wall boundaries and self-collision",
+          "Step 4: Implement food mechanics — spawn random positions, grow snake on eat",
+          "Step 5: Build game board — CSS grid with snake/food rendering",
+          "Step 6: Add controls — keyboard, WASD, touch swipe handlers",
+          "Step 7: Add pause/resume — control game loop with signals",
+          "Step 8: Style and polish — animations, glow effects, responsive design",
+        ],
+        zh: [
+          "Step 1: 定义状态 - snake 数组、食物位置、方向、分数 signals",
+          "Step 2: 实现移动 - 定期更新蛇位置",
+          "Step 3: 添加碰撞检测 - 墙壁边界和自身碰撞",
+          "Step 4: 实现食物机制 - 随机生成位置，吃到时蛇成长",
+          "Step 5: 构建游戏面板 - CSS grid 带蛇/食物渲染",
+          "Step 6: 添加控制 - 键盘、WASD、触摸滑动处理",
+          "Step 7: 添加暂停/继续 - 用 signals 控制游戏循环",
+          "Step 8: 样式和完善 - 动画、发光效果、响应式设计",
+        ],
+      },
+    },
+    keyFeatures: [
+      {
+        title: "🐍 Classic Snake Gameplay",
+        description: {
+          en: "Control the snake with arrow keys or swipe, eat food to grow, avoid walls and yourself",
+          zh: "使用方向键或滑动控制蛇，吃食物成长，避开墙壁和自己",
+        },
+      },
+      {
+        title: "⏸️ Pause/Resume",
+        description: {
+          en: "Pause the game with spacebar and resume whenever you want",
+          zh: "按空格键暂停游戏，随时恢复",
+        },
+      },
+      {
+        title: "📊 Score Tracking",
+        description: {
+          en: "Real-time score with best score persistence",
+          zh: "实时分数，最佳分数持久化",
+        },
+      },
+      {
+        title: "🎨 Visual Effects",
+        description: {
+          en: "Glowing snake segments, pulsing food, dark theme with gradient",
+          zh: "发光的蛇身、脉冲食物、深色渐变主题",
+        },
+      },
+      {
+        title: "📱 Mobile Friendly",
+        description: {
+          en: "Full touch swipe support for mobile devices",
+          zh: "完整的触摸滑动支持，适配移动设备",
+        },
+      },
+    ],
+  },
 ];
 
 /** Labels used across example pages */

@@ -24,4 +24,8 @@ export const content = {
   switchLang: { en: '中文', zh: 'EN' },
   exportData: { en: 'Export', zh: '导出' },
   importData: { en: 'Import', zh: '导入' },
+  selected: { en: 'selected', zh: '已选择' },
+  toggleSelected: { en: 'Toggle', zh: '切换状态' },
+  deleteSelected: { en: 'Delete', zh: '删除选中' },
+  deselectAll: { en: 'Deselect', zh: '取消选择' },
 } satisfies Record<string, Record<Locale, string>>;
