@@ -106,6 +106,10 @@ type EventDetailOf<S> = S extends undefined
     ? T
     : void;
 
+/** Like EventDetailOf, but collapses `void | T` to just `T`. */
+type EventDetailOfNonVoid<S> =
+  Exclude<S, undefined> extends (domEvent: Event) => infer T ? T : void;
+
 // ---------------------------------------------------------------------------
 // Element Config
 // ---------------------------------------------------------------------------
@@ -129,9 +133,10 @@ type BaseConfig = {
 };
 
 /** Resolve the tools type so that execute receives the fully-typed RikkaElement<C>. */
-type ResolvedTools<C extends BaseConfig> = C["tools"] extends Record<string, ToolDefinition<any>>
-  ? { [K in keyof C["tools"]]: ToolDefinition<RikkaElement<C>> }
-  : never;
+type ResolvedTools<C extends BaseConfig> =
+  C["tools"] extends Record<string, ToolDefinition<any>>
+    ? { [K in keyof C["tools"]]: ToolDefinition<RikkaElement<C>> }
+    : never;
 
 /**
  * Discriminated union for element config:
@@ -176,8 +181,8 @@ type OverriddenNativeOnHandlers<C extends BaseConfig> =
     ? {
         [K in keyof C["events"] & string]: `on${CamelCase<K & string>}`;
       }[keyof C["events"] & string] extends infer Keys
-        ? Extract<Keys, NativeOnHandlerKeys>
-        : never
+      ? Extract<Keys, NativeOnHandlerKeys>
+      : never
     : never;
 
 export type RikkaElement<C extends BaseConfig> = HTMLElement &
@@ -203,7 +208,7 @@ type EventListenerProps<C extends BaseConfig> =
   C["events"] extends Record<string, EventSpec>
     ? {
         -readonly [K in keyof C["events"] as `on${CamelCase<K & string>}`]?:
-          | ((ev: CustomEvent<EventDetailOf<C["events"][K]>>) => void)
+          | ((ev: CustomEvent<EventDetailOfNonVoid<C["events"][K]>>) => void)
           | null;
       }
     : {};
@@ -283,7 +288,7 @@ type EventProps<C extends BaseConfig> =
             ) => boolean;
       } & {
         -readonly [K in keyof C["events"] as `on${CamelCase<K & string>}`]:
-          | ((ev: CustomEvent<EventDetailOf<C["events"][K]>>) => void)
+          | ((ev: CustomEvent<EventDetailOfNonVoid<C["events"][K]>>) => void)
           | null;
       }
     : {};
@@ -428,7 +433,12 @@ function applyBinding(
   });
 
   const originalCallback = proto.attributeChangedCallback as
-    | ((this: HTMLElement, attrName: string, oldValue: string | null, newValue: string | null) => void)
+    | ((
+        this: HTMLElement,
+        attrName: string,
+        oldValue: string | null,
+        newValue: string | null,
+      ) => void)
     | undefined;
   proto.attributeChangedCallback = function (
     this: HTMLElement,
@@ -438,9 +448,12 @@ function applyBinding(
   ) {
     if (changedName === attrName) {
       const sig = getOrCreateSignal(this, attrName, parse, defaultValue);
-      const next = newValue === null
-        ? (defaultValue !== undefined ? defaultValue : parse(undefined))
-        : parse(newValue);
+      const next =
+        newValue === null
+          ? defaultValue !== undefined
+            ? defaultValue
+            : parse(undefined)
+          : parse(newValue);
       sig.set(next);
     }
     originalCallback?.call(this, changedName, oldValue, newValue);
@@ -452,7 +465,9 @@ function applyAttributes(
   Class: { observedAttributes?: string[] },
   attributes: Record<string, AttributeSpec<unknown>>,
 ): string[] {
-  const observed: string[] = Class.observedAttributes ? [...Class.observedAttributes] : [];
+  const observed: string[] = Class.observedAttributes
+    ? [...Class.observedAttributes]
+    : [];
 
   for (const [name, spec] of Object.entries(attributes)) {
     const { parse, serialize, defaultValue } = normalizeAttribute(spec);
@@ -469,7 +484,9 @@ function applyDataset(
   dataset: Record<string, DatasetSpec>,
   existingAttrNames: ReadonlySet<string>,
 ): string[] {
-  const observed: string[] = Class.observedAttributes ? [...Class.observedAttributes] : [];
+  const observed: string[] = Class.observedAttributes
+    ? [...Class.observedAttributes]
+    : [];
 
   for (const [key, spec] of Object.entries(dataset)) {
     const attrName = `data-${toKebabCase(key)}`;
@@ -618,10 +635,7 @@ function asDynamicRecord(el: unknown): Record<string, unknown> {
   return el as Record<string, unknown>;
 }
 
-function getElementBinding(
-  element: HTMLElement,
-  name: string,
-): unknown {
+function getElementBinding(element: HTMLElement, name: string): unknown {
   const record = asDynamicRecord(element);
   const signalLike = record[`$${name}`];
   if (isSignal(signalLike)) return signalLike;
@@ -631,7 +645,10 @@ function getElementBinding(
 function readTemplateVar(
   element: HTMLElement,
   name: string,
-): { kind: "signal"; value: { get(): unknown } } | { kind: "value"; value: unknown } | { kind: "absent" } {
+):
+  | { kind: "signal"; value: { get(): unknown } }
+  | { kind: "value"; value: unknown }
+  | { kind: "absent" } {
   const record = asDynamicRecord(element);
   const signalLike = record[`$${name}`];
   if (isSignal(signalLike)) return { kind: "signal", value: signalLike };
@@ -689,8 +706,10 @@ function bindTextSlots(
                   /\{\{(\w+)\}\}/g,
                   (_m: string, n: string) => {
                     const result = readTemplateVar(element, n);
-                    if (result.kind === "signal") return String(result.value.get());
-                    if (result.kind === "value") return result.value != null ? String(result.value) : "";
+                    if (result.kind === "signal")
+                      return String(result.value.get());
+                    if (result.kind === "value")
+                      return result.value != null ? String(result.value) : "";
                     return "";
                   },
                 );
@@ -735,7 +754,11 @@ function bindAttributeSlots(
           const domHandler = (domEvent: Event) => {
             const detail =
               typeof transform === "function" ? transform(domEvent) : undefined;
-            (asDynamicRecord(element)[dispatchMethod] as ((d: unknown) => boolean) | undefined)?.(detail);
+            (
+              asDynamicRecord(element)[dispatchMethod] as
+                | ((d: unknown) => boolean)
+                | undefined
+            )?.(detail);
           };
           el.addEventListener(domEventName, domHandler);
           trackDisposable(element, () =>
@@ -762,7 +785,9 @@ function bindAttributeSlots(
             if (isHandlerSignal) {
               trackDisposable(
                 element,
-                effect(() => bindHandler((handler as { get(): unknown }).get())),
+                effect(() =>
+                  bindHandler((handler as { get(): unknown }).get()),
+                ),
               );
             } else {
               queueMicrotask(() => bindHandler(handler));
@@ -802,7 +827,8 @@ function bindAttributeSlots(
           value.replace(/\{\{(\w+)\}\}/g, (_match, name) => {
             const result = readTemplateVar(element, name);
             if (result.kind === "signal") return String(result.value.get());
-            if (result.kind === "value") return result.value != null ? String(result.value) : "";
+            if (result.kind === "value")
+              return result.value != null ? String(result.value) : "";
             return "";
           }),
         );
@@ -1278,7 +1304,10 @@ function defineElementImpl<C extends BaseConfig = BaseConfig>(
     }
   }
 
-  const proto = RikkaElementInner.prototype as unknown as Record<string, unknown>;
+  const proto = RikkaElementInner.prototype as unknown as Record<
+    string,
+    unknown
+  >;
   if (renderFn) {
     proto.render = renderFn;
   }

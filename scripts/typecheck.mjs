@@ -39,6 +39,9 @@ const projects = [
   { name: 'bookmark-manager', config: 'examples/bookmark-manager/tsconfig.json' },
   { name: 'code-editor', config: 'examples/code-editor/tsconfig.json' },
   { name: 'finance-tracker', config: 'examples/finance-tracker/tsconfig.json' },
+  { name: 'rikka-signal (test)', config: 'utils/rikka-signal/tsconfig.test.json' },
+  { name: 'rikka-dom (test)', config: 'utils/rikka-dom/tsconfig.test.json' },
+  { name: 'rikka-elements (test)', config: 'utils/rikka-elements/tsconfig.test.json' },
 ];
 
 function checkProject(project) {

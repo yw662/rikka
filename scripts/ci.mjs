@@ -64,7 +64,7 @@ async function main() {
   // Stage 1: TypeCheck
   // ============================================
   stage('TypeScript 类型检查', '🔍', 1);
-  const tc = run('node scripts/typecheck.mjs', '类型检查 (8个项目)');
+  const tc = run('node scripts/typecheck.mjs', '类型检查 (12个项目)');
   results.push({ name: 'TypeCheck', ...tc });
 
   if (!tc.success) {
