@@ -1,6 +1,12 @@
 import { defineConfig } from '@rsbuild/core';
 
 export default defineConfig({
+  source: {
+    entry: {
+      index: './src/index.ts',
+    },
+    tsconfigPath: './tsconfig.json',
+  },
   html: {
     title: '2048 Game - Rikka',
   },
