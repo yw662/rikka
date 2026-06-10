@@ -172,6 +172,16 @@ export default defineConfig({
         to: "examples/drawing-pad",
         globOptions: { ignore: ["**/*.LICENSE.txt"] },
       },
+      {
+        from: resolve(workspaceRoot, "examples/2048-game/dist"),
+        to: "examples/2048-game",
+        globOptions: { ignore: ["**/*.LICENSE.txt"] },
+      },
+      {
+        from: resolve(workspaceRoot, "examples/snake-game/dist"),
+        to: "examples/snake-game",
+        globOptions: { ignore: ["**/*.LICENSE.txt"] },
+      },
     ],
   },
 });
