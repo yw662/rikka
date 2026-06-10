@@ -34,6 +34,7 @@ const projects = [
   { name: '@takanashi/rikka-dom', config: 'utils/rikka-dom/tsconfig.json' },
   { name: '@takanashi/rikka-elements', config: 'utils/rikka-elements/tsconfig.json' },
   { name: 'rikka-live-playground', config: 'components/rikka-live-playground/tsconfig.json' },
+  { name: 'rikka-live-playground (test)', config: 'components/rikka-live-playground/tsconfig.test.json' },
   { name: 'rikka-web-agent', config: 'components/rikka-web-agent/tsconfig.json' },
   { name: 'rikka-homepage', config: 'docs/rikka-homepage/tsconfig.json' },
   { name: 'bookmark-manager', config: 'examples/bookmark-manager/tsconfig.json' },

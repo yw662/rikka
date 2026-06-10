@@ -49,3 +49,4 @@ out/
 
 # Test results (only the marker file is generated)
 /test-results/
+/playwright-report/

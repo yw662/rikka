@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "@rstest/core";
+import { describe, it, expect, beforeEach, afterEach } from "@rstest/core";
 import { RikkaLivePlayground } from "../src/index.js";
 import type { LivePlaygroundElement } from "../src/index.js";
 
@@ -122,7 +122,7 @@ describe("RikkaLivePlayground", () => {
       await waitFor(10);
       let received: CustomEvent<string> | null = null;
       el.addEventListener("error", (evt) => {
-        received = evt as CustomEvent<string>;
+        received = evt as unknown as CustomEvent<string>;
       });
       el.dispatchError("test error");
       expect(received).toBeTruthy();
@@ -133,7 +133,7 @@ describe("RikkaLivePlayground", () => {
       document.body.appendChild(el);
       await waitFor(10);
       let received: CustomEvent<string> | null = null;
-      el.onerror = (evt: CustomEvent<string>) => {
+      (el as unknown as { onerror: (evt: CustomEvent<string>) => void }).onerror = (evt) => {
         received = evt;
       };
       el.dispatchError("handler test");
@@ -488,7 +488,7 @@ describe("RikkaLivePlayground", () => {
       await waitFor(10);
       let received: CustomEvent<string> | null = null;
       el.addEventListener("error", (evt) => {
-        received = evt as CustomEvent<string>;
+        received = evt as unknown as CustomEvent<string>;
       });
       el.dispatchError("test error message");
       expect(received).toBeTruthy();
@@ -528,10 +528,10 @@ describe("RikkaLivePlayground", () => {
   });
 
   describe("layout attribute", () => {
-    it("layout defaults to vertical", async () => {
+    it("layout defaults to horizontal", async () => {
       document.body.appendChild(el);
       await waitFor(10);
-      expect(el.layout).toBe("vertical");
+      expect(el.layout).toBe("horizontal");
     });
 
     it("reading layout attribute returns the value", async () => {
@@ -541,11 +541,11 @@ describe("RikkaLivePlayground", () => {
       expect(el.layout).toBe("horizontal");
     });
 
-    it("invalid layout value falls back to vertical", async () => {
+    it("invalid layout value falls back to horizontal", async () => {
       el.setAttribute("layout", "diagonal");
       document.body.appendChild(el);
       await waitFor(10);
-      expect(el.layout).toBe("vertical");
+      expect(el.layout).toBe("horizontal");
     });
 
     it("layout signal accessor exists", async () => {
@@ -554,12 +554,12 @@ describe("RikkaLivePlayground", () => {
       expect(el.$layout).toBeTruthy();
     });
 
-    it("body has layout-vertical class by default", async () => {
+    it("body has layout-horizontal class by default", async () => {
       document.body.appendChild(el);
       await waitFor(10);
       const body = el.shadowRoot!.querySelector(".body");
-      expect(body!.classList.contains("layout-vertical")).toBe(true);
-      expect(body!.classList.contains("layout-horizontal")).toBe(false);
+      expect(body!.classList.contains("layout-horizontal")).toBe(true);
+      expect(body!.classList.contains("layout-vertical")).toBe(false);
     });
 
     it("setting layout=horizontal updates body class", async () => {
@@ -579,14 +579,14 @@ describe("RikkaLivePlayground", () => {
       expect(el.getAttribute("layout")).toBe("horizontal");
     });
 
-    it("toggleLayout switches between vertical and horizontal", async () => {
+    it("toggleLayout switches between horizontal and vertical", async () => {
       document.body.appendChild(el);
       await waitFor(10);
-      expect(el.layout).toBe("vertical");
-      el.toggleLayout();
       expect(el.layout).toBe("horizontal");
       el.toggleLayout();
       expect(el.layout).toBe("vertical");
+      el.toggleLayout();
+      expect(el.layout).toBe("horizontal");
     });
 
     it("clicking layout-vertical button sets layout to vertical", async () => {
@@ -619,12 +619,12 @@ describe("RikkaLivePlayground", () => {
       const hBtn = el.shadowRoot!.querySelector(
         '[data-action="layout-horizontal"]',
       ) as HTMLButtonElement;
-      expect(vBtn.classList.contains("active")).toBe(true);
-      expect(hBtn.classList.contains("active")).toBe(false);
-      el.setLayout("horizontal");
-      await waitFor(10);
       expect(vBtn.classList.contains("active")).toBe(false);
       expect(hBtn.classList.contains("active")).toBe(true);
+      el.setLayout("vertical");
+      await waitFor(10);
+      expect(vBtn.classList.contains("active")).toBe(true);
+      expect(hBtn.classList.contains("active")).toBe(false);
     });
   });
 

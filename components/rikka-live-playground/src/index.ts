@@ -6,13 +6,7 @@ import {
   type ElementConfig,
   type AttributeSpec,
 } from "@takanashi/rikka-elements";
-import {
-  div,
-  button,
-  pre,
-  span,
-  section,
-} from "@takanashi/rikka-dom";
+import { div, button, pre, span, section } from "@takanashi/rikka-dom";
 import { computed, effect, type Signal } from "@takanashi/rikka-signal";
 import { transform } from "sucrase";
 import { CodeJar } from "codejar";
@@ -1012,7 +1006,7 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
       toAttribute: (v?: string) => v,
     },
     layout: {
-      toProp: (v?: string) => (isValidLayout(v) ? v : "vertical"),
+      toProp: (v?: string) => (isValidLayout(v) ? v : "horizontal"),
       toAttribute: (v?: string) => v,
     },
     panel: {
@@ -1068,7 +1062,7 @@ const RikkaLivePlayground = defineElement("rikka-live-playground", {
     },
   },
   render(this: RikkaElement<LivePlaygroundConfig>) {
-    const self = this as LivePlaygroundElement;
+    const self = this;
     const initialCode = this.textContent?.trim() || this.code;
 
     const editorEl = div({
@@ -1291,18 +1285,20 @@ function applyButtonStates(
 ): void {
   const header = self.shadowRoot?.querySelector(".header");
   if (!header) return;
-  header.querySelectorAll<HTMLElement>("[data-action]").forEach((btn: HTMLElement) => {
-    const action = btn.dataset.action;
-    if (action === "layout-vertical" || action === "layout-horizontal") {
-      btn.classList.toggle("active", action === `layout-${layout}`);
-    } else if (
-      action === "panel-both" ||
-      action === "panel-editor" ||
-      action === "panel-preview"
-    ) {
-      btn.classList.toggle("active", action === `panel-${panel}`);
-    }
-  });
+  header
+    .querySelectorAll<HTMLElement>("[data-action]")
+    .forEach((btn: HTMLElement) => {
+      const action = btn.dataset.action;
+      if (action === "layout-vertical" || action === "layout-horizontal") {
+        btn.classList.toggle("active", action === `layout-${layout}`);
+      } else if (
+        action === "panel-both" ||
+        action === "panel-editor" ||
+        action === "panel-preview"
+      ) {
+        btn.classList.toggle("active", action === `panel-${panel}`);
+      }
+    });
 }
 
 function wirePostMount(self: LivePlaygroundElement, refs: PostMountRefs): void {

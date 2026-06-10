@@ -1236,504 +1236,501 @@ function watchPageTheme(cb: () => void): () => void {
 // Component
 // ---------------------------------------------------------------------------
 
-const RikkaWebAgent: ElementConstructor<any> = defineElement(
-  "rikka-web-agent",
-  {
-    attributes: {
-      layout: {
-        toProp: (v?: string) => (isValidLayout(v) ? v : "embedded"),
-        toAttribute: (v?: string) => v,
-      },
-      position: {
-        toProp: (v?: string) => v ?? "bottom-right",
-        toAttribute: (v?: string) => v,
-      },
-      display: {
-        toProp: (v?: string) => (isValidDisplay(v) ? v : "full"),
-        toAttribute: (v?: string) => v,
-      },
-      theme: {
-        toProp: (v?: string) => (isValidTheme(v) ? v : "auto"),
-        toAttribute: (v?: string) => v,
-      },
+const RikkaWebAgent = defineElement("rikka-web-agent", {
+  attributes: {
+    layout: {
+      toProp: (v?: string) => (isValidLayout(v) ? v : "embedded"),
+      toAttribute: (v?: string) => v,
     },
-    events: {
-      toolRegistered: event<{ name: string; description: string }>(),
-      toolUnregistered: event<{ name: string }>(),
-      toolInvoked: event<{ name: string; input: object }>(),
-      toolResult: event<{ name: string; result: unknown }>(),
-      message: event<{ role: string; content: string }>(),
-      close: event<void>(),
-      error: event<string>(),
+    position: {
+      toProp: (v?: string) => v ?? "bottom-right",
+      toAttribute: (v?: string) => v,
     },
-    styles: webAgentStyles,
-    methods: {
-      register(this: any, tool: ToolDefinition) {
-        try {
-          registerToolToWebMCP(tool);
-          this.dispatchToolRegistered({
-            name: tool.name,
-            description: tool.description,
-          });
-        } catch (err) {
-          this.dispatchError(err instanceof Error ? err.message : String(err));
-          throw err;
-        }
-      },
-      unregister(this: any, name: string) {
-        unregisterToolFromWebMCP(name);
-        this.dispatchToolUnregistered({ name });
-      },
-      listTools(this: any): ToolInfo[] {
-        return registeredTools.get();
-      },
-      approveCall(this: any, callId: string) {
-        const calls = pendingCalls.get();
-        const call = calls.find((c) => c.id === callId);
-        if (!call) return;
-        pendingCalls.set(calls.filter((c) => c.id !== callId));
-        call.resolve(undefined);
-      },
-      rejectCall(this: any, callId: string) {
-        const calls = pendingCalls.get();
-        const call = calls.find((c) => c.id === callId);
-        if (!call) return;
-        pendingCalls.set(calls.filter((c) => c.id !== callId));
-        call.reject(new Error("User rejected"));
-      },
-      getCallLog(this: any): CallLogEntry[] {
-        return callLog.get();
-      },
-      isSupported(this: any): boolean {
-        return webMCPSupported.get();
-      },
-      sendMessage(this: any, text: string) {
-        const trimmed = text.trim();
-        if (!trimmed) return;
-        messages.set([
-          ...messages.get(),
-          {
-            id: nextMsgId(),
-            role: "user",
-            content: trimmed,
-            timestamp: Date.now(),
-          },
-        ]);
-        this.dispatchMessage({ role: "user", content: trimmed });
-        if (currentProvider.get()) runChatLoop(this);
-      },
-      addAssistantMessage(
-        this: any,
-        content: string,
-        toolCalls?: ChatMessage["toolCalls"],
-      ) {
-        messages.set([
-          ...messages.get(),
-          {
-            id: nextMsgId(),
-            role: "assistant",
-            content,
-            timestamp: Date.now(),
-            toolCalls,
-          },
-        ]);
-      },
-      addSystemMessage(this: any, content: string) {
-        messages.set([
-          ...messages.get(),
-          { id: nextMsgId(), role: "system", content, timestamp: Date.now() },
-        ]);
-      },
-      clearMessages(this: any) {
-        messages.set([]);
-      },
-      setProvider(this: any, provider: AgentProvider | null) {
-        currentProvider.set(provider);
-      },
-      configureOpenAI(this: any, config: OpenAIProviderConfig) {
-        currentProvider.set(createOpenAIProvider(config));
-      },
-      configureBuiltInAI(this: any, config?: BuiltInAIProviderConfig) {
-        currentProvider.set(createBuiltInAIProvider(config ?? {}));
-      },
-      getProvider(this: any): AgentProvider | null {
-        return currentProvider.get();
-      },
+    display: {
+      toProp: (v?: string) => (isValidDisplay(v) ? v : "full"),
+      toAttribute: (v?: string) => v,
     },
-    render(this: any) {
-      const self = this;
-
-      // ---- Header ----
-      const header = div(
-        { class: "wa-header", part: "header" },
-        div(
-          { class: "wa-header-left" },
-          div({ class: "wa-header-title", part: "header-title" }, "Agent"),
-          div(
-            { class: "wa-header-subtitle" },
-            computed(() => {
-              const n = activeToolCount.get();
-              const provider = currentProvider.get();
-              if (!provider) return "Not connected";
-              return `${n} tool${n !== 1 ? "s" : ""} available`;
-            }),
-          ),
-        ),
-        button(
-          {
-            class: "wa-icon-btn",
-            part: "settings-button",
-            onclick: () => showSettings.set(true),
-            "aria-label": "Settings",
-          },
-          "\u2699",
-        ),
-        button(
-          {
-            class: "wa-icon-btn wa-close-btn",
-            part: "close-button",
-            onclick: () => self.dispatchClose(),
-            "aria-label": "Close",
-          },
-          "\u2715",
-        ),
-      );
-
-      // ---- Messages ----
-      const messagesEl = div({ class: "wa-messages" });
-
-      effect(() => {
-        const msgs = messages.get();
-        const pending = pendingCalls.get();
-        const processing = isProcessing.get();
-        const provider = currentProvider.get();
-        const children: HTMLElement[] = [];
-
-        // Empty state
-        if (msgs.length === 0 && pending.length === 0 && !processing) {
-          if (!provider) {
-            // Welcome + config
-            const builtinBtn = isBuiltInAIAvailable.get()
-              ? button(
-                  {
-                    class: "wa-welcome-btn wa-welcome-btn--primary",
-                    onclick: () => self.configureBuiltInAI(),
-                  },
-                  "Use Browser AI (free)",
-                )
-              : div(
-                  { class: "wa-field-hint" },
-                  "Browser AI not available (Chrome 127+)",
-                );
-
-            children.push(
-              div(
-                { class: "wa-welcome" },
-                div({ class: "wa-welcome-icon" }, "\u2728"),
-                div({ class: "wa-welcome-title" }, "WebMCP Agent"),
-                div(
-                  { class: "wa-welcome-desc" },
-                  "Connect an LLM to start chatting with an AI agent that can use your page's tools.",
-                ),
-                div(
-                  { class: "wa-welcome-actions" },
-                  builtinBtn,
-                  div(
-                    {
-                      style:
-                        "text-align: center; color: var(--wa-text-subtle); font-size: var(--wa-font-size-xs);",
-                    },
-                    "\u2014 or \u2014",
-                  ),
-                  button(
-                    {
-                      class: "wa-welcome-btn",
-                      onclick: () => showSettings.set(true),
-                    },
-                    "Configure API endpoint",
-                  ),
-                ),
-              ),
-            );
-          } else {
-            children.push(
-              div(
-                { class: "wa-welcome" },
-                div({ class: "wa-welcome-icon" }, "\u2728"),
-                div({ class: "wa-welcome-title" }, "How can I help?"),
-                div(
-                  { class: "wa-welcome-desc" },
-                  "Ask me anything. I can use the tools available on this page.",
-                ),
-              ),
-            );
-          }
-          messagesEl.replaceChildren(...children);
-          return;
-        }
-
-        // Render messages
-        for (const msg of msgs) {
-          if (msg.role === "system") {
-            children.push(div({ class: "wa-msg wa-msg--system" }, msg.content));
-            continue;
-          }
-
-          const msgChildren: HTMLElement[] = [span({}, msg.content)];
-
-          // Inline tool call cards
-          if (msg.toolCalls && msg.toolCalls.length > 0) {
-            for (const tc of msg.toolCalls) {
-              msgChildren.push(
-                div(
-                  { class: "wa-tool-card" },
-                  div(
-                    { class: "wa-tool-card-header" },
-                    span({ class: "wa-tool-card-name" }, tc.name),
-                    span(
-                      {
-                        class: `wa-tool-card-status wa-tool-card-status--${tc.status}`,
-                      },
-                      tc.status,
-                    ),
-                  ),
-                ),
-              );
-            }
-          }
-
-          children.push(
-            div({ class: `wa-msg wa-msg--${msg.role}` }, ...msgChildren),
-          );
-        }
-
-        // Pending confirmations
-        for (const call of pending) {
-          children.push(
-            div(
-              { class: "wa-confirm-card", part: "pending-card" },
-              div(
-                { class: "wa-confirm-card-title" },
-                span({ class: "wa-icon" }, "\u26A0"),
-                span({}, `Allow ${call.toolName}?`),
-              ),
-              pre(
-                { class: "wa-confirm-card-input" },
-                JSON.stringify(call.input, null, 2),
-              ),
-              div(
-                { class: "wa-confirm-actions" },
-                button(
-                  {
-                    class: "wa-btn wa-btn--approve",
-                    part: "approve-button",
-                    onclick: () => self.approveCall(call.id),
-                  },
-                  "Allow",
-                ),
-                button(
-                  {
-                    class: "wa-btn wa-btn--reject",
-                    part: "reject-button",
-                    onclick: () => self.rejectCall(call.id),
-                  },
-                  "Deny",
-                ),
-              ),
-            ),
-          );
-        }
-
-        // Typing
-        if (processing) {
-          children.push(
-            div(
-              { class: "wa-typing" },
-              span({ class: "wa-typing-dot" }),
-              span({ class: "wa-typing-dot" }),
-              span({ class: "wa-typing-dot" }),
-            ),
-          );
-        }
-
-        messagesEl.replaceChildren(...children);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-      });
-
-      // ---- Input ----
-      const chatInput = input({
-        class: "wa-input",
-        type: "text",
-        placeholder: "Message the agent\u2026",
-      }) as HTMLInputElement;
-      const sendBtn = button(
+    theme: {
+      toProp: (v?: string) => (isValidTheme(v) ? v : "auto"),
+      toAttribute: (v?: string) => v,
+    },
+  },
+  events: {
+    toolRegistered: event<{ name: string; description: string }>(),
+    toolUnregistered: event<{ name: string }>(),
+    toolInvoked: event<{ name: string; input: object }>(),
+    toolResult: event<{ name: string; result: unknown }>(),
+    message: event<{ role: string; content: string }>(),
+    close: event<void>(),
+    error: event<string>(),
+  },
+  styles: webAgentStyles,
+  methods: {
+    register(this: any, tool: ToolDefinition) {
+      try {
+        registerToolToWebMCP(tool);
+        this.dispatchToolRegistered({
+          name: tool.name,
+          description: tool.description,
+        });
+      } catch (err) {
+        this.dispatchError(err instanceof Error ? err.message : String(err));
+        throw err;
+      }
+    },
+    unregister(this: any, name: string) {
+      unregisterToolFromWebMCP(name);
+      this.dispatchToolUnregistered({ name });
+    },
+    listTools(this: any): ToolInfo[] {
+      return registeredTools.get();
+    },
+    approveCall(this: any, callId: string) {
+      const calls = pendingCalls.get();
+      const call = calls.find((c) => c.id === callId);
+      if (!call) return;
+      pendingCalls.set(calls.filter((c) => c.id !== callId));
+      call.resolve(undefined);
+    },
+    rejectCall(this: any, callId: string) {
+      const calls = pendingCalls.get();
+      const call = calls.find((c) => c.id === callId);
+      if (!call) return;
+      pendingCalls.set(calls.filter((c) => c.id !== callId));
+      call.reject(new Error("User rejected"));
+    },
+    getCallLog(this: any): CallLogEntry[] {
+      return callLog.get();
+    },
+    isSupported(this: any): boolean {
+      return webMCPSupported.get();
+    },
+    sendMessage(this: any, text: string) {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      messages.set([
+        ...messages.get(),
         {
-          class: "wa-send-btn",
-          onclick: () => {
-            const t = chatInput.value;
-            if (t.trim()) {
-              self.sendMessage(t);
-              chatInput.value = "";
-            }
-          },
+          id: nextMsgId(),
+          role: "user",
+          content: trimmed,
+          timestamp: Date.now(),
         },
-        "\u2191",
-      );
-      effect(() => {
-        sendBtn.disabled = isProcessing.get();
-      });
-      chatInput.addEventListener("keydown", (e: KeyboardEvent) => {
-        if (e.key === "Enter" && !e.shiftKey && !isProcessing.get()) {
-          e.preventDefault();
+      ]);
+      this.dispatchMessage({ role: "user", content: trimmed });
+      if (currentProvider.get()) runChatLoop(this);
+    },
+    addAssistantMessage(
+      this: any,
+      content: string,
+      toolCalls?: ChatMessage["toolCalls"],
+    ) {
+      messages.set([
+        ...messages.get(),
+        {
+          id: nextMsgId(),
+          role: "assistant",
+          content,
+          timestamp: Date.now(),
+          toolCalls,
+        },
+      ]);
+    },
+    addSystemMessage(this: any, content: string) {
+      messages.set([
+        ...messages.get(),
+        { id: nextMsgId(), role: "system", content, timestamp: Date.now() },
+      ]);
+    },
+    clearMessages(this: any) {
+      messages.set([]);
+    },
+    setProvider(this: any, provider: AgentProvider | null) {
+      currentProvider.set(provider);
+    },
+    configureOpenAI(this: any, config: OpenAIProviderConfig) {
+      currentProvider.set(createOpenAIProvider(config));
+    },
+    configureBuiltInAI(this: any, config?: BuiltInAIProviderConfig) {
+      currentProvider.set(createBuiltInAIProvider(config ?? {}));
+    },
+    getProvider(this: any): AgentProvider | null {
+      return currentProvider.get();
+    },
+  },
+  render(this: any) {
+    const self = this;
+
+    // ---- Header ----
+    const header = div(
+      { class: "wa-header", part: "header" },
+      div(
+        { class: "wa-header-left" },
+        div({ class: "wa-header-title", part: "header-title" }, "Agent"),
+        div(
+          { class: "wa-header-subtitle" },
+          computed(() => {
+            const n = activeToolCount.get();
+            const provider = currentProvider.get();
+            if (!provider) return "Not connected";
+            return `${n} tool${n !== 1 ? "s" : ""} available`;
+          }),
+        ),
+      ),
+      button(
+        {
+          class: "wa-icon-btn",
+          part: "settings-button",
+          onclick: () => showSettings.set(true),
+          "aria-label": "Settings",
+        },
+        "\u2699",
+      ),
+      button(
+        {
+          class: "wa-icon-btn wa-close-btn",
+          part: "close-button",
+          onclick: () => self.dispatchClose(),
+          "aria-label": "Close",
+        },
+        "\u2715",
+      ),
+    );
+
+    // ---- Messages ----
+    const messagesEl = div({ class: "wa-messages" });
+
+    effect(() => {
+      const msgs = messages.get();
+      const pending = pendingCalls.get();
+      const processing = isProcessing.get();
+      const provider = currentProvider.get();
+      const children: HTMLElement[] = [];
+
+      // Empty state
+      if (msgs.length === 0 && pending.length === 0 && !processing) {
+        if (!provider) {
+          // Welcome + config
+          const builtinBtn = isBuiltInAIAvailable.get()
+            ? button(
+                {
+                  class: "wa-welcome-btn wa-welcome-btn--primary",
+                  onclick: () => self.configureBuiltInAI(),
+                },
+                "Use Browser AI (free)",
+              )
+            : div(
+                { class: "wa-field-hint" },
+                "Browser AI not available (Chrome 127+)",
+              );
+
+          children.push(
+            div(
+              { class: "wa-welcome" },
+              div({ class: "wa-welcome-icon" }, "\u2728"),
+              div({ class: "wa-welcome-title" }, "WebMCP Agent"),
+              div(
+                { class: "wa-welcome-desc" },
+                "Connect an LLM to start chatting with an AI agent that can use your page's tools.",
+              ),
+              div(
+                { class: "wa-welcome-actions" },
+                builtinBtn,
+                div(
+                  {
+                    style:
+                      "text-align: center; color: var(--wa-text-subtle); font-size: var(--wa-font-size-xs);",
+                  },
+                  "\u2014 or \u2014",
+                ),
+                button(
+                  {
+                    class: "wa-welcome-btn",
+                    onclick: () => showSettings.set(true),
+                  },
+                  "Configure API endpoint",
+                ),
+              ),
+            ),
+          );
+        } else {
+          children.push(
+            div(
+              { class: "wa-welcome" },
+              div({ class: "wa-welcome-icon" }, "\u2728"),
+              div({ class: "wa-welcome-title" }, "How can I help?"),
+              div(
+                { class: "wa-welcome-desc" },
+                "Ask me anything. I can use the tools available on this page.",
+              ),
+            ),
+          );
+        }
+        messagesEl.replaceChildren(...children);
+        return;
+      }
+
+      // Render messages
+      for (const msg of msgs) {
+        if (msg.role === "system") {
+          children.push(div({ class: "wa-msg wa-msg--system" }, msg.content));
+          continue;
+        }
+
+        const msgChildren: HTMLElement[] = [span({}, msg.content)];
+
+        // Inline tool call cards
+        if (msg.toolCalls && msg.toolCalls.length > 0) {
+          for (const tc of msg.toolCalls) {
+            msgChildren.push(
+              div(
+                { class: "wa-tool-card" },
+                div(
+                  { class: "wa-tool-card-header" },
+                  span({ class: "wa-tool-card-name" }, tc.name),
+                  span(
+                    {
+                      class: `wa-tool-card-status wa-tool-card-status--${tc.status}`,
+                    },
+                    tc.status,
+                  ),
+                ),
+              ),
+            );
+          }
+        }
+
+        children.push(
+          div({ class: `wa-msg wa-msg--${msg.role}` }, ...msgChildren),
+        );
+      }
+
+      // Pending confirmations
+      for (const call of pending) {
+        children.push(
+          div(
+            { class: "wa-confirm-card", part: "pending-card" },
+            div(
+              { class: "wa-confirm-card-title" },
+              span({ class: "wa-icon" }, "\u26A0"),
+              span({}, `Allow ${call.toolName}?`),
+            ),
+            pre(
+              { class: "wa-confirm-card-input" },
+              JSON.stringify(call.input, null, 2),
+            ),
+            div(
+              { class: "wa-confirm-actions" },
+              button(
+                {
+                  class: "wa-btn wa-btn--approve",
+                  part: "approve-button",
+                  onclick: () => self.approveCall(call.id),
+                },
+                "Allow",
+              ),
+              button(
+                {
+                  class: "wa-btn wa-btn--reject",
+                  part: "reject-button",
+                  onclick: () => self.rejectCall(call.id),
+                },
+                "Deny",
+              ),
+            ),
+          ),
+        );
+      }
+
+      // Typing
+      if (processing) {
+        children.push(
+          div(
+            { class: "wa-typing" },
+            span({ class: "wa-typing-dot" }),
+            span({ class: "wa-typing-dot" }),
+            span({ class: "wa-typing-dot" }),
+          ),
+        );
+      }
+
+      messagesEl.replaceChildren(...children);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    });
+
+    // ---- Input ----
+    const chatInput = input({
+      class: "wa-input",
+      type: "text",
+      placeholder: "Message the agent\u2026",
+    }) as HTMLInputElement;
+    const sendBtn = button(
+      {
+        class: "wa-send-btn",
+        onclick: () => {
           const t = chatInput.value;
           if (t.trim()) {
             self.sendMessage(t);
             chatInput.value = "";
           }
+        },
+      },
+      "\u2191",
+    );
+    effect(() => {
+      sendBtn.disabled = isProcessing.get();
+    });
+    chatInput.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "Enter" && !e.shiftKey && !isProcessing.get()) {
+        e.preventDefault();
+        const t = chatInput.value;
+        if (t.trim()) {
+          self.sendMessage(t);
+          chatInput.value = "";
         }
-      });
+      }
+    });
 
-      const chatArea = div(
-        { class: "wa-chat", part: "chat" },
-        messagesEl,
-        div({ class: "wa-input-area" }, chatInput, sendBtn),
-      );
+    const chatArea = div(
+      { class: "wa-chat", part: "chat" },
+      messagesEl,
+      div({ class: "wa-input-area" }, chatInput, sendBtn),
+    );
 
-      // ---- Settings overlay ----
-      const settingsOverlay = div({
-        class: "wa-settings-overlay",
-        style: "display: none;",
-      });
-      effect(() => {
-        settingsOverlay.style.display = showSettings.get() ? "" : "none";
-      });
+    // ---- Settings overlay ----
+    const settingsOverlay = div({
+      class: "wa-settings-overlay",
+      style: "display: none;",
+    });
+    effect(() => {
+      settingsOverlay.style.display = showSettings.get() ? "" : "none";
+    });
 
-      const settingsEndpoint = input({
-        class: "wa-field-input",
-        type: "text",
-        placeholder: "https://api.openai.com/v1/chat/completions",
-      }) as HTMLInputElement;
-      const settingsApiKey = input({
-        class: "wa-field-input",
-        type: "password",
-        placeholder: "sk-...",
-      }) as HTMLInputElement;
-      const settingsModel = input({
-        class: "wa-field-input",
-        type: "text",
-        placeholder: "gpt-4o",
-        value: "gpt-4o",
-      }) as HTMLInputElement;
+    const settingsEndpoint = input({
+      class: "wa-field-input",
+      type: "text",
+      placeholder: "https://api.openai.com/v1/chat/completions",
+    }) as HTMLInputElement;
+    const settingsApiKey = input({
+      class: "wa-field-input",
+      type: "password",
+      placeholder: "sk-...",
+    }) as HTMLInputElement;
+    const settingsModel = input({
+      class: "wa-field-input",
+      type: "text",
+      placeholder: "gpt-4o",
+      value: "gpt-4o",
+    }) as HTMLInputElement;
 
-      settingsOverlay.replaceChildren(
+    settingsOverlay.replaceChildren(
+      div(
+        { class: "wa-settings-header" },
+        div({ class: "wa-settings-title" }, "Settings"),
+        button(
+          {
+            class: "wa-icon-btn",
+            onclick: () => showSettings.set(false),
+            "aria-label": "Close settings",
+          },
+          "\u2715",
+        ),
+      ),
+      div(
+        { class: "wa-settings-body" },
         div(
-          { class: "wa-settings-header" },
-          div({ class: "wa-settings-title" }, "Settings"),
-          button(
-            {
-              class: "wa-icon-btn",
-              onclick: () => showSettings.set(false),
-              "aria-label": "Close settings",
-            },
-            "\u2715",
+          { class: "wa-field" },
+          label({ class: "wa-field-label" }, "API Endpoint"),
+          settingsEndpoint,
+          div(
+            { class: "wa-field-hint" },
+            "Any OpenAI-compatible endpoint (OpenAI, Groq, Together, Ollama, etc.)",
           ),
         ),
         div(
-          { class: "wa-settings-body" },
-          div(
-            { class: "wa-field" },
-            label({ class: "wa-field-label" }, "API Endpoint"),
-            settingsEndpoint,
-            div(
-              { class: "wa-field-hint" },
-              "Any OpenAI-compatible endpoint (OpenAI, Groq, Together, Ollama, etc.)",
-            ),
-          ),
-          div(
-            { class: "wa-field" },
-            label({ class: "wa-field-label" }, "API Key"),
-            settingsApiKey,
-          ),
-          div(
-            { class: "wa-field" },
-            label({ class: "wa-field-label" }, "Model"),
-            settingsModel,
-          ),
-          isBuiltInAIAvailable.get()
-            ? div(
-                { class: "wa-field" },
-                button(
-                  {
-                    class: "wa-welcome-btn wa-welcome-btn--primary",
-                    style: "width: 100%;",
-                    onclick: () => {
-                      self.configureBuiltInAI();
-                      showSettings.set(false);
-                    },
+          { class: "wa-field" },
+          label({ class: "wa-field-label" }, "API Key"),
+          settingsApiKey,
+        ),
+        div(
+          { class: "wa-field" },
+          label({ class: "wa-field-label" }, "Model"),
+          settingsModel,
+        ),
+        isBuiltInAIAvailable.get()
+          ? div(
+              { class: "wa-field" },
+              button(
+                {
+                  class: "wa-welcome-btn wa-welcome-btn--primary",
+                  style: "width: 100%;",
+                  onclick: () => {
+                    self.configureBuiltInAI();
+                    showSettings.set(false);
                   },
-                  "Use Browser Built-in AI",
-                ),
-                div(
-                  { class: "wa-field-hint" },
-                  "No API key needed \u2014 runs locally in Chrome",
-                ),
-              )
-            : div(
-                { class: "wa-field-hint" },
-                "Browser Built-in AI not available (requires Chrome 127+)",
+                },
+                "Use Browser Built-in AI",
               ),
-        ),
-        div(
-          { class: "wa-settings-actions" },
-          button(
-            {
-              class: "wa-btn wa-btn--approve",
-              style: "flex: 1;",
-              onclick: () => {
-                const ep = settingsEndpoint.value.trim();
-                const key = settingsApiKey.value.trim();
-                const model = settingsModel.value.trim() || "gpt-4o";
-                if (ep && key) {
-                  self.configureOpenAI({ endpoint: ep, apiKey: key, model });
-                  showSettings.set(false);
-                }
-              },
+              div(
+                { class: "wa-field-hint" },
+                "No API key needed \u2014 runs locally in Chrome",
+              ),
+            )
+          : div(
+              { class: "wa-field-hint" },
+              "Browser Built-in AI not available (requires Chrome 127+)",
+            ),
+      ),
+      div(
+        { class: "wa-settings-actions" },
+        button(
+          {
+            class: "wa-btn wa-btn--approve",
+            style: "flex: 1;",
+            onclick: () => {
+              const ep = settingsEndpoint.value.trim();
+              const key = settingsApiKey.value.trim();
+              const model = settingsModel.value.trim() || "gpt-4o";
+              if (ep && key) {
+                self.configureOpenAI({ endpoint: ep, apiKey: key, model });
+                showSettings.set(false);
+              }
             },
-            "Connect",
-          ),
+          },
+          "Connect",
         ),
-      );
+      ),
+    );
 
-      // ---- Panel ----
-      const panel = div(
-        { class: "wa-panel", part: "panel" },
-        computed(() => {
-          if (!webMCPSupported.get())
-            return div(
-              { class: "wa-unsupported", part: "unsupported" },
-              "WebMCP is not available in this browser. Please use Chrome 146+ or enable the WebMCP flag.",
-            );
-          return [header, chatArea, settingsOverlay];
-        }),
-      );
+    // ---- Panel ----
+    const panel = div(
+      { class: "wa-panel", part: "panel" },
+      computed(() => {
+        if (!webMCPSupported.get())
+          return div(
+            { class: "wa-unsupported", part: "unsupported" },
+            "WebMCP is not available in this browser. Please use Chrome 146+ or enable the WebMCP flag.",
+          );
+        return [header, chatArea, settingsOverlay];
+      }),
+    );
 
-      // ---- Reactive data attributes ----
-      effect(() => {
-        self.dataset.layout = self.$layout.get();
-      });
-      effect(() => {
-        self.dataset.position = self.$position.get();
-      });
-      effect(() => {
-        panel.dataset.display = self.$display.get();
-      });
+    // ---- Reactive data attributes ----
+    effect(() => {
+      self.dataset.layout = self.$layout.get();
+    });
+    effect(() => {
+      self.dataset.position = self.$position.get();
+    });
+    effect(() => {
+      panel.dataset.display = self.$display.get();
+    });
 
-      // ---- Post-mount ----
-      wirePostMount(self);
-      return panel;
-    },
+    // ---- Post-mount ----
+    wirePostMount(self);
+    return panel;
   },
-);
+});
 
 function wirePostMount(self: any): void {
   effect(() => {
