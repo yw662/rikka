@@ -1,5 +1,12 @@
 # code-editor
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies [2a29b61]
+  - @takanashi/rikka-elements@0.2.1
+
 ## 0.1.2
 
 ### Patch Changes

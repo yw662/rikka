@@ -1,6 +1,6 @@
 {
   "name": "bookmark-manager",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "type": "module",
   "description": "PWA-style Read Later app like Pocket/Instapaper built with Rikka",

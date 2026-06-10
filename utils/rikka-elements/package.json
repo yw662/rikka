@@ -1,6 +1,6 @@
 {
   "name": "@takanashi/rikka-elements",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Custom Elements tools — decorators for defining web components",
   "type": "module",
   "main": "./dist/index.js",
