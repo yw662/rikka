@@ -259,7 +259,8 @@ export const app = defineElement('snake-game', {
       newGameBtn.textContent = t(content.newGame);
       pauseBtn.textContent = isPaused.get() ? t(content.resume) : t(content.pause);
       langSelect.value = locale.get();
-      pauseOverlay.querySelector('.pause-text')?.textContent = t(content.paused);
+      const pt = pauseOverlay.querySelector('.pause-text');
+      if (pt) pt.textContent = t(content.paused);
     });
 
     effect(() => {
