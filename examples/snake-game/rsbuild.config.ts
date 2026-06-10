@@ -9,5 +9,6 @@ export default defineConfig({
       js: '[name].[hash].js',
       css: '[name].[hash].css',
     },
+    assetPrefix: './',
   },
 });
