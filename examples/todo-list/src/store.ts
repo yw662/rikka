@@ -131,6 +131,32 @@ export function clearCompleted() {
   todos.set(todos.get().filter(t => !t.completed));
 }
 
+export function reorderTodos(fromIndex: number, toIndex: number) {
+  const list = [...todos.get()];
+  const [removed] = list.splice(fromIndex, 1);
+  list.splice(toIndex, 0, removed);
+  todos.set(list);
+}
+
+export function deleteSelected(ids: string[]) {
+  todos.set(todos.get().filter(t => !ids.includes(t.id)));
+  if (ids.includes(editingId.get() || '')) editingId.set(null);
+}
+
+export function toggleSelected(ids: string[]) {
+  const now = Date.now();
+  todos.set(
+    todos.get().map(t => {
+      if (!ids.includes(t.id)) return t;
+      return {
+        ...t,
+        completed: !t.completed,
+        completedAt: !t.completed ? now : undefined,
+      };
+    })
+  );
+}
+
 export function toggleAll() {
   const allDone = todos.get().every(t => t.completed);
   todos.set(

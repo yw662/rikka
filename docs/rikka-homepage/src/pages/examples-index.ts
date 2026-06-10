@@ -42,24 +42,8 @@ const styles = css`
   }
 
   .example-icon {
-    font-size: 40px;
+    font-size: 48px;
     line-height: 1;
-  }
-
-  .example-meta {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .example-tag {
-    background: var(--color-tag-bg);
-    color: var(--color-primary-light);
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    border: 1px solid var(--color-tag-border);
   }
 
   .example-content h3 {
@@ -71,29 +55,29 @@ const styles = css`
 
   .example-content p {
     color: var(--color-text-secondary);
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     line-height: 1.6;
     margin-bottom: 16px;
   }
 
   .example-features {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    margin-bottom: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-bottom: 4px;
   }
 
   .feature-item {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     font-size: 0.85rem;
     color: var(--color-text-secondary);
   }
 
   .feature-dot {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background: var(--color-primary);
     flex-shrink: 0;
@@ -153,10 +137,7 @@ const ExamplesIndex = defineElement("rikka-examples-index", {
         ...examples.map(example => div(
           { class: "example-card" },
           div({ class: "example-header" },
-            span({ class: "example-icon" }, example.title.split(" ")[0]),
-            div({ class: "example-meta" },
-              ...example.tags.map(tag => span({ class: "example-tag" }, tag))
-            )
+            span({ class: "example-icon" }, example.title.split(" ")[0])
           ),
           div({ class: "example-content" },
             h3({}, example.title.substring(2).trim()),

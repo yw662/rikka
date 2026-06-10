@@ -1,0 +1,18 @@
+{
+  "name": "snake-game",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "rsbuild dev",
+    "build": "rsbuild build"
+  },
+  "dependencies": {
+    "@takanashi/rikka-dom": "workspace:*",
+    "@takanashi/rikka-elements": "workspace:*",
+    "@takanashi/rikka-signal": "workspace:*"
+  },
+  "devDependencies": {
+    "@rsbuild/core": "^1.0.0",
+    "typescript": "^5.0.0"
+  }
+}

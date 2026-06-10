@@ -39,6 +39,8 @@ import './pages/examples/code-editor';
 import './pages/examples/finance-tracker';
 import './pages/examples/todo-list';
 import './pages/examples/drawing-pad';
+import './pages/examples/2048-game';
+import './pages/examples/snake-game';
 
 interface RouteConfig {
   tag: string;
@@ -77,6 +79,8 @@ const routes: Record<string, RouteConfig> = {
   '/examples/finance-tracker': { tag: 'rikka-example-finance-tracker', showSidebar: false, title: 'Finance Tracker — Rikka' },
   '/examples/todo-list': { tag: 'rikka-example-todo-list', showSidebar: false, title: 'Todo List — Rikka' },
   '/examples/drawing-pad': { tag: 'rikka-example-drawing-pad', showSidebar: false, title: 'Drawing Pad — Rikka' },
+  '/examples/2048-game': { tag: 'rikka-example-2048-game', showSidebar: false, title: '2048 Game — Rikka' },
+  '/examples/snake-game': { tag: 'rikka-example-snake-game', showSidebar: false, title: 'Snake Game — Rikka' },
 };
 
 const currentPath = signal('/');

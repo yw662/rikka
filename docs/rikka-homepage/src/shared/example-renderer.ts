@@ -75,20 +75,37 @@ export function renderExamplePage(data: ExampleData, prevNext: { prev?: { slug: 
       ),
     );
 
-    // --- Vibe Coding guide ---
+    // --- Vibe Coding section ---
     const vibeSection = div(
       { class: "showcase-hero" },
       h2({}, t(data.vibe.heading)),
       p({}, t(data.vibe.intro)),
+      
+      // Workflow
+      h3({}, t(data.vibe.workflow.title)),
+      div(
+        { class: "workflow-steps" },
+        ...data.vibe.workflow.steps.map(s =>
+          div(
+            { class: "step" },
+            h4({}, t(s.title)),
+            p({}, t(s.description)),
+          )
+        ),
+      ),
+      
+      // Prompts
+      h3({}, t(data.vibe.prompts.title)),
       div(
         { class: "vibe-prompts" },
-        ...data.vibe.steps.map(step =>
+        ...data.vibe.prompts.steps.map(step =>
           div({},
-            h3({}, t(step.title)),
+            h4({}, t(step.title)),
             pre({}, code({}, t(step.prompt))),
           )
         ),
       ),
+      
       // Core features used
       h2({}, l === "zh" ? "使用的 Rikka 核心功能" : "Core Rikka Features Used"),
       div(
@@ -101,19 +118,7 @@ export function renderExamplePage(data: ExampleData, prevNext: { prev?: { slug: 
           )
         ),
       ),
-      // Workflow
-      h2({}, t(data.workflow.heading)),
-      p({}, t(data.workflow.intro)),
-      div(
-        { class: "workflow-steps" },
-        ...data.workflow.steps.map(s =>
-          div(
-            { class: "step" },
-            h4({}, t(s.title)),
-            p({}, t(s.description)),
-          )
-        ),
-      ),
+      
       // Build steps
       h2({}, t(data.buildSteps.heading)),
       p({}, t(data.buildSteps.intro)),
