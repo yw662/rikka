@@ -1,5 +1,5 @@
 import { defineElement } from '@takanashi/rikka-elements';
-import { div, h1, p, button, select, option, css } from '@takanashi/rikka-dom';
+import { div, h1, p, span, button, select, option, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
 import { moveSnake, setDirection, restart, togglePause, gameOver, isPaused } from '../store';
 import { locale, setLocale, t, type Locale } from '../i18n';
