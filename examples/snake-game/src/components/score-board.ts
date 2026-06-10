@@ -1,9 +1,9 @@
 import { defineElement } from '@takanashi/rikka-elements';
 import { div, span, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
-import { score, bestScore } from '../store.js';
-import { locale, t } from '../i18n.js';
-import { content } from '../content.js';
+import { score, bestScore } from '../store';
+import { locale, t } from '../i18n';
+import { content } from '../content';
 
 export const scoreBoard = defineElement('snake-score', {
   attributes: {},

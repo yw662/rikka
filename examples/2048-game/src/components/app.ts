@@ -1,11 +1,11 @@
 import { defineElement } from '@takanashi/rikka-elements';
 import { div, h1, p, button, select, option, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
-import { move, restart, continueGame, gameOver, won } from '../store.js';
-import { locale, setLocale, t, type Locale } from '../i18n.js';
-import { content } from '../content.js';
-import { gameBoard } from './game-board.js';
-import { scoreBoard } from './score-board.js';
+import { move, restart, continueGame, gameOver, won } from '../store';
+import { locale, setLocale, t, type Locale } from '../i18n';
+import { content } from '../content';
+import { gameBoard } from './game-board';
+import { scoreBoard } from './score-board';
 
 export const app = defineElement('game-2048', {
   attributes: {},

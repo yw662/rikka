@@ -73,30 +73,22 @@ const styles = css`
     color: var(--color-text-secondary);
     font-size: 0.95rem;
     line-height: 1.6;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
   }
 
   .example-features {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
     margin-bottom: 16px;
   }
 
-  .feature-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
+  .feature-chip {
+    background: var(--color-tag-bg);
     color: var(--color-text-secondary);
-  }
-
-  .feature-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--color-primary);
-    flex-shrink: 0;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
   }
 
   .example-actions {
@@ -154,19 +146,15 @@ const ExamplesIndex = defineElement("rikka-examples-index", {
           { class: "example-card" },
           div({ class: "example-header" },
             span({ class: "example-icon" }, example.title.split(" ")[0]),
-            div({ class: "example-meta" },
-              ...example.tags.map(tag => span({ class: "example-tag" }, tag))
+            div({ class: "example-tags" },
+              ...example.tags.slice(0, 2).map(tag => span({ class: "example-tag" }, tag))
             )
           ),
           div({ class: "example-content" },
             h3({}, example.title.substring(2).trim()),
             p({}, t(example.description)),
             div({ class: "example-features" },
-              ...t(example.features).map(feature => div(
-                { class: "feature-item" },
-                span({ class: "feature-dot" }),
-                span({}, feature)
-              ))
+              ...t(example.features).map(feature => span({ class: "feature-chip" }, feature))
             )
           ),
           div({ class: "example-actions" },

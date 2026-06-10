@@ -1,7 +1,7 @@
 import { defineElement } from '@takanashi/rikka-elements';
 import { div, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
-import { grid, getTileColor, getTileTextColor, getTileFontSize } from '../store.js';
+import { grid, getTileColor, getTileTextColor, getTileFontSize } from '../store';
 
 export const gameBoard = defineElement('game-board', {
   attributes: {},

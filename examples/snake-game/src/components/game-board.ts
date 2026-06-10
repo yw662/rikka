@@ -1,7 +1,7 @@
 import { defineElement } from '@takanashi/rikka-elements';
 import { div, css } from '@takanashi/rikka-dom';
 import { effect } from '@takanashi/rikka-signal';
-import { snake, food, gridSize, cellSize } from '../store.js';
+import { snake, food, gridSize, cellSize } from '../store';
 
 export const gameBoard = defineElement('snake-board', {
   attributes: {},
