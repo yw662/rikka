@@ -5,9 +5,16 @@ import {
   event,
   type ElementConstructor,
 } from "@takanashi/rikka-elements";
-import { div, button, span, pre, input, label } from "@takanashi/rikka-dom";
+import { div, button, span, pre, input, label, select, option } from "@takanashi/rikka-dom";
 import { signal, computed, effect } from "@takanashi/rikka-signal";
 import { initializeWebMCPPolyfill } from "@mcp-b/webmcp-polyfill";
+import {
+  MLCEngine,
+  type ChatOptions,
+  type ChatMessageParam,
+  type InitProgressReport,
+  prebuiltAppConfig,
+} from "@mlc-ai/web-llm";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -94,6 +101,24 @@ export interface BuiltInAIProviderConfig {
   topK?: number;
 }
 
+export interface WebLLMProviderConfig {
+  modelId: string;
+  systemPrompt?: string;
+  temperature?: number;
+  maxTokens?: number;
+}
+
+/** How the agent connects to a model. */
+export type AccessMode = "api" | "browser" | "webllm";
+
+/** Lightweight model record (matches a prebuilt WebLLM model). */
+export interface ModelRecord {
+  model_id: string;
+  model: string;
+  model_lib?: string;
+  overrides?: Record<string, unknown>;
+}
+
 // ---------------------------------------------------------------------------
 // Reactive store
 // ---------------------------------------------------------------------------
@@ -105,6 +130,33 @@ const messages = signal<ChatMessage[]>([]);
 const isProcessing = signal(false);
 const currentProvider = signal<AgentProvider | null>(null);
 const showSettings = signal(false);
+const selectedAccessMode = signal<AccessMode>("api");
+const selectedWebLLMModelId = signal<string>("");
+const webllmLoading = signal<boolean>(false);
+const webllmProgress = signal<number>(0);
+const webllmProgressText = signal<string>("");
+const webllmAvailableModels = signal<ModelRecord[]>([]);
+
+// Populate the list of WebLLM models on module load (if possible).
+try {
+  const list = (prebuiltAppConfig?.model_list ?? []) as Array<
+    Record<string, unknown>
+  >;
+  webllmAvailableModels.set(
+    list.map((m) => ({
+      model_id: String(m.model_id ?? m.model ?? ""),
+      model: String(m.model ?? m.model_id ?? ""),
+      model_lib:
+        typeof m.model_lib === "string" ? m.model_lib : undefined,
+      overrides: m.overrides as Record<string, unknown> | undefined,
+    })).filter((m) => m.model_id.length > 0),
+  );
+  const first = webllmAvailableModels.get()[0];
+  if (first) selectedWebLLMModelId.set(first.model_id);
+} catch {
+  // WebLLM may not be available in test/SSR environments.
+  webllmAvailableModels.set([]);
+}
 
 let msgIdCounter = 0;
 function nextMsgId(): string {
@@ -141,7 +193,7 @@ function getMC(): ModelContext | null {
 
 const webMCPSupported = computed(() => getMC() !== null);
 const activeToolCount = computed(
-  () => registeredTools.get().filter((t) => t.status === "active").length,
+  () => registeredTools.get().filter((t: ToolInfo) => t.status === "active").length,
 );
 
 // ---------------------------------------------------------------------------
@@ -268,7 +320,7 @@ function registerToolToWebMCP(tool: ToolDefinition): void {
                 input,
                 resolve: (value: unknown) => {
                   callLog.set(
-                    callLog.get().map((e) =>
+                    callLog.get().map((e: CallLogEntry) =>
                       e.id === id
                         ? {
                             ...e,
@@ -282,7 +334,7 @@ function registerToolToWebMCP(tool: ToolDefinition): void {
                 },
                 reject: (reason?: unknown) => {
                   callLog.set(
-                    callLog.get().map((e) =>
+                    callLog.get().map((e: CallLogEntry) =>
                       e.id === id
                         ? {
                             ...e,
@@ -315,7 +367,7 @@ function registerToolToWebMCP(tool: ToolDefinition): void {
               callLog.set(
                 callLog
                   .get()
-                  .map((e) =>
+                  .map((e: CallLogEntry) =>
                     e.id === id
                       ? { ...e, status: "completed" as const, result }
                       : e,
@@ -324,7 +376,7 @@ function registerToolToWebMCP(tool: ToolDefinition): void {
               return result;
             } catch (err) {
               callLog.set(
-                callLog.get().map((e) =>
+                callLog.get().map((e: CallLogEntry) =>
                   e.id === id
                     ? {
                         ...e,
@@ -460,6 +512,137 @@ function createBuiltInAIProvider(
   };
 }
 
+// ---------------------------------------------------------------------------
+// WebLLM (local, in-browser) provider
+// ---------------------------------------------------------------------------
+
+let sharedWebLLMEngine: MLCEngine | null = null;
+let currentWebLLMModelId = "";
+let webllmInitPromise: Promise<void> | null = null;
+let webllmInitError: Error | null = null;
+
+function createWebLLMProvider(
+  config: WebLLMProviderConfig,
+): AgentProvider {
+  // If the model changed, tear down the existing engine so it reloads.
+  if (
+    sharedWebLLMEngine &&
+    currentWebLLMModelId !== config.modelId &&
+    !webllmLoading.get()
+  ) {
+    sharedWebLLMEngine
+      .unload()
+      .catch(() => { /* swallow */ });
+    sharedWebLLMEngine = null;
+    currentWebLLMModelId = "";
+  }
+
+  // Kick off (or reuse) an in-flight reload of the requested model.
+  if (!webllmInitPromise || currentWebLLMModelId !== config.modelId) {
+    if (!sharedWebLLMEngine) {
+      sharedWebLLMEngine = new MLCEngine();
+      sharedWebLLMEngine.setInitProgressCallback(
+        (report: InitProgressReport) => {
+          webllmProgressText.set(report.text || "");
+          webllmProgress.set(report.progress ?? 0);
+        },
+      );
+    }
+
+    const engine = sharedWebLLMEngine;
+    const chatOpts: ChatOptions = {
+      system: config.systemPrompt,
+      temperature: config.temperature,
+      ...(config.maxTokens !== undefined
+        ? { max_tokens: config.maxTokens }
+        : {}),
+    };
+
+    webllmLoading.set(true);
+    webllmProgress.set(0);
+    webllmProgressText.set("Starting WebLLM engine...");
+    currentWebLLMModelId = config.modelId;
+
+    webllmInitPromise = engine
+      .reload(config.modelId, chatOpts, prebuiltAppConfig)
+      .then(() => {
+        webllmLoading.set(false);
+        webllmProgress.set(1);
+        webllmProgressText.set("Ready");
+      })
+      .catch((err: unknown) => {
+        webllmInitError = err instanceof Error ? err : new Error(String(err));
+        webllmLoading.set(false);
+        webllmProgressText.set("Failed to load WebLLM model");
+        webllmInitPromise = null;
+        currentWebLLMModelId = "";
+        throw webllmInitError;
+      });
+  }
+
+  return {
+    async chat(msgs, tools) {
+      if (!sharedWebLLMEngine) {
+        throw new Error("WebLLM engine was disposed.");
+      }
+      if (webllmInitPromise) {
+        try {
+          await webllmInitPromise;
+        } catch {
+          // The error is already stored in webllmInitError; re-throw.
+          if (webllmInitError) throw webllmInitError;
+          throw new Error("Failed to initialize WebLLM engine");
+        }
+      }
+
+      const conversation: ChatMessageParam[] = msgs.map((m) => ({
+        role: (m.role as "system" | "user" | "assistant"),
+        content: m.content,
+      }));
+      if (config.systemPrompt) {
+        conversation.unshift({
+          role: "system",
+          content: config.systemPrompt,
+        });
+      }
+
+      // WebLLM does not support function-calling natively in all variants,
+      // so we inline the tool list as a system-style prompt for a simple
+      // text-only chat to keep the provider functional everywhere.
+      if (tools.length > 0) {
+        // This mirrors the OpenAI provider's behaviour but avoids the
+        // structured function_calls path; WebLLM returns text.
+        conversation.push({
+          role: "system",
+          content:
+            "Available tools (JSON schema):\n" +
+            JSON.stringify(
+              tools.map((t) => ({
+                name: t.name,
+                description: t.description,
+                parameters: t.inputSchema,
+              })),
+              null,
+              2,
+            ),
+        });
+      }
+
+      const resp = await sharedWebLLMEngine.chat.completions.create({
+        messages: conversation,
+        stream: false,
+        temperature: config.temperature,
+        max_tokens: config.maxTokens,
+      });
+      const choice = resp?.choices?.[0];
+      if (!choice) {
+        throw new Error("WebLLM returned no response.");
+      }
+      return { content: choice.message.content ?? "" };
+    },
+  };
+}
+
 const isBuiltInAIAvailable = computed(() => {
   if (typeof window === "undefined") return false;
   const ai = (window as any).ai;
@@ -477,7 +660,7 @@ async function runChatLoop(self: any): Promise<void> {
   try {
     const history = messages
       .get()
-      .map((m) => ({ role: m.role, content: m.content }));
+      .map((m: ChatMessage) => ({ role: m.role, content: m.content }));
     const tools = registeredTools.get();
     const response = await provider.chat(history, tools);
 
@@ -1020,6 +1203,44 @@ const webAgentStyles = css`
     }
   }
 
+  /* WebLLM model loading */
+  .wa-loader {
+    align-self: center;
+    width: 92%;
+    margin: var(--wa-spacing-sm) 0;
+    padding: var(--wa-spacing-md);
+    background: var(--wa-surface);
+    border: 1px solid var(--wa-border);
+    border-radius: var(--wa-radius-sm);
+    font-size: var(--wa-font-size-sm);
+  }
+  .wa-loader-title {
+    font-weight: 600;
+    margin-bottom: var(--wa-spacing-xs);
+    display: flex;
+    align-items: center;
+    gap: var(--wa-spacing-xs);
+  }
+  .wa-loader-text {
+    color: var(--wa-text-muted);
+    font-size: var(--wa-font-size-xs);
+    margin-bottom: var(--wa-spacing-xs);
+    word-break: break-word;
+  }
+  .wa-progress-track {
+    width: 100%;
+    height: 8px;
+    background: var(--wa-bg);
+    border: 1px solid var(--wa-border);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .wa-progress-fill {
+    height: 100%;
+    background: var(--wa-accent);
+    transition: width 200ms ease;
+  }
+
   /* Welcome screen */
   .wa-welcome {
     flex: 1;
@@ -1287,16 +1508,16 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
     },
     approveCall(this: any, callId: string) {
       const calls = pendingCalls.get();
-      const call = calls.find((c) => c.id === callId);
+      const call = calls.find((c: PendingCall) => c.id === callId);
       if (!call) return;
-      pendingCalls.set(calls.filter((c) => c.id !== callId));
+      pendingCalls.set(calls.filter((c: PendingCall) => c.id !== callId));
       call.resolve(undefined);
     },
     rejectCall(this: any, callId: string) {
       const calls = pendingCalls.get();
-      const call = calls.find((c) => c.id === callId);
+      const call = calls.find((c: PendingCall) => c.id === callId);
       if (!call) return;
-      pendingCalls.set(calls.filter((c) => c.id !== callId));
+      pendingCalls.set(calls.filter((c: PendingCall) => c.id !== callId));
       call.reject(new Error("User rejected"));
     },
     getCallLog(this: any): CallLogEntry[] {
@@ -1353,6 +1574,12 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
     },
     configureBuiltInAI(this: any, config?: BuiltInAIProviderConfig) {
       currentProvider.set(createBuiltInAIProvider(config ?? {}));
+    },
+    configureWebLLM(this: any, config: WebLLMProviderConfig) {
+      currentProvider.set(createWebLLMProvider(config));
+    },
+    listWebLLMModels(this: any): ModelRecord[] {
+      return webllmAvailableModels.get();
     },
     getProvider(this: any): AgentProvider | null {
       return currentProvider.get();
@@ -1554,6 +1781,41 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
         );
       }
 
+      // WebLLM model-loading progress (shown while a WebLLM engine is initializing).
+      if (webllmLoading.get()) {
+        const pct = Math.max(0, Math.min(100, webllmProgress.get() * 100));
+        children.push(
+          div(
+            { class: "wa-loader" },
+            div(
+              { class: "wa-loader-title" },
+              "\u2699 Loading local model (WebLLM)",
+            ),
+            div(
+              { class: "wa-loader-text" },
+              webllmProgressText.get() ||
+                `Downloading weights... ${pct.toFixed(1)}%`,
+            ),
+            div(
+              { class: "wa-progress-track" },
+              div(
+                {
+                  class: "wa-progress-fill",
+                  style: `width: ${pct}%;`,
+                },
+              ),
+            ),
+            div(
+              {
+                style:
+                  "font-size: var(--wa-font-size-xs); color: var(--wa-text-subtle); margin-top: var(--wa-spacing-xs); text-align: right;",
+              },
+              `${pct.toFixed(1)}%`,
+            ),
+          ),
+        );
+      }
+
       messagesEl.replaceChildren(...children);
       messagesEl.scrollTop = messagesEl.scrollHeight;
     });
@@ -1622,6 +1884,131 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
       placeholder: "gpt-4o",
       value: "gpt-4o",
     }) as HTMLInputElement;
+    const settingsAccessMode = select(
+      { class: "wa-field-input" },
+      option({ value: "api" }, "API (OpenAI-compatible)"),
+      option({ value: "browser" }, "Browser AI (Chrome 127+)"),
+      option({ value: "webllm" }, "WebLLM (local, in-browser)"),
+    ) as HTMLSelectElement;
+    settingsAccessMode.value = selectedAccessMode.get();
+
+    // Render the WebLLM model selector with the current list of prebuilt models.
+    const webllmModelSelect = select(
+      { class: "wa-field-input" },
+      ...webllmAvailableModels
+        .get()
+        .map((m: ModelRecord) =>
+          option({ value: m.model_id }, `${m.model} (${m.model_id})`),
+        ),
+    ) as HTMLSelectElement;
+    const first = webllmAvailableModels.get()[0];
+    if (first) {
+      if (!selectedWebLLMModelId.get()) selectedWebLLMModelId.set(first.model_id);
+      webllmModelSelect.value = selectedWebLLMModelId.get();
+    }
+
+    function renderSettingsBody(): HTMLElement {
+      const mode = settingsAccessMode.value as AccessMode;
+      const children: HTMLElement[] = [];
+
+      children.push(
+        div(
+          { class: "wa-field" },
+          label({ class: "wa-field-label" }, "接入方式"),
+          settingsAccessMode,
+          div(
+            { class: "wa-field-hint" },
+            "Choose how the agent connects to a language model.",
+          ),
+        ),
+      );
+
+      if (mode === "api") {
+        children.push(
+          div(
+            { class: "wa-field" },
+            label({ class: "wa-field-label" }, "API Endpoint"),
+            settingsEndpoint,
+            div(
+              { class: "wa-field-hint" },
+              "Any OpenAI-compatible endpoint (OpenAI, Groq, Together, Ollama, etc.)",
+            ),
+            ),
+            div(
+            { class: "wa-field" },
+            label({ class: "wa-field-label" }, "API Key"),
+            settingsApiKey,
+            ),
+            div(
+            { class: "wa-field" },
+            label({ class: "wa-field-label" }, "Model"),
+            settingsModel,
+            ),
+        );
+      } else if (mode === "browser") {
+        if (isBuiltInAIAvailable.get()) {
+          children.push(
+            div(
+            { class: "wa-field" },
+            button(
+                {
+                    class:
+                    "wa-welcome-btn wa-welcome-btn--primary",
+                    style: "width: 100%;",
+                    onclick: () => {
+                    self.configureBuiltInAI();
+                    showSettings.set(false);
+                    },
+                },
+                "Use Browser Built-in AI",
+            ),
+            div(
+                { class: "wa-field-hint" },
+                "No API key needed \u2014 runs locally in Chrome",
+            ),
+            ),
+        );
+        } else {
+            children.push(
+            div(
+                { class: "wa-field-hint" },
+                "Browser Built-in AI not available (requires Chrome 127+)",
+            ),
+        );
+        }
+      } else if (mode === "webllm") {
+        const models = webllmAvailableModels.get();
+        if (models.length === 0) {
+            children.push(
+            div(
+                { class: "wa-field-hint" },
+                "WebLLM prebuilt models are not available in this environment.",
+            ),
+            );
+        } else {
+            children.push(
+            div(
+            { class: "wa-field" },
+            label({ class: "wa-field-label" }, "Model"),
+            webllmModelSelect,
+            div(
+                { class: "wa-field-hint" },
+                "The selected model will be downloaded and cached locally on first use.",
+            ),
+            ),
+            );
+        }
+    }
+
+      return div({ class: "wa-settings-body" }, ...children);
+    }
+
+    settingsAccessMode.addEventListener("change", () => {
+      selectedAccessMode.set(settingsAccessMode.value as AccessMode);
+      const body = renderSettingsBody();
+      const existing = settingsOverlay.querySelector(".wa-settings-body");
+      if (existing) settingsOverlay.replaceChild(body, existing);
+    });
 
     settingsOverlay.replaceChildren(
       div(
@@ -1636,51 +2023,7 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
           "\u2715",
         ),
       ),
-      div(
-        { class: "wa-settings-body" },
-        div(
-          { class: "wa-field" },
-          label({ class: "wa-field-label" }, "API Endpoint"),
-          settingsEndpoint,
-          div(
-            { class: "wa-field-hint" },
-            "Any OpenAI-compatible endpoint (OpenAI, Groq, Together, Ollama, etc.)",
-          ),
-        ),
-        div(
-          { class: "wa-field" },
-          label({ class: "wa-field-label" }, "API Key"),
-          settingsApiKey,
-        ),
-        div(
-          { class: "wa-field" },
-          label({ class: "wa-field-label" }, "Model"),
-          settingsModel,
-        ),
-        isBuiltInAIAvailable.get()
-          ? div(
-              { class: "wa-field" },
-              button(
-                {
-                  class: "wa-welcome-btn wa-welcome-btn--primary",
-                  style: "width: 100%;",
-                  onclick: () => {
-                    self.configureBuiltInAI();
-                    showSettings.set(false);
-                  },
-                },
-                "Use Browser Built-in AI",
-              ),
-              div(
-                { class: "wa-field-hint" },
-                "No API key needed \u2014 runs locally in Chrome",
-              ),
-            )
-          : div(
-              { class: "wa-field-hint" },
-              "Browser Built-in AI not available (requires Chrome 127+)",
-            ),
-      ),
+      renderSettingsBody(),
       div(
         { class: "wa-settings-actions" },
         button(
@@ -1688,12 +2031,28 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
             class: "wa-btn wa-btn--approve",
             style: "flex: 1;",
             onclick: () => {
-              const ep = settingsEndpoint.value.trim();
-              const key = settingsApiKey.value.trim();
-              const model = settingsModel.value.trim() || "gpt-4o";
-              if (ep && key) {
-                self.configureOpenAI({ endpoint: ep, apiKey: key, model });
+              const mode = settingsAccessMode.value as AccessMode;
+              if (mode === "api") {
+                const ep = settingsEndpoint.value.trim();
+                const key = settingsApiKey.value.trim();
+                const model = settingsModel.value.trim() || "gpt-4o";
+                if (ep && key) {
+                  self.configureOpenAI({ endpoint: ep, apiKey: key, model });
+                  showSettings.set(false);
+                }
+              } else if (mode === "browser") {
+                self.configureBuiltInAI();
                 showSettings.set(false);
+              } else if (mode === "webllm") {
+                const modelId =
+                  (webllmModelSelect.value || selectedWebLLMModelId.get() || "").trim();
+                if (modelId) {
+                  selectedWebLLMModelId.set(modelId);
+                  // Trigger the download immediately so the user sees progress
+                  // in the chat UI.
+                  self.configureWebLLM({ modelId });
+                  showSettings.set(false);
+                }
               }
             },
           },
