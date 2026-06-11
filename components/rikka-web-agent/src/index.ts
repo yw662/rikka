@@ -135,6 +135,7 @@ const selectedWebLLMModelId = signal<string>("");
 const webllmLoading = signal<boolean>(false);
 const webllmProgress = signal<number>(0);
 const webllmProgressText = signal<string>("");
+const webllmError = signal<string>("");
 const webllmAvailableModels = signal<ModelRecord[]>([]);
 
 // Populate the list of WebLLM models on module load (if possible).
@@ -521,10 +522,20 @@ let currentWebLLMModelId = "";
 let webllmInitPromise: Promise<void> | null = null;
 let webllmInitError: Error | null = null;
 
+function isWebLLMEnvironmentSupported(): boolean {
+  if (typeof globalThis === "undefined") return false;
+  const g = globalThis as { caches?: unknown; crypto?: unknown };
+  if (!g.caches) return false;
+  if (typeof (g as { atob?: unknown }).atob !== "function") return false;
+  return true;
+}
+
 function createWebLLMProvider(
   config: WebLLMProviderConfig,
 ): AgentProvider {
-  // If the model changed, tear down the existing engine so it reloads.
+  // Reset error on a fresh configure call.
+  webllmError.set("");
+
   if (
     sharedWebLLMEngine &&
     currentWebLLMModelId !== config.modelId &&
@@ -537,110 +548,141 @@ function createWebLLMProvider(
     currentWebLLMModelId = "";
   }
 
-  // Kick off (or reuse) an in-flight reload of the requested model.
   if (!webllmInitPromise || currentWebLLMModelId !== config.modelId) {
-    if (!sharedWebLLMEngine) {
-      sharedWebLLMEngine = new MLCEngine();
-      sharedWebLLMEngine.setInitProgressCallback(
-        (report: InitProgressReport) => {
-          webllmProgressText.set(report.text || "");
-          webllmProgress.set(report.progress ?? 0);
-        },
-      );
+    if (!isWebLLMEnvironmentSupported()) {
+      const msg =
+        "WebLLM requires browser APIs that are not available in this environment " +
+        "(Cache Storage API). Please try a different access method.";
+      webllmError.set(msg);
+      webllmInitError = new Error(msg);
+      webllmInitPromise = Promise.resolve();
+      currentWebLLMModelId = config.modelId;
+      return makeWebLLMProvider();
     }
 
-    const engine = sharedWebLLMEngine;
-    const chatOpts: ChatOptions = {
-      system: config.systemPrompt,
-      temperature: config.temperature,
-      ...(config.maxTokens !== undefined
-        ? { max_tokens: config.maxTokens }
-        : {}),
-    };
+    try {
+      if (!sharedWebLLMEngine) {
+        sharedWebLLMEngine = new MLCEngine();
+        sharedWebLLMEngine.setInitProgressCallback(
+          (report: InitProgressReport) => {
+            webllmProgressText.set(report.text || "");
+            webllmProgress.set(report.progress ?? 0);
+          },
+        );
+      }
 
-    webllmLoading.set(true);
-    webllmProgress.set(0);
-    webllmProgressText.set("Starting WebLLM engine...");
-    currentWebLLMModelId = config.modelId;
+      const engine = sharedWebLLMEngine;
+      const chatOpts: ChatOptions = {
+        system: config.systemPrompt,
+        temperature: config.temperature,
+        ...(config.maxTokens !== undefined
+          ? { max_tokens: config.maxTokens }
+          : {}),
+      };
 
-    webllmInitPromise = engine
-      .reload(config.modelId, chatOpts, prebuiltAppConfig)
-      .then(() => {
-        webllmLoading.set(false);
-        webllmProgress.set(1);
-        webllmProgressText.set("Ready");
-      })
-      .catch((err: unknown) => {
-        webllmInitError = err instanceof Error ? err : new Error(String(err));
-        webllmLoading.set(false);
-        webllmProgressText.set("Failed to load WebLLM model");
-        webllmInitPromise = null;
-        currentWebLLMModelId = "";
-        throw webllmInitError;
-      });
+      webllmLoading.set(true);
+      webllmProgress.set(0);
+      webllmProgressText.set(
+        `Preparing ${config.modelId} (first-run download may take a while)...`,
+      );
+      currentWebLLMModelId = config.modelId;
+
+      webllmInitPromise = engine
+        .reload(config.modelId, chatOpts, prebuiltAppConfig)
+        .then(() => {
+          webllmLoading.set(false);
+          webllmProgress.set(1);
+          webllmProgressText.set(`Model ${config.modelId} is ready.`);
+        })
+        .catch((err: unknown) => {
+          const msg =
+            err instanceof Error ? err.message : String(err);
+          webllmInitError = new Error(msg);
+          webllmError.set(
+            msg.includes("caches") || msg.includes("Cache")
+              ? "Your browser does not support the WebLLM model cache. " +
+                "Please try a different access method (API or Browser AI)."
+              : msg,
+          );
+          webllmLoading.set(false);
+          webllmProgressText.set("Failed to load WebLLM model");
+          webllmInitPromise = null;
+          currentWebLLMModelId = "";
+        });
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : String(err);
+      webllmError.set(msg);
+      webllmLoading.set(false);
+      webllmInitError = new Error(msg);
+      webllmInitPromise = null;
+      currentWebLLMModelId = "";
+    }
   }
 
-  return {
-    async chat(msgs, tools) {
-      if (!sharedWebLLMEngine) {
-        throw new Error("WebLLM engine was disposed.");
-      }
-      if (webllmInitPromise) {
-        try {
-          await webllmInitPromise;
-        } catch {
-          // The error is already stored in webllmInitError; re-throw.
-          if (webllmInitError) throw webllmInitError;
-          throw new Error("Failed to initialize WebLLM engine");
+  return makeWebLLMProvider();
+
+  function makeWebLLMProvider(): AgentProvider {
+    return {
+      async chat(msgs, tools) {
+        if (!sharedWebLLMEngine) {
+          throw webllmInitError ||
+            new Error("WebLLM engine was disposed or unavailable.");
         }
-      }
+        if (webllmInitPromise) {
+          try {
+            await webllmInitPromise;
+          } catch {
+            if (webllmInitError) throw webllmInitError;
+            throw new Error("Failed to initialize WebLLM engine");
+          }
+        }
+        if (webllmError.get()) {
+          throw new Error(webllmError.get());
+        }
 
-      const conversation: ChatMessageParam[] = msgs.map((m) => ({
-        role: (m.role as "system" | "user" | "assistant"),
-        content: m.content,
-      }));
-      if (config.systemPrompt) {
-        conversation.unshift({
-          role: "system",
-          content: config.systemPrompt,
+        const conversation: ChatMessageParam[] = msgs.map((m) => ({
+          role: (m.role as "system" | "user" | "assistant"),
+          content: m.content,
+        }));
+        if (config.systemPrompt) {
+          conversation.unshift({
+            role: "system",
+            content: config.systemPrompt,
+          });
+        }
+
+        if (tools.length > 0) {
+          conversation.push({
+            role: "system",
+            content:
+              "Available tools (JSON schema):\n" +
+              JSON.stringify(
+                tools.map((t) => ({
+                  name: t.name,
+                  description: t.description,
+                  parameters: t.inputSchema,
+                })),
+                null,
+                2,
+              ),
+          });
+        }
+
+        const resp = await sharedWebLLMEngine.chat.completions.create({
+          messages: conversation,
+          stream: false,
+          temperature: config.temperature,
+          max_tokens: config.maxTokens,
         });
-      }
-
-      // WebLLM does not support function-calling natively in all variants,
-      // so we inline the tool list as a system-style prompt for a simple
-      // text-only chat to keep the provider functional everywhere.
-      if (tools.length > 0) {
-        // This mirrors the OpenAI provider's behaviour but avoids the
-        // structured function_calls path; WebLLM returns text.
-        conversation.push({
-          role: "system",
-          content:
-            "Available tools (JSON schema):\n" +
-            JSON.stringify(
-              tools.map((t) => ({
-                name: t.name,
-                description: t.description,
-                parameters: t.inputSchema,
-              })),
-              null,
-              2,
-            ),
-        });
-      }
-
-      const resp = await sharedWebLLMEngine.chat.completions.create({
-        messages: conversation,
-        stream: false,
-        temperature: config.temperature,
-        max_tokens: config.maxTokens,
-      });
-      const choice = resp?.choices?.[0];
-      if (!choice) {
-        throw new Error("WebLLM returned no response.");
-      }
-      return { content: choice.message.content ?? "" };
-    },
-  };
+        const choice = resp?.choices?.[0];
+        if (!choice) {
+          throw new Error("WebLLM returned no response.");
+        }
+        return { content: choice.message.content ?? "" };
+      },
+    };
+  }
 }
 
 const isBuiltInAIAvailable = computed(() => {
@@ -1240,6 +1282,13 @@ const webAgentStyles = css`
     background: var(--wa-accent);
     transition: width 200ms ease;
   }
+  .wa-loader--error {
+    border-color: #dc2626;
+    background: rgba(220, 38, 38, 0.08);
+  }
+  .wa-loader--error .wa-loader-title {
+    color: #dc2626;
+  }
 
   /* Welcome screen */
   .wa-welcome {
@@ -1570,12 +1619,19 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
       currentProvider.set(provider);
     },
     configureOpenAI(this: any, config: OpenAIProviderConfig) {
+      selectedAccessMode.set("api");
+      webllmError.set("");
+      webllmLoading.set(false);
       currentProvider.set(createOpenAIProvider(config));
     },
     configureBuiltInAI(this: any, config?: BuiltInAIProviderConfig) {
+      selectedAccessMode.set("browser");
+      webllmError.set("");
+      webllmLoading.set(false);
       currentProvider.set(createBuiltInAIProvider(config ?? {}));
     },
     configureWebLLM(this: any, config: WebLLMProviderConfig) {
+      selectedAccessMode.set("webllm");
       currentProvider.set(createWebLLMProvider(config));
     },
     listWebLLMModels(this: any): ModelRecord[] {
@@ -1634,6 +1690,72 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
       const provider = currentProvider.get();
       const children: HTMLElement[] = [];
 
+      // WebLLM model-loading progress or error (top-level, always checked).
+      // These are rendered BEFORE any messages so the user sees status immediately.
+      const webllmState =
+        webllmLoading.get()
+          ? ("loading" as const)
+          : selectedAccessMode.get() === "webllm" && webllmError.get()
+            ? ("error" as const)
+            : null;
+
+      function renderWebLLMBanner() {
+        if (webllmState === "loading") {
+          const pct = Math.max(0, Math.min(100, webllmProgress.get() * 100));
+          children.push(
+            div(
+              { class: "wa-loader" },
+              div(
+                { class: "wa-loader-title" },
+                "⚙ Loading local model (WebLLM)",
+              ),
+              div(
+                { class: "wa-loader-text" },
+                webllmProgressText.get() ||
+                  `Downloading weights... ${pct.toFixed(1)}%`,
+              ),
+              div(
+                { class: "wa-progress-track" },
+                div(
+                  {
+                    class: "wa-progress-fill",
+                    style: `width: ${pct}%;`,
+                  },
+                ),
+              ),
+              div(
+                {
+                  style:
+                    "font-size: var(--wa-font-size-xs); color: var(--wa-text-subtle); margin-top: var(--wa-spacing-xs); text-align: right;",
+                },
+                `${pct.toFixed(1)}%`,
+              ),
+            ),
+          );
+        } else if (webllmState === "error") {
+          children.push(
+            div(
+              { class: "wa-loader wa-loader--error" },
+              div(
+                { class: "wa-loader-title" },
+                "⚠ WebLLM model unavailable",
+              ),
+              div(
+                { class: "wa-loader-text" },
+                webllmError.get(),
+              ),
+              div(
+                {
+                  style:
+                    "font-size: var(--wa-font-size-xs); color: var(--wa-text-subtle); margin-top: var(--wa-spacing-sm);",
+                },
+                "Open Settings to switch to API or Browser AI.",
+              ),
+            ),
+          );
+        }
+      }
+
       // Empty state
       if (msgs.length === 0 && pending.length === 0 && !processing) {
         if (!provider) {
@@ -1680,18 +1802,26 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
               ),
             ),
           );
+          // Also show WebLLM banner in the empty state so users see progress
+          // or errors right after choosing an access mode.
+          renderWebLLMBanner();
         } else {
           children.push(
             div(
               { class: "wa-welcome" },
               div({ class: "wa-welcome-icon" }, "\u2728"),
-              div({ class: "wa-welcome-title" }, "How can I help?"),
+              div({ class: "wa-welcome-title" }, webllmState === "loading" ? "Setting up…" : "How can I help?"),
               div(
                 { class: "wa-welcome-desc" },
-                "Ask me anything. I can use the tools available on this page.",
+                webllmState === "loading"
+                  ? "Your local model is being prepared. You can type once it finishes."
+                  : "Ask me anything. I can use the tools available on this page.",
               ),
             ),
           );
+          // WebLLM loading/error banner shown alongside the welcome card
+          // so status is always visible before the first message.
+          renderWebLLMBanner();
         }
         messagesEl.replaceChildren(...children);
         return;
@@ -1781,40 +1911,8 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
         );
       }
 
-      // WebLLM model-loading progress (shown while a WebLLM engine is initializing).
-      if (webllmLoading.get()) {
-        const pct = Math.max(0, Math.min(100, webllmProgress.get() * 100));
-        children.push(
-          div(
-            { class: "wa-loader" },
-            div(
-              { class: "wa-loader-title" },
-              "\u2699 Loading local model (WebLLM)",
-            ),
-            div(
-              { class: "wa-loader-text" },
-              webllmProgressText.get() ||
-                `Downloading weights... ${pct.toFixed(1)}%`,
-            ),
-            div(
-              { class: "wa-progress-track" },
-              div(
-                {
-                  class: "wa-progress-fill",
-                  style: `width: ${pct}%;`,
-                },
-              ),
-            ),
-            div(
-              {
-                style:
-                  "font-size: var(--wa-font-size-xs); color: var(--wa-text-subtle); margin-top: var(--wa-spacing-xs); text-align: right;",
-              },
-              `${pct.toFixed(1)}%`,
-            ),
-          ),
-        );
-      }
+      // WebLLM model-loading progress or error (shown after messages too).
+      renderWebLLMBanner();
 
       messagesEl.replaceChildren(...children);
       messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -1897,9 +1995,7 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
       { class: "wa-field-input" },
       ...webllmAvailableModels
         .get()
-        .map((m: ModelRecord) =>
-          option({ value: m.model_id }, `${m.model} (${m.model_id})`),
-        ),
+        .map((m: ModelRecord) => option({ value: m.model_id }, m.model_id)),
     ) as HTMLSelectElement;
     const first = webllmAvailableModels.get()[0];
     if (first) {
@@ -2005,6 +2101,7 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
 
     settingsAccessMode.addEventListener("change", () => {
       selectedAccessMode.set(settingsAccessMode.value as AccessMode);
+      webllmError.set("");
       const body = renderSettingsBody();
       const existing = settingsOverlay.querySelector(".wa-settings-body");
       if (existing) settingsOverlay.replaceChild(body, existing);
