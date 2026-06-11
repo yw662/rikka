@@ -1,6 +1,7 @@
 packages:
   - 'utils/*'
   - 'components/*'
+  - 'components/rikka-web-agent/test-page'
   - 'docs/rikka-homepage'
   - 'examples/*'
 
