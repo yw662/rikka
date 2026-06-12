@@ -27,6 +27,7 @@
     "test:watch": "rstest -w"
   },
   "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.70",
     "@takanashi/rikka-dom": "workspace:*",
     "@takanashi/rikka-elements": "workspace:*",
     "@takanashi/rikka-signal": "workspace:*"

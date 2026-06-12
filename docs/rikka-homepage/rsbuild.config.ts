@@ -19,6 +19,11 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 3000,
+    headers: {
+      // Required for WebLLM (uses SharedArrayBuffer via WebGPU/Wasm threads)
+      "Cross-Origin-Embedder-Policy": "require-corp",
+      "Cross-Origin-Opener-Policy": "same-origin",
+    },
   },
   source: {
     entry: {
