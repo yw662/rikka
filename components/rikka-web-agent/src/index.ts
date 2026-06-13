@@ -135,10 +135,12 @@ const webllmProgress = signal<number>(0);
 const webllmProgressText = signal<string>("");
 const webllmError = signal<string>("");
 const webllmAvailableModels = signal<ModelRecord[]>([]);
+const webllmLibLoading = signal<boolean>(false);
 
 // Populate the list of WebLLM models asynchronously (non-blocking).
 // Uses dynamic import so @mlc-ai/web-llm WASM is not loaded until needed.
-import("@mlc-ai/web-llm")
+webllmLibLoading.set(true);
+const webllmLibPromise = import("@mlc-ai/web-llm")
   .then((webllm) => {
     const list = (webllm.prebuiltAppConfig?.model_list ?? []) as Array<
       Record<string, unknown>
@@ -158,6 +160,9 @@ import("@mlc-ai/web-llm")
   .catch(() => {
     // WebLLM may not be available in test/SSR environments.
     webllmAvailableModels.set([]);
+  })
+  .finally(() => {
+    webllmLibLoading.set(false);
   });
 
 let msgIdCounter = 0;
@@ -2006,17 +2011,24 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
     ) as HTMLSelectElement;
     settingsAccessMode.value = selectedAccessMode.get();
 
-    // Render the WebLLM model selector with the current list of prebuilt models.
-    const webllmModelSelect = select(
-      { class: "wa-field-input" },
-      ...webllmAvailableModels
-        .get()
-        .map((m: ModelRecord) => option({ value: m.model_id }, m.model_id)),
-    ) as HTMLSelectElement;
-    const first = webllmAvailableModels.get()[0];
-    if (first) {
-      if (!selectedWebLLMModelId.get()) selectedWebLLMModelId.set(first.model_id);
-      webllmModelSelect.value = selectedWebLLMModelId.get();
+    // Build a fresh model selector on demand so the option list reflects
+    // the current webllmAvailableModels signal (important during lazy load).
+    function buildModelSelect(): HTMLSelectElement {
+      const sel = select(
+        { class: "wa-field-input" },
+        ...webllmAvailableModels
+          .get()
+          .map((m: ModelRecord) => option({ value: m.model_id }, m.model_id)),
+      ) as HTMLSelectElement;
+      const first = webllmAvailableModels.get()[0];
+      if (first) {
+        if (!selectedWebLLMModelId.get()) selectedWebLLMModelId.set(first.model_id);
+        sel.value = selectedWebLLMModelId.get();
+      }
+      sel.addEventListener("change", () => {
+        selectedWebLLMModelId.set(sel.value);
+      });
+      return sel;
     }
 
     function renderSettingsBody(): HTMLElement {
@@ -2089,8 +2101,27 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
         );
         }
       } else if (mode === "webllm") {
+        const libLoading = webllmLibLoading.get();
         const models = webllmAvailableModels.get();
-        if (models.length === 0) {
+        if (libLoading) {
+            children.push(
+            div(
+                { class: "wa-field" },
+                label({ class: "wa-field-label" }, "Model"),
+                div(
+                {
+                    class: "wa-progress-track",
+                    style: "height: 38px; display: flex; align-items: center; justify-content: center; color: var(--wa-text-muted); font-size: var(--wa-font-size-sm); background: var(--wa-surface);",
+                },
+                "Loading WebLLM library\u2026",
+                ),
+                div(
+                { class: "wa-field-hint" },
+                "Fetching the list of available local models.",
+                ),
+            ),
+            );
+        } else if (models.length === 0) {
             children.push(
             div(
                 { class: "wa-field-hint" },
@@ -2100,13 +2131,13 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
         } else {
             children.push(
             div(
-            { class: "wa-field" },
-            label({ class: "wa-field-label" }, "Model"),
-            webllmModelSelect,
-            div(
+                { class: "wa-field" },
+                label({ class: "wa-field-label" }, "Model"),
+                buildModelSelect(),
+                div(
                 { class: "wa-field-hint" },
                 "The selected model will be downloaded and cached locally on first use.",
-            ),
+                ),
             ),
             );
         }
@@ -2121,6 +2152,20 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
       const body = renderSettingsBody();
       const existing = settingsOverlay.querySelector(".wa-settings-body");
       if (existing) settingsOverlay.replaceChild(body, existing);
+    });
+
+    // Re-render settings body when WebLLM lazy-load signals change, so the
+    // user sees a live progress indicator while the library loads.
+    effect(() => {
+      webllmLibLoading.get();
+      webllmAvailableModels.get();
+      webllmProgress.get();
+      webllmProgressText.get();
+      if (showSettings.get() && settingsAccessMode.value === "webllm") {
+        const body = renderSettingsBody();
+        const existing = settingsOverlay.querySelector(".wa-settings-body");
+        if (existing) settingsOverlay.replaceChild(body, existing);
+      }
     });
 
     settingsOverlay.replaceChildren(
@@ -2158,7 +2203,7 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
                 showSettings.set(false);
               } else if (mode === "webllm") {
                 const modelId =
-                  (webllmModelSelect.value || selectedWebLLMModelId.get() || "").trim();
+                  (selectedWebLLMModelId.get() || "").trim();
                 if (modelId) {
                   selectedWebLLMModelId.set(modelId);
                   // Trigger the download immediately so the user sees progress
