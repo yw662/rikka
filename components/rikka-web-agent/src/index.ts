@@ -136,34 +136,71 @@ const webllmProgressText = signal<string>("");
 const webllmError = signal<string>("");
 const webllmAvailableModels = signal<ModelRecord[]>([]);
 const webllmLibLoading = signal<boolean>(false);
+let cachedWebLLMLib: unknown = null;
+let cachedWebLLMLibPromise: Promise<unknown> | null = null;
 
-// Populate the list of WebLLM models asynchronously (non-blocking).
-// Uses dynamic import so @mlc-ai/web-llm WASM is not loaded until needed.
-webllmLibLoading.set(true);
-const webllmLibPromise = import("@mlc-ai/web-llm")
-  .then((webllm) => {
-    const list = (webllm.prebuiltAppConfig?.model_list ?? []) as Array<
-      Record<string, unknown>
-    >;
-    webllmAvailableModels.set(
-      list.map((m) => ({
-        model_id: String(m.model_id ?? m.model ?? ""),
-        model: String(m.model ?? m.model_id ?? ""),
-        model_lib:
-          typeof m.model_lib === "string" ? m.model_lib : undefined,
-        overrides: m.overrides as Record<string, unknown> | undefined,
-      })).filter((m) => m.model_id.length > 0),
-    );
-    const first = webllmAvailableModels.get()[0];
-    if (first) selectedWebLLMModelId.set(first.model_id);
-  })
-  .catch(() => {
-    // WebLLM may not be available in test/SSR environments.
-    webllmAvailableModels.set([]);
-  })
-  .finally(() => {
+async function loadWebLLMLib(): Promise<unknown> {
+  if (cachedWebLLMLib) return cachedWebLLMLib;
+  if (cachedWebLLMLibPromise) return cachedWebLLMLibPromise;
+  webllmLibLoading.set(true);
+  const p = (async () => {
+    const urls = [
+      "@mlc-ai/web-llm",
+      "https://esm.sh/@mlc-ai/web-llm@0.2.84",
+      "https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.84/+esm",
+    ];
+    let lastErr: unknown;
+    for (const url of urls) {
+      try {
+        const mod = await import(/* @vite-ignore */ /* webpackIgnore: true */ url);
+        cachedWebLLMLib = mod;
+        return mod;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw lastErr instanceof Error ? lastErr : new Error("Failed to load @mlc-ai/web-llm");
+  })();
+  cachedWebLLMLibPromise = p;
+  return p.finally(() => {
     webllmLibLoading.set(false);
   });
+}
+
+// Lazily load the WebLLM library and populate the model list.
+// Called when the user first switches to WebLLM mode — truly non-blocking.
+let webllmLibInitTriggered = false;
+function ensureWebLLMLib(): Promise<void> {
+  if (webllmLibInitTriggered) {
+    if (cachedWebLLMLibPromise) {
+      return cachedWebLLMLibPromise.then(() => {});
+    }
+    return Promise.resolve();
+  }
+  webllmLibInitTriggered = true;
+  return loadWebLLMLib()
+    .then((mod: any) => {
+      const list = (mod?.prebuiltAppConfig?.model_list ?? []) as Array<
+        Record<string, unknown>
+      >;
+      webllmAvailableModels.set(
+        list.map((m) => ({
+          model_id: String(m.model_id ?? m.model ?? ""),
+          model: String(m.model ?? m.model_id ?? ""),
+          model_lib:
+            typeof m.model_lib === "string" ? m.model_lib : undefined,
+          overrides: m.overrides as Record<string, unknown> | undefined,
+        })).filter((m) => m.model_id.length > 0),
+      );
+      const first = webllmAvailableModels.get()[0];
+      if (first && !selectedWebLLMModelId.get()) {
+        selectedWebLLMModelId.set(first.model_id);
+      }
+    })
+    .catch(() => {
+      webllmAvailableModels.set([]);
+    });
+}
 
 let msgIdCounter = 0;
 function nextMsgId(): string {
@@ -581,24 +618,27 @@ function createWebLLMProvider(
     );
     currentWebLLMModelId = config.modelId;
 
-    // Dynamically import @mlc-ai/web-llm to avoid blocking page render.
+    // Dynamically import @mlc-ai/web-llm via ESM CDN so it doesn't block page render.
     // The WASM module only loads when the user actually selects WebLLM.
-    webllmInitPromise = import("@mlc-ai/web-llm")
-      .then((webllm) => {
+    webllmInitPromise = loadWebLLMLib()
+      .then((webllm: any) => {
         const MLCEngine = webllm.MLCEngine;
         const prebuiltAppConfig = webllm.prebuiltAppConfig;
 
+        let engine: WebLLMEngineInterface;
         if (!sharedWebLLMEngine) {
-          sharedWebLLMEngine = new MLCEngine();
-          sharedWebLLMEngine.setInitProgressCallback(
+          engine = new MLCEngine() as WebLLMEngineInterface;
+          sharedWebLLMEngine = engine;
+          engine.setInitProgressCallback(
             (report: InitProgressReport) => {
               webllmProgressText.set(report.text || "");
               webllmProgress.set(report.progress ?? 0);
             },
           );
+        } else {
+          engine = sharedWebLLMEngine;
         }
 
-        const engine = sharedWebLLMEngine;
         const chatOpts: ChatOptions = {
           system: config.systemPrompt,
           temperature: config.temperature,
@@ -2113,11 +2153,11 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
                     class: "wa-progress-track",
                     style: "height: 38px; display: flex; align-items: center; justify-content: center; color: var(--wa-text-muted); font-size: var(--wa-font-size-sm); background: var(--wa-surface);",
                 },
-                "Loading WebLLM library\u2026",
+                "\uD83D\uDCE6 Loading WebLLM library\u2026",
                 ),
                 div(
                 { class: "wa-field-hint" },
-                "Fetching the list of available local models.",
+                "Fetching the list of available local models from esm.sh.",
                 ),
             ),
             );
@@ -2125,7 +2165,7 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
             children.push(
             div(
                 { class: "wa-field-hint" },
-                "WebLLM prebuilt models are not available in this environment.",
+                "WebLLM library is not available in this browser. Try a Chromium-based browser or use API mode instead.",
             ),
             );
         } else {
@@ -2149,6 +2189,9 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
     settingsAccessMode.addEventListener("change", () => {
       selectedAccessMode.set(settingsAccessMode.value as AccessMode);
       webllmError.set("");
+      if (settingsAccessMode.value === "webllm") {
+        ensureWebLLMLib();
+      }
       const body = renderSettingsBody();
       const existing = settingsOverlay.querySelector(".wa-settings-body");
       if (existing) settingsOverlay.replaceChild(body, existing);
@@ -2157,11 +2200,16 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
     // Re-render settings body when WebLLM lazy-load signals change, so the
     // user sees a live progress indicator while the library loads.
     effect(() => {
-      webllmLibLoading.get();
-      webllmAvailableModels.get();
+      const isOpen = showSettings.get();
+      const libLoading = webllmLibLoading.get();
+      const models = webllmAvailableModels.get();
       webllmProgress.get();
       webllmProgressText.get();
-      if (showSettings.get() && settingsAccessMode.value === "webllm") {
+      if (isOpen && settingsAccessMode.value === "webllm") {
+        // Trigger lazy-load if user hasn't tried it yet
+        if (!libLoading && models.length === 0 && !webllmLibInitTriggered) {
+          ensureWebLLMLib();
+        }
         const body = renderSettingsBody();
         const existing = settingsOverlay.querySelector(".wa-settings-body");
         if (existing) settingsOverlay.replaceChild(body, existing);
