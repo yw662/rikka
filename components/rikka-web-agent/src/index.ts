@@ -159,6 +159,9 @@ let cachedWebLLM: WebLLMModule | null = null;
 let cachedWebLLMPromise: Promise<WebLLMModule> | null = null;
 let cachedWebLLMError: Error | null = null;
 
+// Signal to track if WebLLM module has been loaded (distinct from model loading).
+const webllmModuleReady = signal(false);
+
 function ensureWebLLM(): Promise<WebLLMModule> {
   if (cachedWebLLM) return Promise.resolve(cachedWebLLM);
   if (cachedWebLLMPromise) return cachedWebLLMPromise;
@@ -202,6 +205,7 @@ function ensureWebLLM(): Promise<WebLLMModule> {
       webllmProgressText.set("WebLLM runtime ready.");
       webllmProgress.set(1);
       webllmLoading.set(false);
+      webllmModuleReady.set(true);
       return cachedWebLLM;
     })
     .catch((err) => {
@@ -2129,7 +2133,8 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
           ensureWebLLM();
         }
 
-        if (webllmLoading.get()) {
+        // Show loading state if still loading or if we haven't finished yet
+        if (webllmLoading.get() || (!webllmModuleReady.get() && !webllmError.get())) {
           // Module is still loading — show a progress card instead of the
           // empty "not available" message.
           children.push(
@@ -2236,9 +2241,10 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
       webllmProgress.get();
       webllmError.get();
       webllmAvailableModels.get();
+      webllmModuleReady.get();
       // Skip the first render before the user has triggered any WebLLM
-      // load (module not cached, no promise in flight, no error yet).
-      if (!cachedWebLLM && !cachedWebLLMPromise && !webllmError.get()) return;
+      // load (module not loaded, not loading, no error).
+      if (!webllmLoading.get() && !webllmModuleReady.get() && !webllmError.get()) return;
       const body = renderSettingsBody();
       const existing = settingsOverlay.querySelector(".wa-settings-body");
       if (existing) settingsOverlay.replaceChild(body, existing);
