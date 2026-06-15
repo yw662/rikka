@@ -2264,9 +2264,8 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
     settingsAccessMode.addEventListener("change", () => {
       selectedAccessMode.set(settingsAccessMode.value as AccessMode);
       webllmError.set("");
-      const body = renderSettingsBody();
-      const existing = settingsOverlay.querySelector(".wa-settings-body");
-      if (existing) settingsOverlay.replaceChild(body, existing);
+      // Body is rendered by the effect below based on signal changes;
+      // the onchange handler only updates the access-mode signal here.
     });
 
     // Re-render the settings body whenever the WebLLM loading state
@@ -2276,15 +2275,9 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
       if (!showSettings.get()) return;
       const mode = settingsAccessMode.value;
       if (mode !== "webllm") return;
-      // Read these signals to establish subscriptions.
-      webllmLoading.get();
-      webllmProgress.get();
-      webllmError.get();
-      webllmAvailableModels.get();
-      webllmModuleReady.get();
-      // Skip the first render before the user has triggered any WebLLM
-      // load (module not loaded, not loading, no error).
-      if (!webllmLoading.get() && !webllmModuleReady.get() && !webllmError.get()) return;
+      // Always call renderSettingsBody when in webllm mode, regardless of
+      // loading state. renderSettingsBody() itself returns the appropriate
+      // UI (loading spinner → model selector) based on the current signals.
       const body = renderSettingsBody();
       const existing = settingsOverlay.querySelector(".wa-settings-body");
       if (existing) settingsOverlay.replaceChild(body, existing);
