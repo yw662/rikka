@@ -1337,6 +1337,19 @@ const webAgentStyles = css`
     background: var(--wa-accent);
     transition: width 200ms ease;
   }
+  .wa-loader-spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--wa-border);
+    border-top-color: var(--wa-accent);
+    border-radius: 50%;
+    animation: wa-spin 0.8s linear infinite;
+  }
+  @keyframes wa-spin {
+    to { transform: rotate(360deg); }
+  }
+
   .wa-loader--error {
     border-color: #dc2626;
     background: rgba(220, 38, 38, 0.08);
@@ -2134,9 +2147,11 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
         }
 
         // Show loading state if still loading or if we haven't finished yet
-        if (webllmLoading.get() || (!webllmModuleReady.get() && !webllmError.get())) {
-          // Module is still loading — show a progress card instead of the
-          // empty "not available" message.
+        if (!webllmModuleReady.get() && !webllmError.get()) {
+          // Module is still being fetched via dynamic import().
+          // NOTE: import() does not expose download progress, so we show a
+          // spinner instead of a bar. The progress bar is only meaningful
+          // during model loading (engine.reload()), which sets webllmLoading.
           children.push(
             div(
               { class: "wa-loader", style: "width: 100%; margin: 0;" },
@@ -2147,6 +2162,25 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
               div(
                 { class: "wa-loader-text" },
                 "Fetching the in-browser ML runtime (only done once per session)…",
+              ),
+              div(
+                { class: "wa-loader-spinner" },
+              ),
+            ),
+          );
+        } else if (webllmLoading.get()) {
+          // MLCEngine is downloading/compiling the model — webllmProgress
+          // callbacks are active here.
+          children.push(
+            div(
+              { class: "wa-loader", style: "width: 100%; margin: 0;" },
+              div(
+                { class: "wa-loader-title" },
+                "⬇ Downloading model",
+              ),
+              div(
+                { class: "wa-loader-text" },
+                webllmProgressText.get() || "Preparing model…",
               ),
               div(
                 { class: "wa-progress-track" },
