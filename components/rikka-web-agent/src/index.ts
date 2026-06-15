@@ -8,13 +8,11 @@ import {
 import { div, button, span, pre, input, label, select, option } from "@takanashi/rikka-dom";
 import { signal, computed, effect } from "@takanashi/rikka-signal";
 import { initializeWebMCPPolyfill } from "@mcp-b/webmcp-polyfill";
-import {
-  MLCEngine,
-  type ChatOptions,
-  type ChatMessageParam,
-  type InitProgressReport,
-  prebuiltAppConfig,
-} from "@mlc-ai/web-llm";
+
+// WebLLM is not imported at the top level. It is loaded on demand via
+// dynamic import when a user explicitly chooses the "webllm" access mode.
+// This keeps the component's initial bundle small and prevents the page
+// from blocking on the (large) @mlc-ai/web-llm module graph.
 
 // ---------------------------------------------------------------------------
 // Types
@@ -138,25 +136,79 @@ const webllmProgressText = signal<string>("");
 const webllmError = signal<string>("");
 const webllmAvailableModels = signal<ModelRecord[]>([]);
 
-// Populate the list of WebLLM models on module load (if possible).
-try {
-  const list = (prebuiltAppConfig?.model_list ?? []) as Array<
-    Record<string, unknown>
-  >;
-  webllmAvailableModels.set(
-    list.map((m) => ({
-      model_id: String(m.model_id ?? m.model ?? ""),
-      model: String(m.model ?? m.model_id ?? ""),
-      model_lib:
-        typeof m.model_lib === "string" ? m.model_lib : undefined,
-      overrides: m.overrides as Record<string, unknown> | undefined,
-    })).filter((m) => m.model_id.length > 0),
-  );
-  const first = webllmAvailableModels.get()[0];
-  if (first) selectedWebLLMModelId.set(first.model_id);
-} catch {
-  // WebLLM may not be available in test/SSR environments.
-  webllmAvailableModels.set([]);
+// WebLLM model list is populated lazily on first request (see
+// ensureWebLLM). Starting with an empty list avoids eagerly pulling in
+// @mlc-ai/web-llm at module load time.
+webllmAvailableModels.set([]);
+
+// ---------------------------------------------------------------------------
+// Dynamic WebLLM loader
+// ---------------------------------------------------------------------------
+//
+// We only attempt to load the library when the user explicitly picks the
+// WebLLM access mode. A short-lived signal (`webllmLoading` +
+// `webllmProgressText`) drives a progress banner in the UI during the
+// download of the module itself, before any model loading starts.
+
+interface WebLLMModule {
+  MLCEngine: new () => any;
+  prebuiltAppConfig: any;
+}
+
+let cachedWebLLM: WebLLMModule | null = null;
+let cachedWebLLMPromise: Promise<WebLLMModule> | null = null;
+let cachedWebLLMError: Error | null = null;
+
+function ensureWebLLM(): Promise<WebLLMModule> {
+  if (cachedWebLLM) return Promise.resolve(cachedWebLLM);
+  if (cachedWebLLMPromise) return cachedWebLLMPromise;
+
+  webllmLoading.set(true);
+  webllmProgress.set(0);
+  webllmProgressText.set("Loading WebLLM runtime…");
+
+  cachedWebLLMPromise = import("@mlc-ai/web-llm")
+    .then((mod) => {
+      cachedWebLLM = mod as unknown as WebLLMModule;
+
+      // Populate model list now that the module is available.
+      try {
+        const list = (cachedWebLLM.prebuiltAppConfig?.model_list ??
+          []) as Array<Record<string, unknown>>;
+        webllmAvailableModels.set(
+          list
+            .map((m) => ({
+              model_id: String(m.model_id ?? m.model ?? ""),
+              model: String(m.model ?? m.model_id ?? ""),
+              model_lib:
+                typeof m.model_lib === "string" ? m.model_lib : undefined,
+              overrides: m.overrides as Record<string, unknown> | undefined,
+            }))
+            .filter((m) => m.model_id.length > 0),
+        );
+        const first = webllmAvailableModels.get()[0];
+        if (first && !selectedWebLLMModelId.get()) {
+          selectedWebLLMModelId.set(first.model_id);
+        }
+      } catch {
+        webllmAvailableModels.set([]);
+      }
+
+      webllmProgressText.set("WebLLM runtime ready.");
+      webllmProgress.set(1);
+      webllmLoading.set(false);
+      return cachedWebLLM;
+    })
+    .catch((err) => {
+      cachedWebLLMError = err instanceof Error ? err : new Error(String(err));
+      webllmError.set(
+        "Failed to load WebLLM runtime. Try API or Browser AI instead.",
+      );
+      webllmLoading.set(false);
+      throw cachedWebLLMError;
+    });
+
+  return cachedWebLLMPromise;
 }
 
 let msgIdCounter = 0;
@@ -517,7 +569,7 @@ function createBuiltInAIProvider(
 // WebLLM (local, in-browser) provider
 // ---------------------------------------------------------------------------
 
-let sharedWebLLMEngine: MLCEngine | null = null;
+let sharedWebLLMEngine: any = null;
 let currentWebLLMModelId = "";
 let webllmInitPromise: Promise<void> | null = null;
 let webllmInitError: Error | null = null;
@@ -560,64 +612,57 @@ function createWebLLMProvider(
       return makeWebLLMProvider();
     }
 
-    try {
-      if (!sharedWebLLMEngine) {
-        sharedWebLLMEngine = new MLCEngine();
-        sharedWebLLMEngine.setInitProgressCallback(
-          (report: InitProgressReport) => {
-            webllmProgressText.set(report.text || "");
-            webllmProgress.set(report.progress ?? 0);
-          },
-        );
-      }
-
-      const engine = sharedWebLLMEngine;
-      const chatOpts: ChatOptions = {
-        system: config.systemPrompt,
-        temperature: config.temperature,
-        ...(config.maxTokens !== undefined
-          ? { max_tokens: config.maxTokens }
-          : {}),
-      };
-
-      webllmLoading.set(true);
-      webllmProgress.set(0);
-      webllmProgressText.set(
-        `Preparing ${config.modelId} (first-run download may take a while)...`,
-      );
-      currentWebLLMModelId = config.modelId;
-
-      webllmInitPromise = engine
-        .reload(config.modelId, chatOpts, prebuiltAppConfig)
-        .then(() => {
-          webllmLoading.set(false);
-          webllmProgress.set(1);
-          webllmProgressText.set(`Model ${config.modelId} is ready.`);
-        })
-        .catch((err: unknown) => {
-          const msg =
-            err instanceof Error ? err.message : String(err);
-          webllmInitError = new Error(msg);
-          webllmError.set(
-            msg.includes("caches") || msg.includes("Cache")
-              ? "Your browser does not support the WebLLM model cache. " +
-                "Please try a different access method (API or Browser AI)."
-              : msg,
+    // First: ensure the @mlc-ai/web-llm module is fetched. ensureWebLLM
+    // updates the progress signals itself, so the UI shows a banner.
+    webllmInitPromise = ensureWebLLM()
+      .then((mod) => {
+        if (!sharedWebLLMEngine) {
+          sharedWebLLMEngine = new mod.MLCEngine();
+          sharedWebLLMEngine.setInitProgressCallback(
+            (report: any) => {
+              webllmProgressText.set(report.text || "");
+              webllmProgress.set(report.progress ?? 0);
+            },
           );
-          webllmLoading.set(false);
-          webllmProgressText.set("Failed to load WebLLM model");
-          webllmInitPromise = null;
-          currentWebLLMModelId = "";
-        });
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : String(err);
-      webllmError.set(msg);
-      webllmLoading.set(false);
-      webllmInitError = new Error(msg);
-      webllmInitPromise = null;
-      currentWebLLMModelId = "";
-    }
+        }
+
+        const chatOpts: any = {
+          system: config.systemPrompt,
+          temperature: config.temperature,
+          ...(config.maxTokens !== undefined
+            ? { max_tokens: config.maxTokens }
+            : {}),
+        };
+
+        webllmLoading.set(true);
+        webllmProgress.set(0);
+        webllmProgressText.set(
+          `Preparing ${config.modelId} (first-run download may take a while)...`,
+        );
+        currentWebLLMModelId = config.modelId;
+
+        return sharedWebLLMEngine
+          .reload(config.modelId, chatOpts, mod.prebuiltAppConfig)
+          .then(() => {
+            webllmLoading.set(false);
+            webllmProgress.set(1);
+            webllmProgressText.set(`Model ${config.modelId} is ready.`);
+          });
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        webllmInitError = new Error(msg);
+        webllmError.set(
+          msg.includes("caches") || msg.includes("Cache")
+            ? "Your browser does not support the WebLLM model cache. " +
+                "Please try a different access method (API or Browser AI)."
+            : msg,
+        );
+        webllmLoading.set(false);
+        webllmProgressText.set("Failed to load WebLLM model");
+        webllmInitPromise = null;
+        currentWebLLMModelId = "";
+      });
   }
 
   return makeWebLLMProvider();
@@ -625,7 +670,7 @@ function createWebLLMProvider(
   function makeWebLLMProvider(): AgentProvider {
     return {
       async chat(msgs, tools) {
-        if (!sharedWebLLMEngine) {
+        if (!sharedWebLLMEngine && !webllmInitPromise) {
           throw webllmInitError ||
             new Error("WebLLM engine was disposed or unavailable.");
         }
@@ -641,7 +686,7 @@ function createWebLLMProvider(
           throw new Error(webllmError.get());
         }
 
-        const conversation: ChatMessageParam[] = msgs.map((m) => ({
+        const conversation: Array<{ role: string; content: string }> = msgs.map((m) => ({
           role: (m.role as "system" | "user" | "assistant"),
           content: m.content,
         }));
