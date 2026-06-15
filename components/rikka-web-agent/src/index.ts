@@ -1997,10 +1997,12 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
       "\u2191",
     );
     effect(() => {
-      sendBtn.disabled = isProcessing.get();
+      const disabled = isProcessing.get() || webllmLoading.get();
+      sendBtn.disabled = disabled;
+      chatInput.disabled = disabled;
     });
     chatInput.addEventListener("keydown", (e: KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey && !isProcessing.get()) {
+      if (e.key === "Enter" && !e.shiftKey && !isProcessing.get() && !webllmLoading.get()) {
         e.preventDefault();
         const t = chatInput.value;
         if (t.trim()) {
