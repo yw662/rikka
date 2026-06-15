@@ -1853,6 +1853,36 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
       welcomeNoProviderActions,
     );
 
+    // WebLLM loading progress card (declared before welcomeWithProvider so it can be referenced)
+    const webllmProgressCard = div(
+      { class: "wa-loader", style: "width: 100%; margin: 0;" },
+      div({ class: "wa-loader-title" }, "⬇ Downloading model"),
+      div(
+        { class: "wa-loader-text" },
+        computed(() => webllmProgressText.get() || `Preparing model... ${(webllmProgress.get() * 100).toFixed(1)}%`),
+      ),
+      div(
+        { class: "wa-progress-track" },
+        div(
+          { class: "wa-progress-fill" },
+        ),
+      ),
+    );
+
+    effect(() => {
+      const pct = webllmProgress.get();
+      const fill = webllmProgressCard.querySelector(".wa-progress-fill") as HTMLElement;
+      if (fill) {
+        fill.style.width = `${Math.max(0, Math.min(100, pct * 100))}%`;
+      }
+    });
+
+    const webllmProgressContainer = div({ class: "wa-progress-container" }, webllmProgressCard);
+    effect(() => {
+      const showProgress = selectedAccessMode.get() === "webllm" && webllmLoading.get();
+      webllmProgressContainer.style.display = showProgress ? "" : "none";
+    });
+
     const welcomeWithProvider = div(
       { class: "wa-welcome" },
       div({ class: "wa-welcome-icon" }, "\u2728"),
@@ -1867,6 +1897,7 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
           : "Ask me anything. I can use the tools available on this page."
         ),
       ),
+      webllmProgressContainer,
     );
 
     // Single message element (used by For)
