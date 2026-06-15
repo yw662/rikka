@@ -482,8 +482,10 @@ const RikkaApp = defineElement('rikka-app', {
       // If the module is still being fetched, show the loader when open.
       agentLoaderEl.style.display =
         open && agentLoading.get() ? '' : 'none';
-      fabEl.className = open ? 'agent-fab agent-fab--open' : 'agent-fab';
-      fabEl.textContent = open ? '\u2715' : '\u2728';  // ✕ or sparkles
+      // Hide the FAB when the agent panel is open — the panel already has
+      // its own close button (✕ in the header) so we don't need a floating
+      // close button that would otherwise overlap the panel content.
+      fabEl.style.display = open ? 'none' : '';
     });
 
     effect(() => {

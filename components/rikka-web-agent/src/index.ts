@@ -170,6 +170,11 @@ function ensureWebLLM(): Promise<WebLLMModule> {
   cachedWebLLMPromise = import("@mlc-ai/web-llm")
     .then((mod) => {
       cachedWebLLM = mod as unknown as WebLLMModule;
+      // Clear the promise reference so that UI checks such as
+      // `cachedWebLLMPromise ? loading : loaded` correctly reflect the
+      // "loaded" state. Future calls to ensureWebLLM() will hit the
+      // `cachedWebLLM` guard above instead.
+      cachedWebLLMPromise = null;
 
       // Populate model list now that the module is available.
       try {
@@ -200,6 +205,7 @@ function ensureWebLLM(): Promise<WebLLMModule> {
       return cachedWebLLM;
     })
     .catch((err) => {
+      cachedWebLLMPromise = null;
       cachedWebLLMError = err instanceof Error ? err : new Error(String(err));
       webllmError.set(
         "Failed to load WebLLM runtime. Try API or Browser AI instead.",
@@ -2118,26 +2124,92 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
         );
         }
       } else if (mode === "webllm") {
-        const models = webllmAvailableModels.get();
-        if (models.length === 0) {
-            children.push(
+        // Trigger the dynamic WebLLM module load on first selection.
+        if (!cachedWebLLM && !cachedWebLLMPromise) {
+          ensureWebLLM();
+        }
+
+        if (webllmLoading.get()) {
+          // Module is still loading — show a progress card instead of the
+          // empty "not available" message.
+          children.push(
             div(
+              { class: "wa-loader", style: "width: 100%; margin: 0;" },
+              div(
+                { class: "wa-loader-title" },
+                "⚙ Loading WebLLM runtime",
+              ),
+              div(
+                { class: "wa-loader-text" },
+                "Fetching the in-browser ML runtime (only done once per session)…",
+              ),
+              div(
+                { class: "wa-progress-track" },
+                div(
+                  {
+                    class: "wa-progress-fill",
+                    style: `width: ${Math.max(
+                      0,
+                      Math.min(100, webllmProgress.get() * 100),
+                    )}%;`,
+                  },
+                ),
+              ),
+            ),
+          );
+        } else if (webllmError.get()) {
+          children.push(
+            div(
+              { class: "wa-loader wa-loader--error", style: "width: 100%; margin: 0;" },
+              div(
+                { class: "wa-loader-title" },
+                "⚠ WebLLM runtime failed to load",
+              ),
+              div(
+                { class: "wa-loader-text" },
+                webllmError.get(),
+              ),
+            ),
+          );
+        } else {
+          const models = webllmAvailableModels.get();
+          if (models.length === 0) {
+            children.push(
+              div(
                 { class: "wa-field-hint" },
                 "WebLLM prebuilt models are not available in this environment.",
-            ),
+              ),
             );
-        } else {
+          } else {
+            // (Re)populate the model select with fresh options.
+            while (webllmModelSelect.firstChild) {
+              webllmModelSelect.removeChild(webllmModelSelect.firstChild);
+            }
+            for (const m of models) {
+              const opt = document.createElement("option");
+              opt.value = m.model_id;
+              opt.textContent = m.model_id;
+              webllmModelSelect.appendChild(opt);
+            }
+            const first = models[0];
+            if (first && !selectedWebLLMModelId.get()) {
+              selectedWebLLMModelId.set(first.model_id);
+            }
+            if (selectedWebLLMModelId.get()) {
+              webllmModelSelect.value = selectedWebLLMModelId.get();
+            }
             children.push(
-            div(
-            { class: "wa-field" },
-            label({ class: "wa-field-label" }, "Model"),
-            webllmModelSelect,
-            div(
-                { class: "wa-field-hint" },
-                "The selected model will be downloaded and cached locally on first use.",
-            ),
-            ),
+              div(
+                { class: "wa-field" },
+                label({ class: "wa-field-label" }, "Model"),
+                webllmModelSelect,
+                div(
+                  { class: "wa-field-hint" },
+                  "The selected model will be downloaded and cached locally on first use.",
+                ),
+              ),
             );
+          }
         }
     }
 
@@ -2147,6 +2219,26 @@ const RikkaWebAgent = defineElement("rikka-web-agent", {
     settingsAccessMode.addEventListener("change", () => {
       selectedAccessMode.set(settingsAccessMode.value as AccessMode);
       webllmError.set("");
+      const body = renderSettingsBody();
+      const existing = settingsOverlay.querySelector(".wa-settings-body");
+      if (existing) settingsOverlay.replaceChild(body, existing);
+    });
+
+    // Re-render the settings body whenever the WebLLM loading state
+    // changes — this drives the progress bar while the module downloads
+    // and swaps it for the model selector once loading finishes.
+    effect(() => {
+      if (!showSettings.get()) return;
+      const mode = settingsAccessMode.value;
+      if (mode !== "webllm") return;
+      // Read these signals to establish subscriptions.
+      webllmLoading.get();
+      webllmProgress.get();
+      webllmError.get();
+      webllmAvailableModels.get();
+      // Skip the first render before the user has triggered any WebLLM
+      // load (module not cached, no promise in flight, no error yet).
+      if (!cachedWebLLM && !cachedWebLLMPromise && !webllmError.get()) return;
       const body = renderSettingsBody();
       const existing = settingsOverlay.querySelector(".wa-settings-body");
       if (existing) settingsOverlay.replaceChild(body, existing);
