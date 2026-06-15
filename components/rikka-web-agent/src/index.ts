@@ -163,7 +163,13 @@ let cachedWebLLMError: Error | null = null;
 const webllmModuleReady = signal(false);
 
 function ensureWebLLM(): Promise<WebLLMModule> {
-  if (cachedWebLLM) return Promise.resolve(cachedWebLLM);
+  if (cachedWebLLM) {
+    // Module was already fetched; just mark it ready (in case the caller
+    // set webllmLoading=true but the cached module bypassed this function).
+    webllmLoading.set(false);
+    webllmModuleReady.set(true);
+    return Promise.resolve(cachedWebLLM);
+  }
   if (cachedWebLLMPromise) return cachedWebLLMPromise;
 
   webllmLoading.set(true);
