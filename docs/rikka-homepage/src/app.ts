@@ -1,7 +1,9 @@
 import { defineElement } from '@takanashi/rikka-elements';
 import { signal, computed, effect } from '@takanashi/rikka-signal';
 import { css, div, button, span } from '@takanashi/rikka-dom';
-import '@takanashi/rikka-web-agent';
+// NOTE: rikka-web-agent is loaded lazily when the user opens the agent
+// FAB. This keeps the main page bundle small and avoids eagerly pulling
+// in @mlc-ai/web-llm (which itself is lazy-loaded by rikka-web-agent).
 import { getPathFromHash } from './shared/helpers';
 import { highlightCodeBlocks } from './shared/highlight';
 import './components/rikka-nav';
@@ -155,6 +157,42 @@ const appStyles = css`
 .agent-fab--open:hover {
   background: #e5443d;
 }
+.agent-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 999997;
+  pointer-events: none;
+}
+.agent-container > * {
+  pointer-events: auto;
+}
+.agent-loader {
+  position: absolute;
+  bottom: 80px;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--color-surface, #ffffff);
+  color: var(--color-text, #222);
+  border: 1px solid var(--color-border, #ccc);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  font-size: 14px;
+}
+.agent-loader-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--color-primary, #6366f1);
+  border-top-color: transparent;
+  animation: rikka-spin 0.8s linear infinite;
+}
+@keyframes rikka-spin {
+  to { transform: rotate(360deg); }
+}
 `;
 
 const RikkaApp = defineElement('rikka-app', {
@@ -174,15 +212,29 @@ const RikkaApp = defineElement('rikka-app', {
     const footerEl = document.createElement('rikka-footer');
     const appEl = div({ class: 'app' }, navEl, mainLayout, footerEl);
 
-    // --- Agent FAB + floating panel ---
+    // --- Agent FAB + floating panel (lazy-loaded) ---
+    // rikka-web-agent is not imported at the top level so the main page
+    // bundle never carries the agent code — and transitively never carries
+    // @mlc-ai/web-llm — until the user clicks the FAB.
     const agentOpen = signal(false);
+    const agentLoading = signal(false);
+    const agentError = signal('');
 
-    const agentEl = document.createElement('rikka-web-agent');
-    agentEl.setAttribute('layout', 'floating');
-    agentEl.setAttribute('display', 'full');
-    agentEl.style.display = 'none';
+    // The actual <rikka-web-agent> element; created on first FAB click.
+    let agentEl: HTMLElement | null = null;
+    // Loading placeholder shown while the module is being fetched.
+    const agentLoaderEl = div(
+      {
+        class: 'agent-loader',
+        style: 'display: none;',
+      },
+      div({ class: 'agent-loader-spinner' }),
+      div({ class: 'agent-loader-text' }, 'Preparing agent…'),
+    );
 
-    // Register homepage-specific tools to WebMCP context
+    // Register homepage-specific tools to WebMCP context. These are
+    // registered eagerly (they depend only on the browser, not on the
+    // agent module) so they're ready the moment the agent loads.
     const mc = (document as any).modelContext;
     if (mc) {
       mc.registerTool({
@@ -377,20 +429,72 @@ const RikkaApp = defineElement('rikka-app', {
       });
     }
 
+    // On first click, fetch the rikka-web-agent module. This makes the
+    // custom element known to the browser; subsequent clicks just toggle
+    // visibility.
+    let agentLoadPromise: Promise<void> | null = null;
+    function ensureAgentLoaded(): Promise<void> {
+      if (agentLoadPromise) return agentLoadPromise;
+      agentLoading.set(true);
+      agentError.set('');
+      agentLoadPromise = import('@takanashi/rikka-web-agent')
+        .then(() => {
+          const el = document.createElement('rikka-web-agent');
+          el.setAttribute('layout', 'floating');
+          el.setAttribute('display', 'full');
+          el.style.display = agentOpen.get() ? '' : 'none';
+          el.addEventListener('close', () => agentOpen.set(false));
+          agentEl = el;
+          if (agentLoaderEl.parentNode) {
+            agentLoaderEl.parentNode.insertBefore(el, agentLoaderEl);
+          }
+        })
+        .catch((err) => {
+          agentError.set(
+            err instanceof Error ? err.message : String(err),
+          );
+        })
+        .finally(() => {
+          agentLoading.set(false);
+        });
+      return agentLoadPromise;
+    }
+
     const fabEl = button(
-      { class: 'agent-fab', onclick: () => agentOpen.set(!agentOpen.get()) },
+      {
+        class: 'agent-fab',
+        onclick: () => {
+          const next = !agentOpen.get();
+          agentOpen.set(next);
+          if (next) {
+            ensureAgentLoaded();
+          }
+        },
+      },
       '\u2728'  // sparkles emoji
     );
 
     effect(() => {
       const open = agentOpen.get();
-      agentEl.style.display = open ? '' : 'none';
-      fabEl.className = open ? 'agent-fab agent-fab--open' : 'agent-fab';
-      fabEl.textContent = open ? '\u2715' : '\u2728';  // ✕ or sparkles
+      if (agentEl) {
+        agentEl.style.display = open ? '' : 'none';
+      }
+      // If the module is still being fetched, show the loader when open.
+      agentLoaderEl.style.display =
+        open && agentLoading.get() ? '' : 'none';
+      // Hide the FAB when the agent panel is open — the panel already has
+      // its own close button (✕ in the header) so we don't need a floating
+      // close button that would otherwise overlap the panel content.
+      fabEl.style.display = open ? 'none' : '';
     });
 
-    // Close agent when the component dispatches "close" event
-    agentEl.addEventListener('close', () => agentOpen.set(false));
+    effect(() => {
+      if (agentLoading.get() && agentOpen.get()) {
+        agentLoaderEl.style.display = '';
+      } else {
+        agentLoaderEl.style.display = 'none';
+      }
+    });
 
     // Guard: only re-render when the path actually changes. The effect
     // re-fires on initial subscribe even though the path is unchanged,
@@ -447,7 +551,14 @@ const RikkaApp = defineElement('rikka-app', {
       renderRoute();
     });
 
-    return div({}, appEl, agentEl, fabEl);
+    // A container for the agent widget. The dynamic loader and the real
+    // <rikka-web-agent> element live inside it; visibility is toggled via
+    // signals so we don't need to rebuild the root tree after the module
+    // has been fetched. The agent module is only fetched on-demand the
+    // first time the FAB is opened (see the onclick handler above).
+    const agentContainer = div({ class: 'agent-container' }, agentLoaderEl);
+
+    return div({}, appEl, agentContainer, fabEl);
   }
 });
 
