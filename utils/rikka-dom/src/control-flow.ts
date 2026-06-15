@@ -26,18 +26,27 @@ export function Show(
 ): ReactiveRange {
   let cached: Element[] | null = null;
   const renderFn = normalizeRender(render);
+  let wasShowing = false;
 
   return new ReactiveRange((range) => {
     return effect(() => {
       if (!range.alive) return;
 
-      if (unwrapSignal(condition)) {
+      const shouldShow = unwrapSignal(condition);
+
+      if (shouldShow) {
         if (!cached) {
           cached = toElements(renderFn());
         }
-        range.reconcile(cached);
+        if (!wasShowing) {
+          range.reconcile(cached);
+          wasShowing = true;
+        }
       } else {
-        range.clear();
+        if (wasShowing) {
+          range.clear();
+          wasShowing = false;
+        }
       }
     });
   });
@@ -52,21 +61,30 @@ export function When(
   let falseEls: Element[] | null = null;
   const trueFn = normalizeRender(trueRender);
   const falseFn = normalizeRender(falseRender);
+  let wasTrue: boolean | null = null;
 
   return new ReactiveRange((range) => {
     return effect(() => {
       if (!range.alive) return;
 
-      if (unwrapSignal(condition)) {
+      const isTrue = unwrapSignal(condition);
+
+      if (isTrue) {
         if (!trueEls) {
           trueEls = toElements(trueFn());
         }
-        range.reconcile(trueEls);
+        if (wasTrue !== true) {
+          range.reconcile(trueEls);
+          wasTrue = true;
+        }
       } else {
         if (!falseEls) {
           falseEls = toElements(falseFn());
         }
-        range.reconcile(falseEls);
+        if (wasTrue !== false) {
+          range.reconcile(falseEls);
+          wasTrue = false;
+        }
       }
     });
   });
@@ -105,6 +123,7 @@ export function Switch<T>(
 ): ReactiveRange {
   const cache = new Map<() => RenderResult, Element[]>();
   const fallbackFn = fallback ? normalizeRender(fallback) : undefined;
+  let lastRenderFn: (() => RenderResult) | null = null;
 
   return new ReactiveRange((range) => {
     return effect(() => {
@@ -114,7 +133,10 @@ export function Switch<T>(
       const renderFn = findMatch(val, cases, fallbackFn);
 
       if (!renderFn) {
-        range.clear();
+        if (lastRenderFn !== null) {
+          range.clear();
+          lastRenderFn = null;
+        }
         return;
       }
 
@@ -122,8 +144,9 @@ export function Switch<T>(
         cache.set(renderFn, toElements(renderFn()));
       }
       const elements = cache.get(renderFn);
-      if (elements) {
+      if (elements && lastRenderFn !== renderFn) {
         range.reconcile(elements);
+        lastRenderFn = renderFn;
       }
     });
   });

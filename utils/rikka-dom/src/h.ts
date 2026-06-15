@@ -625,6 +625,7 @@ export function For<T, K = T>(
   keyFn?: (item: T, index: number) => K,
 ): ReactiveRange {
   const cache = new Map<K, HTMLElement>();
+  let lastKeys: K[] = [];
 
   return new ReactiveRange((range) => {
     return effect(() => {
@@ -633,10 +634,12 @@ export function For<T, K = T>(
       const items = source.get();
       const result: HTMLElement[] = [];
       const used = new Set<K>();
+      const currentKeys: K[] = [];
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const key = keyFn ? keyFn(item, i) : (item as unknown as K);
+        currentKeys.push(key);
 
         if (cache.has(key)) {
           const cached = cache.get(key);
@@ -655,7 +658,13 @@ export function For<T, K = T>(
         }
       }
 
-      range.reconcile(result);
+      const keysChanged = lastKeys.length !== currentKeys.length ||
+        lastKeys.some((k, i) => !Object.is(k, currentKeys[i]));
+
+      if (keysChanged) {
+        range.reconcile(result);
+        lastKeys = currentKeys;
+      }
     });
   });
 }
