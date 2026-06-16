@@ -18,6 +18,7 @@ import {
   paginate,
   type Transformer,
   type Repr,
+  type StaticResolver,
 } from "@takanashi/rikka-site";
 
 // ---------------------------------------------------------------------------
@@ -511,41 +512,57 @@ const ExternalAPI = Proxy(() => ({
 // Site definition
 // ---------------------------------------------------------------------------
 
-export const app = new Site(
-  {
-    "": SiteRoot(),
-    articles: Articles(),
-    users: Users(),
-    settings: SiteSettings(),
-    dashboard: Dashboard(),
-    actions: {
-      search: Search(),
-    },
-    auth: AuthVerifier(),
-    proxy: ExternalAPI(),
-    static: Static({ root: "./public" }),
-    admin: {
+export interface BlogAppOptions {
+  /** Edge-compatible static file resolver. If omitted, the Node filesystem root is used. */
+  staticResolver?: StaticResolver;
+}
+
+export function createApp(options: BlogAppOptions = {}) {
+  const staticResource = options.staticResolver
+    ? Static({ resolver: options.staticResolver })
+    : Static({ root: "./public" });
+
+  const app = new Site(
+    {
+      "": SiteRoot(),
       articles: Articles(),
       users: Users(),
+      settings: SiteSettings(),
+      dashboard: Dashboard(),
+      actions: {
+        search: Search(),
+      },
+      auth: AuthVerifier(),
+      proxy: ExternalAPI(),
+      static: staticResource,
+      admin: {
+        articles: Articles(),
+        users: Users(),
+      },
     },
-  },
-  {
-    cors: {},
-    auth: {
-      verifier: "auth",
-      rules: [
-        // Public read access
-        { match: "/dashboard", auth: null },
-        { match: "/settings", auth: null },
-        { match: "/articles", auth: null },
-        // Write operations require auth
-        { match: "/admin/**", auth: "auth" },
-        { match: "/actions/**", auth: "auth" },
-      ],
+    {
+      cors: {},
+      auth: {
+        verifier: "auth",
+        rules: [
+          // Public read access
+          { match: "/dashboard", auth: null },
+          { match: "/settings", auth: null },
+          { match: "/articles", auth: null },
+          // Write operations require auth
+          { match: "/admin/**", auth: "auth" },
+          { match: "/actions/**", auth: "auth" },
+        ],
+      },
     },
-  },
-);
+  );
 
-// Register custom transformers on the site's registry
-app.registry.register(csvTransformer);
-app.registry.register(textTransformer);
+  // Register custom transformers on the site's registry
+  app.registry.register(csvTransformer);
+  app.registry.register(textTransformer);
+
+  return app;
+}
+
+/** Default app using the Node filesystem for static files. */
+export const app = createApp();
