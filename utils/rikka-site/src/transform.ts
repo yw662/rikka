@@ -494,6 +494,11 @@ export const jsonldTransformer: Transformer = {
 export type HydrationStrategy = "none" | "data-attr" | "dsdom" | "jsonld" | "early-hint";
 
 /**
+ * Serialization strategy for embedding resource data in server-rendered HTML.
+ */
+export type SerializationStrategy = "data-attr" | "jsonld" | "both";
+
+/**
  * Configuration for the HTML transformer.
  */
 export interface HtmlTransformerConfig {
@@ -530,7 +535,7 @@ export interface HtmlTransformerConfig {
    *
    * @default "data-attr"
    */
-  serialization?: "data-attr" | "jsonld" | "both";
+  serialization?: SerializationStrategy;
 
   /**
    * Custom page title generator.
@@ -596,7 +601,7 @@ export function createHtmlTransformer(config?: HtmlTransformerConfig): Transform
   const elementMap = config?.elementMap ?? {};
   const defaultElement = config?.defaultElement ?? "rikka-resource";
   const strategy: HydrationStrategy = config?.hydration ?? "data-attr";
-  const serialization: "data-attr" | "jsonld" | "both" =
+  const serialization: SerializationStrategy =
     config?.serialization ?? "data-attr";
 
   const layoutTag = config?.layoutElement;
@@ -721,7 +726,7 @@ function buildElementHtml(
   data: unknown,
   strategy: HydrationStrategy,
   resource: Resource,
-  serialization: "data-attr" | "jsonld" | "both",
+  serialization: SerializationStrategy,
 ): string {
   switch (strategy) {
     case "none": {
@@ -756,15 +761,6 @@ function buildElementHtml(
     case "early-hint": {
       const dataHref = `${path}?accept=json`;
       return `<${tag} ${baseAttrs} data-href="${escapeHtml(dataHref)}">\n</${tag}>`;
-    }
-
-    default: {
-      if (serialization === "jsonld") {
-        return `<${tag} ${baseAttrs}>\n</${tag}>`;
-      }
-      const dataJson = JSON.stringify(data);
-      const dataAttr = `data-resource="${escapeHtml(dataJson)}"`;
-      return `<${tag} ${baseAttrs} ${dataAttr}>\n</${tag}>`;
     }
   }
 }

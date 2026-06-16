@@ -570,9 +570,12 @@ For each request, the HTML transformer produces:
 
 | Location | Format | When |
 |----------|--------|------|
-| `data-resource` attribute on `<rikka-resource>` | Raw JSON (array or object) | Always (data-attr strategy) |
-| `<script type="application/ld+json">` in `<head>` | JSON-LD with `@context`, `@graph` | Always |
-| DSDOM `<template shadowrootmode>` | JSON in template content | When dsdom strategy selected |
+| `data-resource` attribute on `<rikka-resource>` | Raw JSON (array or object) | `serialization: "data-attr"` or `"both"` (default) |
+| `<script type="application/ld+json">` in `<head>` | JSON-LD with `@context`, `@graph` | `serialization: "jsonld"` or `"both"` |
+| DSDOM `<template shadowrootmode>` | JSON in template content | `hydration: "dsdom"` |
+| `<script type="application/ld+json">` inside the element | JSON-LD with `@context`, `@graph` | `hydration: "jsonld"` (legacy) |
+
+> **Note:** `serialization` controls how resource data is embedded in the rendered HTML (head JSON-LD vs. `data-resource` attribute). It is independent of the legacy `hydration` option, which remains supported for backward compatibility.
 
 ### Reading Data on the Client
 
