@@ -26,8 +26,8 @@ describe("paginate", () => {
     });
   });
 
-  it("falls back to items.length when total is not provided", () => {
-    const range: RangeSpec = { unit: "items", ranges: [{ start: 0, end: 1 }] };
+  it("falls back to items.length when total is not a number", () => {
+    const range: RangeSpec = { unit: "items", ranges: [{ start: 0, end: 1 }], total: "*" };
     const content = paginate(items, range).content as { total: number };
     expect(content.total).toBe(5);
   });
