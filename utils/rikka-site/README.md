@@ -183,11 +183,13 @@ All handlers receive a `RequestContext` object:
 interface RequestContext {
   method: string; // HTTP method
   path: string; // URL path
+  resourcePath?: string; // Resolved resource mount path (e.g. "/assets" for a Static resource)
   params: Record<string, string>; // Path parameters
   query: Record<string, string>; // Query parameters
   headers: Record<string, string>; // Request headers (lowercase keys)
   body?: unknown; // Parsed request body
   identity?: Identity; // Auth identity (if authenticated)
+  range?: RangeSpec; // Parsed Range header, if present
 }
 ```
 
@@ -261,11 +263,11 @@ Use the `"/"` key in `children` to define a different resource for trailing-slas
 const Files = Item(() => ({
   content: (ctx) => getFileMetadata(ctx.params.path),
   children: {
-    "/": () => ({
-      kind: "Collection" as const,
-      list: (ctx) => listDirectoryContents(ctx.params.path),
-      create: (ctx) => createDirectoryEntry(ctx.params.path, ctx.body),
-    }),
+    "/": () =>
+      Collection(() => ({
+        list: (ctx) => listDirectoryContents(ctx.params.path),
+        create: (ctx) => createDirectoryEntry(ctx.params.path, ctx.body),
+      }))(),
   },
 }));
 
@@ -278,10 +280,12 @@ const Files = Item(() => ({
 Configure authentication with the `auth` option. Auth resources are ordinary Action resources:
 
 ```typescript
+import { HttpError } from "@takanashi/rikka-site";
+
 const JwtVerifier = Action(() => ({
   invoke: (ctx) => {
     const token = ctx.headers["authorization"]?.replace("Bearer ", "");
-    if (!token) return { status: 401, body: { error: "missing token" } };
+    if (!token) throw new HttpError(401, "missing token");
     const payload = verifyJwt(token);
     return {
       subject: payload.sub,
@@ -313,12 +317,10 @@ Glob patterns support `*` (single segment) and `**` (any depth).
 
 ### HTTP Adapters
 
-#### `handleRequest(site, request)` — Framework-agnostic
+#### `Site.prototype.handleRequest(request)` — Framework-agnostic
 
 ```typescript
-import { handleRequest } from "@takanashi/rikka-site";
-
-const response = await handleRequest(app, {
+const response = await app.handleRequest({
   method: "GET",
   path: "/users/42",
   accept: "application/json",
@@ -441,29 +443,27 @@ Deno.serve(createDenoDeployHandler(app));
 #### Node.js
 
 ```typescript
-import { createServer } from "node:http";
-import { Site, handleRequest } from "@takanashi/rikka-site";
+import { serve } from "@takanashi/rikka-site/node";
 
 const app = new Site({
   /* ... */
 });
 
-const server = createServer(async (req, res) => {
-  const response = await handleRequest(app, {
-    method: req.method ?? "GET",
-    path: new URL(req.url ?? "/", `http://${req.headers.host}`).pathname,
-    accept: req.headers.accept,
-    headers: Object.fromEntries(
-      Object.entries(req.headers).map(([k, v]) => [
-        k,
-        Array.isArray(v) ? v.join(", ") : (v ?? ""),
-      ]),
-    ),
-  });
-  res.writeHead(response.status, response.headers);
-  res.end(response.body);
+const server = serve(app, { port: 3000 });
+console.log(`Listening on ${server.host}:${server.port}`);
+```
+
+For an existing `http.Server`, use `createNodeHandler`:
+
+```typescript
+import { createServer } from "node:http";
+import { createNodeHandler } from "@takanashi/rikka-site/node";
+
+const app = new Site({
+  /* ... */
 });
 
+const server = createServer(createNodeHandler(app));
 server.listen(3000);
 ```
 
@@ -493,15 +493,17 @@ app.registry.register(csvTransformer);
 
 ### Content Negotiation
 
-#### `negotiate(acceptHeader?, acceptQuery?)`
+#### `negotiate(registry, acceptHeader?, acceptQuery?)`
+
+`negotiate` uses a site's `TransformerRegistry` to pick a content type that can actually be produced.
 
 ```typescript
 import { negotiate } from "@takanashi/rikka-site";
 
-negotiate(); // { contentType: "text/html" }
-negotiate("application/json"); // { contentType: "application/json" }
-negotiate("text/html;q=0.9, application/json"); // { contentType: "application/json" }
-negotiate(undefined, "json"); // { contentType: "application/json" }
+negotiate(app.registry); // { contentType: "text/html" }
+negotiate(app.registry, "application/json"); // { contentType: "application/json" }
+negotiate(app.registry, "text/html;q=0.9, application/json"); // { contentType: "application/json" }
+negotiate(app.registry, undefined, "json"); // { contentType: "application/json" }
 ```
 
 ## Platform Support
@@ -514,7 +516,7 @@ rikka-site has **zero Node.js dependencies** in its core. It works on:
 | Cloudflare Pages         | `createCloudflarePagesHandler`  | `_worker.js` in output dir (Advanced Mode) | Falls back to `env.ASSETS` for static files |
 | Vercel Edge              | `handleWebRequest`              | `export function GET(req)`                 | Add `export const runtime = "edge"`         |
 | Deno Deploy              | `createDenoDeployHandler`       | `Deno.serve(handler)`                      | No build step                               |
-| Node.js                  | `handleRequest`                 | `http.createServer`                        | Full Node.js API access                     |
+| Node.js                  | `serve` / `createNodeHandler`   | `serve(app)` or `createServer(createNodeHandler(app))` | Import from `@takanashi/rikka-site/node`    |
 | Any Web Standard runtime | `handleWebRequest`              | `Request → Response`                       | Universal adapter                           |
 
 ## JSON-LD

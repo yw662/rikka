@@ -3,7 +3,7 @@ name: rikka-site
 description: Use this skill when building full-stack applications with rikka-site — the resource-oriented server framework. Covers server-side resource definition (Kinds, Site tree, Transformers), HTML output configuration, and client-side hydration patterns for building interactive pages that consume SSR data. Load this skill when working on any project that uses @takanashi/rikka-site.
 ---
 
-# rikka-site — Resource-Orientated Server Framework
+# rikka-site — Resource-Oriented Server Framework
 
 Build web apps where **every URL is a resource** with automatic content negotiation (HTML / JSON / JSON-LD / CSV) and seamless client-side hydration.
 
@@ -112,31 +112,18 @@ export const app = new Site({
 ```typescript
 import { app } from "./resources";
 import { handleWebRequest, createHtmlTransformer } from "@takanashi/rikka-site";
-import { readFileSync } from "fs";
-import http from "http";
 
-// Create HTML transformer — controls how resources become HTML pages
+// Customize HTML rendering (layout wrapper + client bundle)
 const htmlTransformer = createHtmlTransformer({
   layoutElement: "blog-layout",        // Wrap content in <blog-layout>
   scripts: ["/elements.js"],           // Client-side bundle
   stylesheets: [],                     // CSS files to inject in <head>
 });
 
-const server = http.createServer(async (req, res) => {
-  const response = await handleWebRequest(app, req);
+// Register the transformer; handleWebRequest runs negotiation + transformation automatically
+app.registry.register(htmlTransformer);
 
-  // Apply HTML transformation for browser requests
-  if (response.headers["content-type"]?.includes("text/html")) {
-    const transformed = htmlTransformer.transform(response.body);
-    res.writeHead(transformed.status || 200, transformed.headers);
-    res.end(transformed.body);
-  } else {
-    res.writeHead(response.status, response.headers);
-    res.end(response.body);
-  }
-});
-
-server.listen(3000);
+export default { fetch: (req) => handleWebRequest(app, req) };
 ```
 
 ### Step 3: Build Client Components (`elements.ts`)
@@ -182,9 +169,6 @@ const ArticleList = defineElement("blog-article-list", {
     );
   },
 });
-
-// Register all custom elements
-customElements.define("blog-article-list", ArticleList);
 ```
 
 ### Step 4: HTML Output Structure
@@ -227,15 +211,16 @@ defineElement("my-layout", {
     const currentPath = this.getAttribute("data-path") ?? "/";
     const pathSignal = signal(currentPath);
 
-    const isActive = (href: string) => computed(() => {
+    const activeClass = (href: string) => computed(() => {
       const p = pathSignal.get();
-      return p === href || (href !== "/" && p.startsWith(href));
+      const active = p === href || (href !== "/" && p.startsWith(href));
+      return active ? "active" : "";
     });
 
     return div(
       nav(
-        a({ className: computed(() => isActive("/") ? "active" : "") }, href: "/", "Home"),
-        a({ className: computed(() => isActive("/articles") ? "active" : "") }, href: "/articles", "Articles"),
+        a({ className: activeClass("/"), href: "/" }, "Home"),
+        a({ className: activeClass("/articles"), href: "/articles" }, "Articles"),
       ),
       main(document.createElement("slot")),
     );
