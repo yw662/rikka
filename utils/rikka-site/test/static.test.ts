@@ -1,7 +1,7 @@
-import { describe, it, expect } from "@rstest/core";
+import { describe, it, expect, afterEach } from "@rstest/core";
 import { Site, Static } from "../src/index.js";
 import type { StaticResolver } from "../src/index.js";
-import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -47,7 +47,7 @@ describe("Static resolver (Edge)", () => {
     expect(r.status).toBe(200);
     expect(r.headers["Content-Type"]).toBe("image/png");
     expect(typeof r.body).toBe("string");
-    expect(r.body.length).toBeGreaterThan(0);
+    expect(r.body.length).toBe(bytes.length);
   });
 
   it("infers MIME type when resolver omits it", async () => {
@@ -108,7 +108,14 @@ describe("Static resolver (Edge)", () => {
 });
 
 describe("Static root (Node)", () => {
-  let tmp: string;
+  let tmp: string | undefined;
+
+  afterEach(() => {
+    if (tmp) {
+      rmSync(tmp, { recursive: true, force: true });
+      tmp = undefined;
+    }
+  });
 
   it("serves files from a root directory", async () => {
     tmp = mkdtempSync(join(tmpdir(), "rikka-static-"));
