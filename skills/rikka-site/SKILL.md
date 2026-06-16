@@ -56,7 +56,7 @@ Every resource in rikka-site goes through 5 levels:
 | `Singleton` | content | — | replace | patch | — | `/settings` — global config |
 | `ReadOnly` | content | — | — | — | — | `/dashboard` — read-only view |
 | `Action` | — | invoke | — | — | — | `/search` — stateless op |
-| `Proxy` | get | create | replace | patch | delete | Forward to external API |
+| `Proxy` | get | post | put | patch | delete | Forward to external API |
 
 ### Content Negotiation
 
@@ -76,19 +76,27 @@ Accept: text/csv           → CSV file
 ```typescript
 import { Collection, Item, ReadOnly, Singleton, Site } from "@takanashi/rikka-site";
 
+const articles: Record<string, unknown>[] = [
+  { id: 1, title: "Hello Rikka", body: "..." },
+  { id: 2, title: "Signals", body: "..." },
+];
+let nextId = 3;
+
 // A collection of articles
 const Articles = Collection(() => ({
   schema: { type: "array", items: { type: "object" } },
-  list: (ctx) => [
-    { id: 1, title: "Hello Rikka", body: "..." },
-    { id: 2, title: "Signals", body: "..." },
-  ],
+  list: () => articles,
+  create: (ctx) => {
+    const article = { id: nextId++, ...(ctx.body as Record<string, unknown>) };
+    articles.push(article);
+    return { content: article, meta: { location: `./${article.id}` } };
+  },
   children: {
-    ":articleId": (id) =>
+    ":articleId": (id: string) =>
       Item(() => ({
         content: () => ({ id, title: `Article ${id}`, body: "..." }),
         delete: () => ({ content: null, meta: {} }),
-      })),
+      }))(),
   },
 }));
 
@@ -102,7 +110,7 @@ const SiteRoot = ReadOnly(() => ({
 
 // Build the site tree
 export const app = new Site({
-  "": SiteRoot,
+  "": SiteRoot(),
   articles: Articles({}),
 });
 ```
@@ -343,6 +351,23 @@ function registerAll() {
   }
 }
 ```
+
+### 6. Static files on Edge runtimes
+
+Cloudflare Workers / Deno Deploy have no filesystem, so `Static({ root: "..." })` won't work there. Use a resolver instead:
+
+```typescript
+const Assets = Static({
+  resolver: async (path) => {
+    // Fetch from KV, R2, a bundled manifest, etc.
+    const file = await MY_KV.get(path);
+    if (!file) return null;
+    return { content: file, type: "text/css" };
+  },
+});
+```
+
+The framework sanitizes the path and handles `index.html` fallback for you.
 
 ## See Also
 

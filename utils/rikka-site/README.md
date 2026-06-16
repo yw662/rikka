@@ -25,7 +25,7 @@ Each level only depends on the output of the previous level. Resources are pure 
 | Singleton  | content | —      | replace | patch | —      | Globally unique resource |
 | ReadOnly   | content | —      | —       | —     | —      | Read-only view           |
 | Action     | —      | invoke | —       | —     | —      | Stateless operation      |
-| Proxy      | get    | create | replace | patch | delete | Proxy resource           |
+| Proxy      | get    | post   | put     | patch | delete | Proxy resource           |
 
 ### Representation
 
@@ -83,21 +83,24 @@ const Articles = Collection(() => ({
   schema: { type: "array", items: { type: "object" } },
   list: () => [{ id: 1, title: "Hello Rikka" }],
   create: (ctx) => {
-    const article = { id: 2, ...ctx.body };
+    const article = { id: 2, ...(ctx.body as Record<string, unknown>) };
     return { content: article, meta: { location: `./${article.id}` } };
   },
   children: {
-    ":articleId": (id) =>
+    ":articleId": (id: string) =>
       Item(() => ({
         content: () => ({ id, title: `Article ${id}` }),
         delete: () => ({ content: null, meta: {} }),
-      })),
+      }))(),
   },
 }));
 
 const Settings = Singleton(() => ({
   content: () => ({ theme: "dark" }),
-  patch: (ctx) => ({ content: { theme: ctx.body.theme }, meta: {} }),
+  patch: (ctx) => ({
+    content: { theme: (ctx.body as Record<string, unknown>).theme as string },
+    meta: {},
+  }),
 }));
 
 const app = new Site({
@@ -120,9 +123,12 @@ Creates a Collection ResourceType. The `impl` function receives config and retur
 const Users = Collection<{ table: string }>(({ table }) => ({
   schema: { type: "array", items: { type: "object" } },
   list: (ctx) => [...items],
-  create: (ctx) => { items.push(ctx.body); return ctx.body; },
+  create: (ctx) => {
+    items.push(ctx.body as Record<string, unknown>);
+    return ctx.body as Record<string, unknown>;
+  },
   // Optional
-  children: { ":userId": (id) => Item(() => ({ ... })) },
+  children: { ":userId": (id: string) => Item(() => ({ ... }))() },
   element: UserListElement,       // Custom element for HTML rendering
   context: "https://schema.org",  // JSON-LD @context
   jsonldType: "UserCollection",   // JSON-LD @type override
@@ -135,8 +141,8 @@ const Users = Collection<{ table: string }>(({ table }) => ({
 const Article = Item(() => ({
   schema: { type: "object", properties: { id: { type: "number" }, title: { type: "string" } } },
   content: (ctx) => db.find("articles", ctx.params.articleId),
-  replace: (ctx) => db.update("articles", ctx.params.articleId, ctx.body),
-  patch: (ctx) => db.patch("articles", ctx.params.articleId, ctx.body),
+  replace: (ctx) => db.update("articles", ctx.params.articleId, ctx.body as Record<string, unknown>),
+  patch: (ctx) => db.patch("articles", ctx.params.articleId, ctx.body as Record<string, unknown>),
   delete: (ctx) => db.remove("articles", ctx.params.articleId),
 }));
 ```
@@ -146,8 +152,8 @@ const Article = Item(() => ({
 ```typescript
 const Settings = Singleton(() => ({
   content: (ctx) => ({ theme: "dark" }),
-  replace: (ctx) => Object.assign(settings, ctx.body),
-  patch: (ctx) => Object.assign(settings, ctx.body),
+  replace: (ctx) => Object.assign(settings, ctx.body as Record<string, unknown>),
+  patch: (ctx) => Object.assign(settings, ctx.body as Record<string, unknown>),
 }));
 ```
 
@@ -163,7 +169,7 @@ const Dashboard = ReadOnly(() => ({
 
 ```typescript
 const Search = Action(() => ({
-  invoke: (ctx) => searchIndex.query(ctx.body.query),
+  invoke: (ctx) => searchIndex.query((ctx.body as Record<string, unknown>).query as string),
 }));
 ```
 
@@ -174,6 +180,36 @@ const ExternalAPI = Proxy(() => ({
   target: (path) => new URL(path, "https://api.example.com"),
 }));
 ```
+
+#### `Static(config)`
+
+Serve static files from a local directory or a custom resolver. Mounted at a Site key, it catches all remaining path segments as a relative file path.
+
+```typescript
+const Assets = Static({ root: "./public" });
+
+const app = new Site({ assets: Assets });
+// /assets/style.css → ./public/style.css
+```
+
+#### Edge / non-Node static files
+
+On Cloudflare Workers, Deno Deploy, or Vercel Edge there is no local filesystem. Use the `resolver` option to provide files from a bundled manifest, KV store, or any other storage:
+
+```typescript
+const assets = new Map<string, { content: Uint8Array; type: string }>([
+  ["style.css", { content: new TextEncoder().encode("body{}"), type: "text/css" }],
+  ["index.html", { content: new TextEncoder().encode("<h1>Hi</h1>"), type: "text/html" }],
+]);
+
+const Assets = Static({
+  resolver: async (path) => assets.get(path) ?? null,
+});
+
+const app = new Site({ assets: Assets });
+```
+
+The resolver receives a normalized relative path, must return `null` for missing files, and should return a `Uint8Array` or `string` plus an optional MIME type. Path traversal (`..`) is rejected with 403 before the resolver is called.
 
 ### RequestContext
 
@@ -266,7 +302,7 @@ const Files = Item(() => ({
     "/": () =>
       Collection(() => ({
         list: (ctx) => listDirectoryContents(ctx.params.path),
-        create: (ctx) => createDirectoryEntry(ctx.params.path, ctx.body),
+        create: (ctx) => createDirectoryEntry(ctx.params.path, ctx.body as Record<string, unknown>),
       }))(),
   },
 }));
@@ -289,7 +325,9 @@ const JwtVerifier = Action(() => ({
     const payload = verifyJwt(token);
     return {
       subject: payload.sub,
-      scopes: payload.scopes,
+      scopes: Array.isArray(payload.scopes)
+        ? payload.scopes.join(" ")
+        : (payload.scopes as string),
       expiresAt: payload.exp,
     };
   },
@@ -377,6 +415,7 @@ With typed bindings:
 interface Env {
   MY_KV: KVNamespace;
   DB: D1Database;
+  [key: string]: unknown;
 }
 export default createCloudflareWorkerHandler<Env>(app);
 ```
@@ -532,7 +571,7 @@ Customize the context and type via `context` and `jsonldType` on the descriptor:
 ```typescript
 const Users = Collection(() => ({
   list: (ctx) => [],
-  create: (ctx) => ctx.body,
+  create: (ctx) => ctx.body as Record<string, unknown>,
   context: "https://schema.org",
   jsonldType: "PersonCollection",
 }));
