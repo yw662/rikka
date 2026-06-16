@@ -34,6 +34,9 @@ import {
   span,
   button,
   input,
+  textarea,
+  select,
+  option,
   section,
   label,
   br,
@@ -53,13 +56,25 @@ import {
   computed,
 } from "@takanashi/rikka-signal";
 
+async function apiErrorMessage(res: Response): Promise<string> {
+  try {
+    const body = await res.json();
+    if (body && typeof body.error === "string") return body.error;
+  } catch { /* fall through */ }
+  try {
+    const text = await res.text();
+    if (text) return text.slice(0, 200);
+  } catch { /* fall through */ }
+  return res.statusText;
+}
+
 async function apiPatch(path: string, body: unknown): Promise<unknown> {
   const res = await fetch(path, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) throw new Error(await apiErrorMessage(res));
   return res.json();
 }
 
@@ -69,8 +84,16 @@ async function apiPost(path: string, body: unknown): Promise<unknown> {
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) throw new Error(await apiErrorMessage(res));
   return res.json();
+}
+
+async function apiDelete(path: string): Promise<void> {
+  const res = await fetch(path, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res));
 }
 
 // ---------------------------------------------------------------------------
@@ -1353,6 +1376,40 @@ const BlogArticleDetail = defineElement("blog-article-detail", {
     }
     .btn-primary:hover { background: ${COLORS.primaryDark}; }
     .btn-danger:hover { border-color: ${COLORS.danger}; color: ${COLORS.danger}; }
+    .btn-secondary {
+      background: transparent;
+    }
+
+    /* Inline edit form */
+    .article-edit {
+      background: ${COLORS.surface};
+      border: 1px solid ${COLORS.border};
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .form-field { margin-bottom: 16px; }
+    .form-label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: ${COLORS.text};
+      margin-bottom: 6px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid ${COLORS.border};
+      border-radius: 8px;
+      font-size: 0.95rem;
+      outline: none;
+      background: ${COLORS.surfaceAlt};
+      color: ${COLORS.text};
+      font-family: inherit;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .form-input:focus { border-color: ${COLORS.primary}; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+    textarea.form-input { resize: vertical; min-height: 200px; }
 
     /* Not found state */
     .not-found {
@@ -1404,13 +1461,32 @@ const BlogArticleDetail = defineElement("blog-article-detail", {
     const cancelEdit = () => editing.set(false);
 
     const saveArticle = async () => {
+      const titleVal = editTitle.get().trim();
+      const bodyVal = editBody.get().trim();
+      if (!titleVal) {
+        showToast("error", "Title is required");
+        return;
+      }
+      if (titleVal.length > 200) {
+        showToast("error", "Title must be at most 200 characters");
+        return;
+      }
+      if (!bodyVal) {
+        showToast("error", "Body is required");
+        return;
+      }
+      if (bodyVal.length > 10000) {
+        showToast("error", "Body must be at most 10000 characters");
+        return;
+      }
+
       saving.set(true);
       try {
         const id = article.get()?.id;
         if (!id) throw new Error("Missing article id");
         const updated = await apiPatch(`/articles/${id}`, {
-          title: editTitle.get(),
-          body: editBody.get(),
+          title: titleVal,
+          body: bodyVal,
           tags: editTags.get().split(",").map((t) => t.trim()).filter(Boolean),
         });
         article.set(updated as ArticleData);
@@ -1420,6 +1496,18 @@ const BlogArticleDetail = defineElement("blog-article-detail", {
         showToast("error", `Failed to update article: ${(err as Error).message}`);
       } finally {
         saving.set(false);
+      }
+    };
+
+    const deleteArticle = async () => {
+      const id = article.get()?.id;
+      if (!id) return;
+      try {
+        await apiDelete(`/articles/${id}`);
+        article.set(null);
+        showToast("success", "Article deleted successfully");
+      } catch (err) {
+        showToast("error", `Failed to delete article: ${(err as Error).message}`);
       }
     };
 
@@ -1445,12 +1533,12 @@ const BlogArticleDetail = defineElement("blog-article-detail", {
               ),
               div({ className: "form-field" },
                 label({ className: "form-label" }, "Body"),
-                input({
+                textarea({
                   className: "form-input",
                   style: { minHeight: "200px" },
                   value: editBody,
-                  oninput: (e: Event) => editBody.set((e.target as HTMLInputElement).value),
-                }),
+                  oninput: (e: Event) => editBody.set((e.target as HTMLTextAreaElement).value),
+                } as any),
               ),
               div({ className: "form-field" },
                 label({ className: "form-label" }, "Tags (comma separated)"),
@@ -1544,7 +1632,7 @@ const BlogArticleDetail = defineElement("blog-article-detail", {
                       variant: "danger",
                     });
                     if (confirmed) {
-                      showToast("success", "Article deleted successfully");
+                      await deleteArticle();
                     }
                   },
                 }, "\uD83D\uDDD1 Delete"),
@@ -1644,6 +1732,39 @@ const BlogUserList = defineElement("blog-user-list", {
       background: ${COLORS.primary}; color: white; border-color: ${COLORS.primary};
     }
     .btn-primary:hover { background: ${COLORS.primaryDark}; }
+    .btn-secondary {
+      background: transparent;
+    }
+
+    /* Inline add-user form */
+    .user-form {
+      background: ${COLORS.surface};
+      border: 1px solid ${COLORS.border};
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 480px;
+    }
+    .form-field { margin-bottom: 16px; }
+    .form-label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: ${COLORS.text};
+      margin-bottom: 6px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid ${COLORS.border};
+      border-radius: 8px;
+      font-size: 0.95rem;
+      outline: none;
+      background: ${COLORS.surfaceAlt};
+      color: ${COLORS.text};
+      font-family: inherit;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .form-input:focus { border-color: ${COLORS.primary}; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
 
     .empty { text-align: center; padding: 64px 20px; color: ${COLORS.textMuted}; }
     .empty-icon { font-size: 3.5rem; margin-bottom: 12px; opacity: 0.5; }
@@ -1691,11 +1812,30 @@ const BlogUserList = defineElement("blog-user-list", {
     const cancelAdd = () => adding.set(false);
 
     const saveUser = async () => {
+      const nameVal = newName.get().trim();
+      const emailVal = newEmail.get().trim();
+      if (!nameVal) {
+        showToast("error", "Name is required");
+        return;
+      }
+      if (nameVal.length > 100) {
+        showToast("error", "Name must be at most 100 characters");
+        return;
+      }
+      if (!emailVal) {
+        showToast("error", "Email is required");
+        return;
+      }
+      if (emailVal.length > 200) {
+        showToast("error", "Email must be at most 200 characters");
+        return;
+      }
+
       saving.set(true);
       try {
         const created = await apiPost("/users", {
-          name: newName.get(),
-          email: newEmail.get(),
+          name: nameVal,
+          email: emailVal,
           role: newRole.get(),
         });
         users.set([...users.get(), created as UserData]);
@@ -1775,12 +1915,15 @@ const BlogUserList = defineElement("blog-user-list", {
           ),
           div({ className: "form-field" },
             label({ className: "form-label" }, "Role"),
-            input({
+            select({
               className: "form-input",
-              type: "text",
               value: newRole,
-              oninput: (e: Event) => newRole.set((e.target as HTMLInputElement).value as UserData["role"]),
-            }),
+              oninput: (e: Event) => newRole.set((e.target as HTMLSelectElement).value as UserData["role"]),
+            } as any,
+              option({ value: "reader" }, "Reader"),
+              option({ value: "author" }, "Author"),
+              option({ value: "admin" }, "Admin"),
+            ),
           ),
           div({ style: { marginTop: "16px" } },
             button({ className: "btn btn-primary", onclick: saveUser, disabled: saving }, "Create User"),
@@ -2142,13 +2285,28 @@ const BlogSettings = defineElement("blog-settings", {
 
     // Save changes via API
     const saveChanges = async () => {
+      const siteNameVal = editSiteName.get().trim();
+      const postsPerPageVal = editPostsPerPage.get();
+      if (!siteNameVal) {
+        showToast("error", "Site name is required");
+        return;
+      }
+      if (siteNameVal.length > 100) {
+        showToast("error", "Site name must be at most 100 characters");
+        return;
+      }
+      if (!Number.isFinite(postsPerPageVal) || postsPerPageVal < 1) {
+        showToast("error", "Posts per page must be a positive number");
+        return;
+      }
+
       saving.set(true);
       saveStatus.set("saving");
       try {
         const updated = await apiPatch("/settings", {
-          siteName: editSiteName.get(),
+          siteName: siteNameVal,
           theme: editTheme.get(),
-          postsPerPage: editPostsPerPage.get(),
+          postsPerPage: postsPerPageVal,
         });
         originalData.set(updated as SettingsData);
         editing.set(false);
@@ -2191,12 +2349,14 @@ const BlogSettings = defineElement("blog-settings", {
           div({ className: "setting-card editing" },
             div({ className: "form-field" },
               label({ className: "form-label" }, "Theme"),
-              input({
+              select({
                 className: "form-input",
-                type: "text",
                 value: editTheme,
-                oninput: (e: Event) => editTheme.set((e.target as HTMLInputElement).value),
-              }),
+                oninput: (e: Event) => editTheme.set((e.target as HTMLSelectElement).value),
+              } as any,
+                option({ value: "dark" }, "Dark"),
+                option({ value: "light" }, "Light"),
+              ),
             ),
             div({ className: "setting-description" }, "Current visual theme"),
           ),
@@ -2272,8 +2432,14 @@ const BlogSettings = defineElement("blog-settings", {
                 variant: "warning",
               });
               if (confirmed) {
-                originalData.set({ siteName: "Rikka Blog", theme: "dark", postsPerPage: 10 });
-                showToast("success", "Settings reset to defaults");
+                try {
+                  const defaults = { siteName: "Rikka Blog", theme: "dark", postsPerPage: 10 };
+                  const updated = await apiPatch("/settings", defaults);
+                  originalData.set(updated as SettingsData);
+                  showToast("success", "Settings reset to defaults");
+                } catch (err) {
+                  showToast("error", `Failed to reset settings: ${(err as Error).message}`);
+                }
               }
             },
           }, "\u21BA Reset to Defaults"),

@@ -11,9 +11,9 @@
  * see the three entry-point test files.
  */
 
-import { describe, it, expect } from "@rstest/core";
+import { describe, it, expect, beforeEach } from "@rstest/core";
 import { type HttpRequest } from "@takanashi/rikka-site";
-import { app } from "../src/resources.js";
+import { app, resetData } from "../src/resources.js";
 
 function makeRequest(overrides: Partial<HttpRequest>): HttpRequest {
   return {
@@ -24,6 +24,10 @@ function makeRequest(overrides: Partial<HttpRequest>): HttpRequest {
     ...overrides,
   };
 }
+
+beforeEach(() => {
+  resetData();
+});
 
 describe("resource tree behavior", () => {
   // --- Collection.list ---
@@ -334,41 +338,71 @@ describe("resource tree behavior", () => {
 
 describe("write operations", () => {
   it("patches an article", async () => {
-    const response = await app.handleRequest({
+    const response = await app.handleRequest(makeRequest({
       method: "PATCH",
       path: "/articles/1",
       accept: "application/json",
       body: { title: "Updated Title", body: "Updated body." },
-    });
+    }));
     expect(response.status).toBe(200);
     const data = JSON.parse(response.body);
     expect(data.title).toBe("Updated Title");
     expect(data.body).toBe("Updated body.");
   });
 
+  it("rejects patching an article with empty body", async () => {
+    const response = await app.handleRequest(makeRequest({
+      method: "PATCH",
+      path: "/articles/1",
+      accept: "application/json",
+      body: {},
+    }));
+    expect(response.status).toBe(400);
+  });
+
   it("creates a user", async () => {
-    const response = await app.handleRequest({
+    const response = await app.handleRequest(makeRequest({
       method: "POST",
       path: "/users",
       accept: "application/json",
       body: { name: "Frank", email: "frank@example.com", role: "reader" },
-    });
+    }));
     expect(response.status).toBe(201);
     const data = JSON.parse(response.body);
     expect(data.name).toBe("Frank");
   });
 
+  it("rejects creating a user with missing email", async () => {
+    const response = await app.handleRequest(makeRequest({
+      method: "POST",
+      path: "/users",
+      accept: "application/json",
+      body: { name: "Frank" },
+    }));
+    expect(response.status).toBe(400);
+  });
+
   it("patches settings", async () => {
-    const response = await app.handleRequest({
+    const response = await app.handleRequest(makeRequest({
       method: "PATCH",
       path: "/settings",
       accept: "application/json",
       body: { siteName: "New Name", theme: "light", postsPerPage: 5 },
-    });
+    }));
     expect(response.status).toBe(200);
     const data = JSON.parse(response.body);
     expect(data.siteName).toBe("New Name");
     expect(data.theme).toBe("light");
     expect(data.postsPerPage).toBe(5);
+  });
+
+  it("rejects patching settings without siteName", async () => {
+    const response = await app.handleRequest(makeRequest({
+      method: "PATCH",
+      path: "/settings",
+      accept: "application/json",
+      body: { theme: "light" },
+    }));
+    expect(response.status).toBe(400);
   });
 });
