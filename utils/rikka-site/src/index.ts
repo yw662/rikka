@@ -97,6 +97,7 @@ export type {
   ProxyTarget,
   ResourceFactory,
   ResourceConstructor,
+  StaticResolver,
 } from "./resource.js";
 
 // Site definition

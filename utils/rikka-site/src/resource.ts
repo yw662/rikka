@@ -17,6 +17,7 @@ import type { Kind } from "./kind.js";
 import type { Schema } from "./schema.js";
 import { anySchema } from "./schema.js";
 import type { RequestContext } from "./context.js";
+import { HttpError, isHttpError } from "./errors.js";
 
 // ---------------------------------------------------------------------------
 // Children — the sub-resource tree
@@ -280,17 +281,37 @@ export class ProxyResource extends Resource {
 }
 
 /**
+ * Edge-compatible static file resolver.
+ *
+ * Receives a relative path within the static mount (no leading slash,
+ * normalized). Returns the file content and optional MIME type, or null/
+ * undefined if the file does not exist.
+ */
+export type StaticResolver = (
+  path: string,
+) => Promise<
+  | {
+      content: string | Uint8Array;
+      type?: string;
+    }
+  | null
+  | undefined
+>;
+
+/**
  * Static resource — serves static files from a root directory.
  * Like ReadOnly (GET only) but with catchAll behavior for sub-path resolution.
  */
 export class StaticResource extends ReadOnlyResource {
-  readonly rootDir: string;
+  readonly rootDir?: string;
   readonly indexFile: string;
+  readonly resolver?: StaticResolver;
 
   constructor(
     handlers: { content: Handler },
     init: {
-      rootDir: string;
+      rootDir?: string;
+      resolver?: StaticResolver;
       indexFile?: string;
       schema?: Schema;
       children?: ChildrenMap;
@@ -304,6 +325,7 @@ export class StaticResource extends ReadOnlyResource {
     super(handlers, init, params, path);
     this.rootDir = init.rootDir;
     this.indexFile = init.indexFile ?? "index.html";
+    this.resolver = init.resolver;
     this.catchAll = true;
   }
 }
@@ -576,6 +598,31 @@ function isTextMime(mime: string): boolean {
   return textMimePrefixes.some((p) => mime.startsWith(p));
 }
 
+/**
+ * Normalize a request path into a safe relative path.
+ * Rejects traversal outside the mount point.
+ */
+function sanitizeStaticPath(rawRelative: string): string {
+  const parts = rawRelative.replace(/^\//, "").split("/").filter(Boolean);
+  const safe: string[] = [];
+  for (const part of parts) {
+    if (part === "..") {
+      if (safe.length === 0) throw new HttpError(403, "Forbidden");
+      safe.pop();
+    } else if (part !== ".") {
+      safe.push(part);
+    }
+  }
+  return safe.join("/");
+}
+
+/** Guess a MIME type from a file path. */
+function guessMimeType(filePath: string): string {
+  const dot = filePath.lastIndexOf(".");
+  const ext = dot === -1 ? "" : filePath.slice(dot).toLowerCase();
+  return mimeTypes[ext] ?? "application/octet-stream";
+}
+
 // ---------------------------------------------------------------------------
 // Static Kind factory
 // ---------------------------------------------------------------------------
@@ -594,26 +641,46 @@ function isTextMime(mime: string): boolean {
  * ```
  */
 export function Static(config: {
-  /** Root directory for static files */
-  root: string;
-  /** Default index file for directory requests (default: "index.html") */
+  /** Root directory for static files (Node.js only). */
+  root?: string;
+  /** Default index file for directory requests (default: "index.html"). */
   index?: string;
+  /** Edge-compatible resolver. When provided, `root` is ignored. */
+  resolver?: StaticResolver;
 }): ResourceConstructor {
-  const { root, index = "index.html" } = config;
+  if (config.root === undefined && config.resolver === undefined) {
+    throw new TypeError("Static() requires either `root` or `resolver`.");
+  }
+  const { root = ".", index = "index.html", resolver } = config;
 
   const contentHandler: Handler = async (ctx) => {
-    // Dynamic imports for Node.js — preserved in ESM output.
-    // webpackIgnore prevents rspack from trying to resolve node:* at build time.
-    const nodePath = await import(/* webpackIgnore: true */ "node:path");
-    const nodeFs = await import(/* webpackIgnore: true */ "node:fs/promises");
-    const { HttpError } = await import("./errors.js");
-
-    // Compute relative path from mount point
     const mountPrefix = ctx.resourcePath ?? "";
     const rawRelative = ctx.path.slice(mountPrefix.length) || "/";
-    const relativePath = rawRelative.replace(/^\//, "");
 
-    // Resolve and prevent path traversal
+    let relativePath: string;
+    try {
+      relativePath = sanitizeStaticPath(rawRelative);
+    } catch (err) {
+      if (isHttpError(err)) throw err;
+      throw new HttpError(403, "Forbidden");
+    }
+
+    // Edge resolver path
+    if (resolver) {
+      let result = await resolver(relativePath);
+      if (!result && (!relativePath || rawRelative.endsWith("/"))) {
+        result = await resolver(relativePath ? `${relativePath}/${index}` : index);
+      }
+      if (!result) throw new HttpError(404, "Not Found");
+
+      const mimeType = result.type ?? guessMimeType(relativePath || index);
+      return { content: result.content, meta: { type: mimeType } };
+    }
+
+    // Node.js filesystem path (existing behavior, kept as-is)
+    const nodePath = await import(/* webpackIgnore: true */ "node:path");
+    const nodeFs = await import(/* webpackIgnore: true */ "node:fs/promises");
+
     const resolvedRoot = nodePath.resolve(root);
     const filePath = nodePath.resolve(resolvedRoot, relativePath);
     if (
@@ -623,13 +690,11 @@ export function Static(config: {
       throw new HttpError(403, "Forbidden");
     }
 
-    // If path is a directory, try index file
     let targetPath = filePath;
     try {
       const s = await nodeFs.stat(filePath);
       if (s.isDirectory()) {
         targetPath = nodePath.resolve(filePath, index);
-        // Check path traversal on the index file too
         if (
           !targetPath.startsWith(resolvedRoot + nodePath.sep) &&
           targetPath !== resolvedRoot
@@ -639,7 +704,6 @@ export function Static(config: {
       }
     } catch (err) {
       if (err instanceof HttpError) throw err;
-      // Not found — fall through to readFile which will also fail
     }
 
     try {
@@ -667,7 +731,7 @@ export function Static(config: {
     constructor(params: Record<string, string>, path: string) {
       super(
         { content: contentHandler },
-        { rootDir: root, indexFile: index },
+        { rootDir: resolver ? undefined : root, resolver, indexFile: index },
         params,
         path,
       );
