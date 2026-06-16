@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "@rstest/core";
+import { describe, it, expect, beforeEach, afterEach, afterAll } from "@rstest/core";
 import { findResourceData, findResourceDataAsync } from "../src/sdk/hydration.js";
 import {
   matchRoute,
@@ -7,6 +7,20 @@ import {
 } from "../src/sdk/router.js";
 import type { Sitemap } from "../src/sdk/router.js";
 
+// Capture the original __rikka value before the side-effect import mutates it.
+const originalRikka = (window as any).__rikka;
+const originalRikkaExisted = "__rikka" in window;
+import "../src/sdk/index.js";
+
+afterAll(() => {
+  if (originalRikkaExisted) {
+    (window as any).__rikka = originalRikka;
+  } else {
+    delete (window as any).__rikka;
+  }
+});
+
+// Reset the DOM before each hydration/router test to avoid state leaking between cases.
 beforeEach(() => {
   document.body.innerHTML = "";
   document.head.innerHTML = "";
@@ -61,15 +75,14 @@ describe("findResourceDataAsync", () => {
   });
 
   it("fetches JSON when sync data is missing", async () => {
+    let fetchedUrl: string | undefined;
     globalThis.fetch = async (input: RequestInfo | URL) => {
-      const url = new URL(input.toString(), "http://localhost");
-      expect(url.searchParams.get("accept")).toBe("json");
-      return {
-        ok: true,
-        json: async () => [{ b: 2 }],
-      } as unknown as Response;
+      fetchedUrl = input.toString();
+      return { ok: true, json: async () => [{ b: 2 }] } as unknown as Response;
     };
-    expect(await findResourceDataAsync()).toEqual([{ b: 2 }]);
+    const data = await findResourceDataAsync();
+    expect(fetchedUrl).toContain("accept=json");
+    expect(data).toEqual([{ b: 2 }]);
   });
 
   it("returns null when fetch fails", async () => {
@@ -151,16 +164,16 @@ describe("createRouter", () => {
     history.pushState = originalPushState;
   });
 
-  it("intercepts internal link clicks", () => {
+  it("intercepts internal link clicks", async () => {
     const router = createRouter(sitemap);
     router.start();
     const a = document.createElement("a");
     a.setAttribute("href", "/articles");
     document.body.appendChild(a);
 
-    let fetchCalled = false;
-    globalThis.fetch = async () => {
-      fetchCalled = true;
+    let fetchedUrl: string | undefined;
+    globalThis.fetch = async (input: RequestInfo | URL) => {
+      fetchedUrl = input.toString();
       return {
         ok: true,
         text: async () =>
@@ -169,30 +182,31 @@ describe("createRouter", () => {
     };
 
     a.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(fetchCalled).toBe(true);
+    // Allow the async navigation promise chain to settle.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchedUrl).toBe("/articles");
     router.stop();
   });
 
-  it("does not intercept external links", () => {
+  it("does not intercept external links", async () => {
     const router = createRouter(sitemap);
     router.start();
     const a = document.createElement("a");
     a.setAttribute("href", "https://example.com");
     document.body.appendChild(a);
 
-    let fetchCalled = false;
-    globalThis.fetch = async () => {
-      fetchCalled = true;
+    let fetchedUrl: string | undefined;
+    globalThis.fetch = async (input: RequestInfo | URL) => {
+      fetchedUrl = input.toString();
       return { ok: true, text: async () => "" } as unknown as Response;
     };
 
     a.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(fetchCalled).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchedUrl).toBeUndefined();
     router.stop();
   });
 });
-
-import "../src/sdk/index.js";
 
 describe("SDK index", () => {
   it("exposes __rikka on window", () => {
