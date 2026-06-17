@@ -276,40 +276,11 @@ export function closeModal(): void {
 
 /**
  * Find and parse resource data from the DOM.
- * Delegates to the SDK's findResourceData when available (loaded via /_rikka/sdk.js),
- * falls back to a local implementation for offline / pre-SDK scenarios.
+ * Delegates to the rikka-site SDK, which is loaded before /elements.js.
  */
 function findResourceData<T = unknown>(el?: Element): T | null {
-  // Prefer the SDK version — it handles @graph unwrapping and async fetch
   const sdk = (window as any).__rikka;
-  if (sdk?.findResourceData) {
-    return sdk.findResourceData(el) as T | null;
-  }
-
-  // Fallback: local implementation
-  if (el) {
-    const dataAttr = el.getAttribute("data-resource");
-    if (dataAttr) {
-      try { return JSON.parse(dataAttr) as T; } catch { /* fall through */ }
-    }
-  }
-
-  if (el) {
-    const tmpl = el.querySelector("template[shadowrootmode]") as HTMLTemplateElement | null;
-    if (tmpl) {
-      const dsScript = tmpl.content.querySelector('script[type="application/json"]');
-      if (dsScript) {
-        try { return JSON.parse(dsScript.textContent ?? "") as T; } catch { /* fall through */ }
-      }
-    }
-  }
-
-  const script = document.querySelector('script[type="application/ld+json"]');
-  if (script) {
-    try { return JSON.parse(script.textContent ?? "") as T; } catch { /* fall through */ }
-  }
-
-  return null;
+  return (sdk?.findResourceData?.(el) as T | null) ?? null;
 }
 
 /** Format date to readable string */
@@ -2472,12 +2443,10 @@ const RikkaResource = defineElement("rikka-resource", {
   styles: css`:host { display: contents; }`,
   render(this) {
     const path = this.getAttribute("path") ?? "";
-    const kind = this.getAttribute("kind") ?? "";
 
     // Normalize: strip trailing slash for consistent matching
     const normPath = path.replace(/\/+$/, "");
 
-    // Try SDK router first — uses the sitemap embedded in the page
     const sdk = (window as any).__rikka;
     if (sdk?.matchRoute && sdk?.readSitemapFromDom) {
       const sitemap = sdk.readSitemapFromDom();
@@ -2487,52 +2456,15 @@ const RikkaResource = defineElement("rikka-resource", {
           try {
             return document.createElement(match.route.element);
           } catch {
-            // Element not registered — fall through
+            // Element not registered
           }
         }
       }
     }
 
-    // Fallback: path-based routing
-    const match = (): HTMLElement => {
-      // Home / site root
-      if (normPath === "/" || (kind === "ReadOnly" && normPath === "")) {
-        return document.createElement("blog-home");
-      }
-
-      // Article item (e.g., /articles/1) — check BEFORE collection
-      if (normPath.match(/^\/articles\/\d+$/)) {
-        return document.createElement("blog-article-detail");
-      }
-
-      // Articles collection
-      if (normPath === "/articles" || normPath.startsWith("/articles")) {
-        return document.createElement("blog-article-list");
-      }
-
-      // Users collection
-      if (normPath === "/users" || normPath.startsWith("/users")) {
-        return document.createElement("blog-user-list");
-      }
-
-      // Dashboard
-      if (normPath === "/dashboard") {
-        return document.createElement("blog-dashboard");
-      }
-
-      // Settings
-      if (normPath === "/settings") {
-        return document.createElement("blog-settings");
-      }
-
-      // Fallback — empty div
-      return div({ style: { padding: "40px", textAlign: "center", color: COLORS.textMuted } },
-        p(`Unknown resource: ${path} (${kind})`),
-      );
-    };
-
-    // Return the matched element directly.
-    return match();
+    return div({ style: { padding: "40px", textAlign: "center", color: COLORS.textMuted } },
+      p(`Unknown resource: ${path}`),
+    );
   },
 });
 

@@ -3,25 +3,19 @@
  *
  * Run: pnpm dev
  *
- * Wraps the rikka-site Node adapter with:
+ * Uses rikka-site's `serve()` with dev-only hooks:
  * - Custom HTML transformer (friendly titles, blog-layout wrapping)
  * - Static file serving (bundled custom elements, favicon)
  * - HTML enhancement (noscript fallback)
  * - Request logging
  */
 
-import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  createNodeHandler,
-} from "@takanashi/rikka-site/node";
-import {
-  createHtmlTransformer,
-  type HttpRequest,
-  type HttpResponse,
-} from "@takanashi/rikka-site";
+import { serve, type HttpResponse } from "@takanashi/rikka-site/node";
+import { createHtmlTransformer } from "@takanashi/rikka-site";
+import type { IncomingMessage } from "node:http";
 import { app } from "./resources.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -52,7 +46,8 @@ const blogHtmlTransformer = createHtmlTransformer({
   serialization: "data-attr",
   title: generateTitle,
   layoutElement: "blog-layout",
-  scripts: [{ src: "/elements.js" }],
+  // Load as a module so it executes after the SDK module.
+  scripts: [{ src: "/elements.js", module: true }],
   headHtml: `
   <meta name="description" content="A blog built with the Rikka framework demonstrating resource-oriented architecture, content negotiation, and Web Components.">
   <link rel="icon" data-emoji="R" />`,
@@ -62,7 +57,7 @@ blogHtmlTransformer.priority = 20;
 app.registry.register(blogHtmlTransformer);
 
 // ---------------------------------------------------------------------------
-// Static file serving
+// Static file serving (dev-only, handled before rikka-site)
 // ---------------------------------------------------------------------------
 
 const ELEMENT_JS_FALLBACK = `
@@ -76,7 +71,7 @@ const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"
   <text x="16" y="23" text-anchor="middle" font-size="20" font-weight="bold" fill="white" font-family="system-ui">R</text>
 </svg>`;
 
-function tryServeStatic(urlPath: string): HttpResponse | null {
+function tryServeStatic(urlPath: string): HttpResponse | undefined {
   if (urlPath === "/elements.js") {
     const filePath = join(__dirname, "..", "dist", "elements.js");
     if (existsSync(filePath)) {
@@ -102,7 +97,7 @@ function tryServeStatic(urlPath: string): HttpResponse | null {
       body: FAVICON_SVG,
     };
   }
-  return null;
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +133,8 @@ function enhanceHtmlOutput(html: string): string {
 // Logging
 // ---------------------------------------------------------------------------
 
+const startTimes = new WeakMap<IncomingMessage, number>();
+
 function logRequest(
   method: string,
   path: string,
@@ -149,116 +146,48 @@ function logRequest(
     status >= 500 ? "\x1b[31m" : status >= 400 ? "\x1b[33m" : "\x1b[32m";
   const reset = "\x1b[0m";
   console.log(
-    `${timestamp} ${method} ${path} ${color}${status}${reset} ${duration}ms`,
+    `${timestamp} ${method} ${path} ${color}${status}${reset} ${duration.toFixed(0)}ms`,
   );
 }
 
 // ---------------------------------------------------------------------------
-// Build an HttpRequest from a Node IncomingMessage
+// Server hooks
 // ---------------------------------------------------------------------------
 
-function buildHttpRequest(req: import("node:http").IncomingMessage): Promise<HttpRequest> {
-  return new Promise((resolve, reject) => {
-    const url = req.url ?? "/";
-    const queryIndex = url.indexOf("?");
-    const pathOnly = queryIndex === -1 ? url : url.slice(0, queryIndex);
-    const search = queryIndex === -1 ? "" : url.slice(queryIndex + 1);
-    const query: Record<string, string> = {};
-    if (search) {
-      for (const [k, v] of new URLSearchParams(search).entries()) {
-        if (k !== "accept") query[k] = v;
-      }
-    }
-    const acceptQuery = queryIndex === -1
-      ? undefined
-      : new URLSearchParams(search).get("accept") ?? undefined;
-
-    const headers: Record<string, string> = {};
-    for (const [k, v] of Object.entries(req.headers)) {
-      if (typeof v === "string") headers[k.toLowerCase()] = v;
-      else if (Array.isArray(v)) headers[k.toLowerCase()] = v.join(", ");
-    }
-
-    const chunks: Buffer[] = [];
-    req.on("data", (c) => chunks.push(c));
-    req.on("end", () => {
-      const raw = Buffer.concat(chunks).toString("utf8");
-      let body: unknown;
-      if (raw && (headers["content-type"] ?? "").includes("application/json")) {
-        try {
-          body = JSON.parse(raw);
-        } catch {
-          body = raw;
-        }
-      } else if (raw) {
-        body = raw;
-      }
-      resolve({
-        method: (req.method ?? "GET").toUpperCase(),
-        path: pathOnly,
-        accept: req.headers.accept,
-        acceptQuery,
-        body,
-        query,
-        headers,
-      });
-    });
-    req.on("error", reject);
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Server
-// ---------------------------------------------------------------------------
-
-const PORT = Number(process.env["PORT"] ?? 3000);
-const HOST = process.env["HOST"] ?? "127.0.0.1";
-
-// rikka-handler for fallback use; we use handleRequest directly so we can
-// intercept the response for HTML enhancement.
-const _rikkaHandler = createNodeHandler(app, { basePath: "" });
-
-const server = createServer(async (req, res) => {
-  const start = performance.now();
-  const urlPath = (req.url ?? "/").split("?")[0]!;
+const before = (req: IncomingMessage): HttpResponse | undefined => {
   const method = (req.method ?? "GET").toUpperCase();
-
-  // Static files (bypass rikka-site)
-  if (method === "GET") {
-    const staticResponse = tryServeStatic(urlPath);
-    if (staticResponse) {
-      res.writeHead(staticResponse.status, staticResponse.headers);
-      res.end(staticResponse.body);
-      logRequest(method, urlPath, staticResponse.status, performance.now() - start);
-      return;
-    }
-  }
-
-  try {
-    const httpRequest = await buildHttpRequest(req);
-    const response = await app.handleRequest(httpRequest);
-
-    // Post-process HTML
-    let body = response.body;
-    if (response.headers["Content-Type"]?.includes("text/html")) {
-      body = enhanceHtmlOutput(body);
-    }
-
-    res.writeHead(response.status, response.headers);
-    res.end(body);
+  if (method !== "GET") return undefined;
+  const urlPath = (req.url ?? "/").split("?")[0] ?? "/";
+  const response = tryServeStatic(urlPath);
+  if (response) {
+    const start = startTimes.get(req) ?? performance.now();
     logRequest(method, urlPath, response.status, performance.now() - start);
-  } catch (err) {
-    console.error("Unhandled error:", err);
-    if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Internal Server Error" }));
-    }
-    logRequest(method, urlPath, 500, performance.now() - start);
   }
-});
+  return response;
+};
 
-server.listen(PORT, HOST, () => {
-  console.log(`\n  🏠 Rikka Blog Site running at http://${HOST}:${PORT}\n`);
+const after = (response: HttpResponse, req: IncomingMessage): HttpResponse => {
+  const start = startTimes.get(req) ?? performance.now();
+  const urlPath = (req.url ?? "/").split("?")[0] ?? "/";
+  let body = response.body;
+  if (response.headers["Content-Type"]?.includes("text/html")) {
+    body = enhanceHtmlOutput(body);
+  }
+  logRequest(
+    (req.method ?? "GET").toUpperCase(),
+    urlPath,
+    response.status,
+    performance.now() - start,
+  );
+  return { ...response, body };
+};
+
+const onRequest = (req: IncomingMessage): void => {
+  startTimes.set(req, performance.now());
+};
+
+const onListen = (port: number, host: string): void => {
+  console.log(`\n  🏠 Rikka Blog Site running at http://${host}:${port}\n`);
   console.log("  Content negotiation:");
   console.log("    GET  /articles                     → HTML page (with custom elements)");
   console.log("    GET  /articles?accept=json          → JSON array");
@@ -293,14 +222,34 @@ server.listen(PORT, HOST, () => {
   console.log("    - Content negotiation (5 formats)");
   console.log("    - CORS enabled");
   console.log();
+};
+
+// ---------------------------------------------------------------------------
+// Server
+// ---------------------------------------------------------------------------
+
+const PORT = Number(process.env["PORT"] ?? 3000);
+const HOST = process.env["HOST"] ?? "127.0.0.1";
+
+const server = serve(app, {
+  port: PORT,
+  host: HOST,
+  before,
+  after,
+  onRequest,
+  onListen,
 });
 
-const shutdown = (signal: string) => {
+const shutdown = async (signal: string) => {
   console.log(`\n[rikka-site] received ${signal}, shutting down...`);
-  server.close(() => {
+  try {
+    await server.close();
     console.log("[rikka-site] server closed");
     process.exit(0);
-  });
+  } catch (err) {
+    console.error("[rikka-site] error during shutdown:", err);
+    process.exit(1);
+  }
 };
-process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
