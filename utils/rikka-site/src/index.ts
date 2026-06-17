@@ -93,6 +93,7 @@ export {
 export type {
   ChildResolver,
   ChildrenMap,
+  CustomElementConstructor,
   Handler,
   ProxyTarget,
   ResourceFactory,
@@ -102,7 +103,7 @@ export type {
 
 // Site definition
 export { Site } from "./site.js";
-export type { SiteNode, SiteDefinition, SiteOptions } from "./site.js";
+export type { SiteNode, SiteDefinition, SiteOptions, SiteAsset } from "./site.js";
 
 // Sitemap generation
 export { generateSitemap } from "./sitemap.js";

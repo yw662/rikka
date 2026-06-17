@@ -1,0 +1,29 @@
+{
+  "name": "blog-site",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "start": "tsx src/index.ts",
+    "build:elements": "esbuild src/elements.ts --bundle --format=iife --outfile=dist/elements.js --global-name=BlogElements",
+    "cf-dev": "wrangler dev",
+    "cf-deploy": "wrangler deploy",
+    "test": "rstest",
+    "test:watch": "rstest -w",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@takanashi/rikka-dom": "workspace:*",
+    "@takanashi/rikka-elements": "workspace:*",
+    "@takanashi/rikka-signal": "workspace:*",
+    "@takanashi/rikka-site": "workspace:*"
+  },
+  "devDependencies": {
+    "@rstest/core": "catalog:",
+    "@types/node": "catalog:",
+    "esbuild": "^0.24.0",
+    "tsx": "catalog:",
+    "wrangler": "catalog:"
+  }
+}

@@ -345,4 +345,8 @@ export const homeContent = {
     en: "TC39 Signals polyfill. signal(), computed(), and effect() for reactivity. Standards-based primitives.",
     zh: "TC39 Signals 垫片。signal()、computed() 和 effect() 实现响应式。基于标准的原语。",
   } as Record<Locale, string>,
+  packageSiteDesc: {
+    en: "Resource-oriented server framework with Schema, Representation, and content negotiation.",
+    zh: "基于 Schema、Representation 和内容协商的资源导向服务器框架。",
+  } as Record<Locale, string>,
 };

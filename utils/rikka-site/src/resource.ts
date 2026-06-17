@@ -54,6 +54,16 @@ export type Handler = (ctx: RequestContext) => unknown | Promise<unknown>;
  */
 export type ProxyTarget = (path: string) => URL | Promise<URL>;
 
+/**
+ * A custom element class constructor, as returned by `defineElement()`.
+ * It must expose a static `tagName` string.
+ */
+export interface CustomElementConstructor {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  new (...args: any[]): any;
+  readonly tagName: string;
+}
+
 // ---------------------------------------------------------------------------
 // Resource — class hierarchy
 // ---------------------------------------------------------------------------

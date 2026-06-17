@@ -20,6 +20,7 @@ import {
   type Repr,
   type StaticResolver,
 } from "@takanashi/rikka-site";
+import { elements } from "./elements.js";
 
 // ---------------------------------------------------------------------------
 // In-memory data store
@@ -109,7 +110,10 @@ const settings = { siteName: "Rikka Blog", theme: "dark", postsPerPage: 10 };
 let nextArticleId = 4;
 let nextCommentId = 4;
 
-const initialArticles: Article[] = articles.map((a) => ({ ...a, tags: [...a.tags] }));
+const initialArticles: Article[] = articles.map((a) => ({
+  ...a,
+  tags: [...a.tags],
+}));
 const initialComments: Comment[] = comments.map((c) => ({ ...c }));
 const initialUsers: User[] = users.map((u) => ({ ...u }));
 const initialSettings = { ...settings };
@@ -237,10 +241,13 @@ const SiteRoot = ReadOnly(() => ({
       articleCount: articles.length,
       userCount: users.length,
       commentCount: comments.length,
-      recentArticles: articles.slice(-3).reverse().map((a) => ({
-        id: a.id,
-        title: a.title,
-      })),
+      recentArticles: articles
+        .slice(-3)
+        .reverse()
+        .map((a) => ({
+          id: a.id,
+          title: a.title,
+        })),
       links: {
         articles: "/articles",
         users: "/users",
@@ -326,7 +333,10 @@ const Articles = Collection(() => ({
           obj.body === undefined &&
           obj.tags === undefined
         ) {
-          throw new HttpError(400, "At least one of title, body, or tags is required");
+          throw new HttpError(
+            400,
+            "At least one of title, body, or tags is required",
+          );
         }
         if (obj.title !== undefined) {
           articles[idx]!.title = requireString(obj, "title", 200);
@@ -515,6 +525,14 @@ const ExternalAPI = Proxy(() => ({
 export interface BlogAppOptions {
   /** Edge-compatible static file resolver. If omitted, the Node filesystem root is used. */
   staticResolver?: StaticResolver;
+  /**
+   * Browser entry module for custom elements. When provided, rikka-site bundles
+   * it on demand and serves the result at `/.well-known/assets/elements.js`.
+   * Accepts a filesystem path string or a `file:` URL.
+   */
+  customElementsEntry?: string | URL;
+  /** Static assets served at `/.well-known/assets/:name`. */
+  assets?: Record<string, { source: string | URL; contentType?: string }>;
 }
 
 export function createApp(options: BlogAppOptions = {}) {
@@ -554,6 +572,9 @@ export function createApp(options: BlogAppOptions = {}) {
           { match: "/actions/**", auth: "auth" },
         ],
       },
+      customElements: elements,
+      customElementsEntry: options.customElementsEntry,
+      assets: options.assets,
     },
   );
 

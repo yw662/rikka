@@ -1,0 +1,57 @@
+{
+  "name": "@takanashi/rikka-site",
+  "version": "0.0.1",
+  "description": "Resource-oriented server framework with content negotiation",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yw662/rikka.git",
+    "directory": "utils/rikka-site"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js",
+      "default": "./dist/node.js"
+    },
+    "./sdk": {
+      "types": "./dist/sdk/index.d.ts",
+      "import": "./dist/sdk/sdk.js",
+      "default": "./dist/sdk/sdk.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rslib build && tsc -p tsconfig.node.json",
+    "build:web": "rslib build",
+    "build:node": "tsc -p tsconfig.node.json",
+    "dev": "rslib build --watch",
+    "test": "rstest",
+    "test:watch": "rstest -w",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {
+    "@takanashi/rikka-signal": "workspace:*",
+    "@takanashi/rikka-dom": "workspace:*",
+    "@takanashi/rikka-elements": "workspace:*",
+    "esbuild": "catalog:"
+  },
+  "devDependencies": {
+    "@rslib/core": "catalog:",
+    "@rstest/core": "catalog:",
+    "@rstest/coverage-v8": "catalog:",
+    "@types/node": "catalog:",
+    "happy-dom": "catalog:",
+    "typescript": "catalog:"
+  }
+}

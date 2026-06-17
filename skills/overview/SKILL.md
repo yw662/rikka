@@ -18,11 +18,18 @@ Rikka is a Web UI toolkit built around three principles:
 | `@takanashi/rikka-signal` | Reactive primitives | `signal`, `computed`, `effect` |
 | `@takanashi/rikka-dom` | Create real DOM elements | `h`, tag helpers (`div`, `p`, `button`, …), `For`, `Show`, `When`, `Switch`, `Match`, `css`, `inlineStyle` |
 | `@takanashi/rikka-elements` | Custom Elements | `defineElement`, `event`, `StringAttr`, `NumberAttr`, `BooleanAttr` |
+| `@takanashi/rikka-site` | Resource-oriented server | `site`, `Collection`, `Item`, `ReadOnly`, `handleWebRequest`, `createHtmlTransformer` |
 
-Install:
+Install (client-side only):
 
 ```bash
 npm install @takanashi/rikka-signal @takanashi/rikka-dom @takanashi/rikka-elements
+```
+
+Install (full-stack with server):
+
+```bash
+npm install @takanashi/rikka-signal @takanashi/rikka-dom @takanashi/rikka-elements @takanashi/rikka-site
 ```
 
 ## Mental model
@@ -51,9 +58,9 @@ Tag helpers follow HTML tag names — `div` → `div()`, `button` → `button()`
 
 ## When to use rikka
 
-**Good fit:** small-to-medium interactive UIs where you want fine-grained reactivity, real Custom Elements, and a small bundle (~16 KB total for all three packages).
+**Good fit:** small-to-medium interactive UIs where you want fine-grained reactivity, real Custom Elements, and a small bundle (~16 KB total for the 3 client packages). Combined with `rikka-site`, it becomes a full-stack framework with resource-oriented routing, content negotiation, and SSR hydration.
 
-**Not a fit:** SSR-heavy apps (rikka is client-only by design), apps needing JSX with compile-time transforms (use React/Solid), large teams with entrenched patterns from other frameworks.
+**Not a fit:** apps needing JSX with compile-time transforms (use React/Solid), large teams with entrenched patterns from other frameworks.
 
 ## Browser support
 
@@ -64,4 +71,5 @@ Chrome 73+ / Firefox 101+ / Safari 16.4+ / Edge 79+ need **no polyfill**. For ol
 - [../reactive-state/](../reactive-state/) — how to create and use signals
 - [../dom-creation/](../dom-creation/) — how to create elements
 - [../custom-element/](../custom-element/) — how to define a custom element
+- [../rikka-site/](../rikka-site/) — full-stack server framework with resource-oriented architecture
 - [../common-pitfalls/](../common-pitfalls/) — read this before generating code

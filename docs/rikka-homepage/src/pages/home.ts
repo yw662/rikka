@@ -22,7 +22,11 @@ import { hljsTheme } from "../shared/page-styles";
 import { highlightInline } from "../shared/highlight";
 
 const cdnGzipKB = signal<string | null>(null);
-const packageGzipKB = signal<{ signal: number; dom: number; elements: number } | null>(null);
+const packageGzipKB = signal<{
+  signal: number;
+  dom: number;
+  elements: number;
+} | null>(null);
 
 async function measureGzipSize(url: string): Promise<number> {
   const res = await fetch(url);
@@ -928,7 +932,7 @@ const homeStyles = css`
   }
   .package-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 1.25rem;
     max-width: 1100px;
     margin: 0 auto;
@@ -2123,6 +2127,18 @@ container.appendChild(app);`,
               return el;
             })(),
             div({ class: "npm" }, "npm install @takanashi/rikka-signal"),
+          ),
+          div(
+            { class: "package-card" },
+            h3("@takanashi/rikka-site"),
+            (() => {
+              const el = p();
+              effect(() => {
+                el.textContent = t(homeContent.packageSiteDesc);
+              });
+              return el;
+            })(),
+            div({ class: "npm" }, "npm install @takanashi/rikka-site"),
           ),
         ),
       ),

@@ -43,9 +43,11 @@
 import type { Schema } from "./schema.js";
 import { isSchema, schemaMatches, anySchema } from "./schema.js";
 import type { Resource } from "./resource.js";
-import type { Repr } from "./representation.js";
+import type { Repr, ReprMeta } from "./representation.js";
 import { isBytes } from "./representation.js";
 import type { SitemapEntry } from "./sitemap.js";
+import type { CustomElementRegistryEntry } from "./custom-elements.js";
+import type { SiteAsset } from "./site.js";
 
 // ---------------------------------------------------------------------------
 // TransformContext
@@ -574,7 +576,7 @@ export interface HtmlTransformerConfig {
 
   /**
    * Whether to inject the rikka-site SDK script tag.
-   * When true, adds `<script type="module" src="/_rikka/sdk.js">` to the page.
+   * When true, adds `<script type="module" src=".well-known/sdk/sdk.js">` to the page.
    * The SDK provides findResourceData(), createRouter(), etc.
    * @default true
    */
@@ -586,6 +588,55 @@ export interface HtmlTransformerConfig {
    * is added to the head, enabling the SDK's router to match paths.
    */
   sitemap?: SitemapEntry[];
+
+  /**
+   * Custom elements registered with the site. When non-empty, a module script
+   * pointing to `/.well-known/assets/elements.js` is injected into `<head>`.
+   */
+  customElements?: CustomElementRegistryEntry[];
+
+  /**
+   * Static assets registered with the site. When a `favicon.ico` asset is
+   * present, a `<link rel="icon" href="...">` tag is injected into `<head>`.
+   */
+  assets?: Record<string, SiteAsset>;
+
+  /**
+   * Content language fallback. If `repr.meta.lang` is set, it takes precedence.
+   * When neither is set, the `<html lang="...">` attribute is omitted.
+   */
+  lang?: string;
+
+  /**
+   * Whether to inject a `<noscript>` fallback that shows the raw resource data
+   * for clients without JavaScript. Defaults to `false`.
+   */
+  noscript?: boolean;
+
+  /**
+   * Custom `<meta name="...">` generator.
+   * Receives path, kind, data, and repr meta; returns a map of name → content.
+   */
+  meta?: (
+    path: string,
+    kind: string,
+    data: unknown,
+    meta: ReprMeta,
+  ) => Record<string, string>;
+
+  /**
+   * Open Graph tag generator.
+   * - `true` infers basic OG tags from the page title and `meta()` output.
+   * - A function returns a map of property → content for `<meta property="...">`.
+   */
+  openGraph?:
+    | boolean
+    | ((
+        path: string,
+        kind: string,
+        data: unknown,
+        meta: ReprMeta,
+      ) => Record<string, string>);
 }
 
 /**
@@ -611,6 +662,12 @@ export function createHtmlTransformer(config?: HtmlTransformerConfig): Transform
   const headExtra = config?.headHtml;
   const sdkEnabled = config?.sdk !== false;
   const sitemap = config?.sitemap;
+  const customElements = config?.customElements ?? [];
+  const assets = config?.assets ?? {};
+  const langFallback = config?.lang;
+  const noscriptEnabled = config?.noscript === true;
+  const metaFn = config?.meta;
+  const openGraphFn = config?.openGraph;
 
   return {
     input: anySchema,
@@ -678,9 +735,26 @@ export function createHtmlTransformer(config?: HtmlTransformerConfig): Transform
         `  <link rel="stylesheet" href="${escapeHtml(s)}">`,
       ).join("\n");
 
-      // SDK script tag
+      // SDK script tag — path-independent relative URL
       const sdkTag = sdkEnabled
-        ? '\n  <script type="module" src="/_rikka/sdk.js"><\/script>'
+        ? `\n  <script type="module" src="${escapeHtml(relativeToRoot(path, ".well-known/sdk/sdk.js"))}"><\/script>`
+        : "";
+
+      // Custom element bundle script — only when elements are registered
+      const elementsHref =
+        customElements.length > 0
+          ? relativeToRoot(path, ".well-known/assets/elements.js")
+          : null;
+      const elementsTag = elementsHref
+        ? `\n  <script type="module" src="${escapeHtml(elementsHref)}"><\/script>`
+        : "";
+
+      // Favicon link — only when a favicon.ico asset is registered
+      const faviconHref = assets["favicon.ico"]
+        ? relativeToRoot(path, ".well-known/assets/favicon.ico")
+        : null;
+      const faviconTag = faviconHref
+        ? `\n  <link rel="icon" href="${escapeHtml(faviconHref)}">`
         : "";
 
       // JSON-LD data tag
@@ -695,15 +769,46 @@ export function createHtmlTransformer(config?: HtmlTransformerConfig): Transform
         ? `\n  <script type="application/json" data-sitemap>${escapeHtml(JSON.stringify({ routes: sitemap }))}</script>`
         : "";
 
+      // Language attribute — inferred from repr meta or config, omitted if absent
+      const pageLang = repr.meta.lang ?? langFallback;
+      const langAttr = pageLang ? ` lang="${escapeHtml(pageLang)}"` : "";
+
+      // Dynamic <meta name="..."> tags
+      const metaMap = metaFn ? metaFn(path, kind, data, repr.meta) : {};
+      const metaTags = Object.entries(metaMap)
+        .map(([name, content]) =>
+          `\n  <meta name="${escapeHtml(name)}" content="${escapeHtml(content)}">`
+        )
+        .join("");
+
+      // Open Graph <meta property="..."> tags
+      let ogMap: Record<string, string> = {};
+      if (openGraphFn === true) {
+        ogMap = { "og:title": pageTitle };
+        if (metaMap.description) ogMap["og:description"] = metaMap.description;
+      } else if (typeof openGraphFn === "function") {
+        ogMap = openGraphFn(path, kind, data, repr.meta);
+      }
+      const ogTags = Object.entries(ogMap)
+        .map(([property, content]) =>
+          `\n  <meta property="${escapeHtml(property)}" content="${escapeHtml(content)}">`
+        )
+        .join("");
+
+      // Noscript fallback showing raw resource data
+      const noscriptTag = noscriptEnabled
+        ? `\n  <noscript>\n    <pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>\n  </noscript>`
+        : "";
+
       const html = `<!DOCTYPE html>
-<html lang="en">
+<html${langAttr}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(pageTitle)}</title>${extraHeadLinks}${stylesheetTags ? "\n" + stylesheetTags : ""}${sdkTag}${scriptTags ? "\n" + scriptTags : ""}${jsonldTag}${sitemapTag}${headExtra ? "\n" + headExtra : ""}
+  <title>${escapeHtml(pageTitle)}</title>${metaTags}${ogTags}${faviconTag}${extraHeadLinks}${stylesheetTags ? "\n" + stylesheetTags : ""}${sdkTag}${elementsTag}${scriptTags ? "\n" + scriptTags : ""}${jsonldTag}${sitemapTag}${headExtra ? "\n" + headExtra : ""}
 </head>
 <body>
-  ${finalBodyContent}
+  ${finalBodyContent}${noscriptTag}
 </body>
 </html>`;
 
@@ -763,6 +868,12 @@ function buildElementHtml(
       return `<${tag} ${baseAttrs} data-href="${escapeHtml(dataHref)}">\n</${tag}>`;
     }
   }
+}
+
+function relativeToRoot(path: string, target: string): string {
+  const depth = path.split("/").filter(Boolean).length;
+  const prefix = depth === 0 ? "./" : "../".repeat(depth);
+  return prefix + target;
 }
 
 function escapeHtml(s: string): string {

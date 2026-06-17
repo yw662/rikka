@@ -243,6 +243,84 @@ rikka uses `queueMicrotask` to defer registration, so multiple `defineElement` c
 
 If the defining module loads asynchronously, custom elements may briefly exist as plain `HTMLElement`s with no `.$xxx` accessors. Import the defining module at the top of the entry file, or use dynamic `import()` before creating instances.
 
+## rikka-site specific pitfalls
+
+### `defineElement()` already calls `customElements.define()`
+
+Don't call `customElements.define()` again for elements created with `defineElement()` — it throws `NotSupportedError: "the name X has already been used"`:
+
+```typescript
+// ❌ Double registration — crashes
+const MyEl = defineElement("my-el", { ... });
+customElements.define("my-el", MyEl); // Error!
+
+// ✅ defineElement() handles registration internally
+const MyEl = defineElement("my-el", { ... });
+// No need to call customElements.define()
+```
+
+If you need a safe re-registration function (e.g., for testing), guard with `customElements.get()`:
+
+```typescript
+function register(name: string, ctor: CustomElementConstructor) {
+  if (!customElements.get(name)) customElements.define(name, ctor);
+}
+```
+
+### `data-path` is a plain attribute, not reactive
+
+rikka-site sets `data-path` on your layout element as a plain HTML attribute. It's **not** declared in your `attributes` config and won't be reactive:
+
+```typescript
+defineElement("blog-layout", {
+  attributes: { siteName: StringAttr, currentPath: StringAttr },
+  render(this) {
+    // ❌ this.currentPath is "/" (default) — SSR never sets it
+    // ✅ Read the actual path from SSR-injected attribute:
+    const actualPath = this.getAttribute("data-path") ?? "/";
+    const pathSignal = signal(actualPath);
+  },
+});
+```
+
+### Trailing slashes in paths
+
+Server URLs may have trailing slashes (`/articles/1/`). Always normalize before routing:
+
+```typescript
+const normPath = (this.getAttribute("path") ?? "").replace(/\/+$/, "");
+```
+
+### Route specificity order matters
+
+When writing client-side routers, match **more specific paths before less specific ones**:
+
+```typescript
+// ✅ Correct order: item BEFORE collection
+if (normPath.match(/^\/articles\/\d+$/))      // /articles/1 → detail
+  return document.createElement("article-detail");
+if (normPath.startsWith("/articles"))          // /articles → list
+  return document.createElement("article-list");
+
+// ❌ Wrong order: collection captures everything
+if (normPath.startsWith("/articles"))          // /articles/1 matched here!
+  return document.createElement("article-list");
+```
+
+### Data format differs between `data-resource` and JSON-LD
+
+- **`data-resource` attribute**: raw array `[...]` or object `{...}`
+- **JSON-LD `<script>`**: wrapped in `{ "@graph": [...] }` for collections
+
+Handle both formats defensively in your hydration code:
+
+```typescript
+const rawData = findResourceData(this);
+const items = signal(
+  Array.isArray(rawData) ? rawData : (rawData?.["@graph"] ?? [])
+);
+```
+
 ## See also
 
 - [../reactive-state/](../reactive-state/) — signals, computed, effect

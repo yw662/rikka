@@ -39,7 +39,7 @@ describe("resource tree behavior", () => {
       accept: "application/json",
     }));
     expect(r.status).toBe(200);
-    const list = JSON.parse(r.body);
+    const list = JSON.parse(r.body as string);
     expect(list.length).toBeGreaterThan(0);
     for (const a of list) {
       expect(a).toHaveProperty("authorName");
@@ -58,7 +58,7 @@ describe("resource tree behavior", () => {
       accept: "application/json",
     }));
     expect(r.status).toBe(200);
-    const list = JSON.parse(r.body);
+    const list = JSON.parse(r.body as string);
     expect(list.length).toBeGreaterThan(0);
   });
 
@@ -100,7 +100,7 @@ describe("resource tree behavior", () => {
       accept: "application/json",
     }));
     expect(r.status).toBe(200);
-    const article = JSON.parse(r.body);
+    const article = JSON.parse(r.body as string);
     expect(article.id).toBe(1);
     expect(article).toHaveProperty("comments");
     expect(Array.isArray(article.comments)).toBe(true);
@@ -160,7 +160,7 @@ describe("resource tree behavior", () => {
       body: { title: "patched" },
     }));
     expect(p.status).toBe(200);
-    const article = JSON.parse(p.body);
+    const article = JSON.parse(p.body as string);
     expect(article.title).toBe("patched");
     expect(article.body).toBe("orig"); // preserved
   });
@@ -174,7 +174,7 @@ describe("resource tree behavior", () => {
       accept: "application/json",
     }));
     expect(r.status).toBe(200);
-    const s = JSON.parse(r.body);
+    const s = JSON.parse(r.body as string);
     expect(s).toHaveProperty("siteName");
     expect(s).toHaveProperty("theme");
     expect(s).toHaveProperty("postsPerPage");
@@ -198,7 +198,7 @@ describe("resource tree behavior", () => {
       accept: "application/json",
     }));
     expect(r.status).toBe(200);
-    const d = JSON.parse(r.body);
+    const d = JSON.parse(r.body as string);
     expect(typeof d.articleCount).toBe("number");
     expect(typeof d.commentCount).toBe("number");
     expect(typeof d.userCount).toBe("number");
@@ -219,7 +219,7 @@ describe("resource tree behavior", () => {
       body: { query: "Signals" },
     }));
     expect(r.status).toBe(200);
-    const results = JSON.parse(r.body);
+    const results = JSON.parse(r.body as string);
     expect(results.length).toBeGreaterThan(0);
   });
 
@@ -345,7 +345,7 @@ describe("write operations", () => {
       body: { title: "Updated Title", body: "Updated body." },
     }));
     expect(response.status).toBe(200);
-    const data = JSON.parse(response.body);
+    const data = JSON.parse(response.body as string);
     expect(data.title).toBe("Updated Title");
     expect(data.body).toBe("Updated body.");
   });
@@ -368,7 +368,7 @@ describe("write operations", () => {
       body: { name: "Frank", email: "frank@example.com", role: "reader" },
     }));
     expect(response.status).toBe(201);
-    const data = JSON.parse(response.body);
+    const data = JSON.parse(response.body as string);
     expect(data.name).toBe("Frank");
   });
 
@@ -390,7 +390,7 @@ describe("write operations", () => {
       body: { siteName: "New Name", theme: "light", postsPerPage: 5 },
     }));
     expect(response.status).toBe(200);
-    const data = JSON.parse(response.body);
+    const data = JSON.parse(response.body as string);
     expect(data.siteName).toBe("New Name");
     expect(data.theme).toBe("light");
     expect(data.postsPerPage).toBe(5);

@@ -56,44 +56,16 @@ import {
   computed,
 } from "@takanashi/rikka-signal";
 
-async function apiErrorMessage(res: Response): Promise<string> {
-  try {
-    const body = await res.json();
-    if (body && typeof body.error === "string") return body.error;
-  } catch { /* fall through */ }
-  try {
-    const text = await res.text();
-    if (text) return text.slice(0, 200);
-  } catch { /* fall through */ }
-  return res.statusText;
-}
+import type { RikkaSdk } from "@takanashi/rikka-site/sdk";
 
-async function apiPatch(path: string, body: unknown): Promise<unknown> {
-  const res = await fetch(path, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(await apiErrorMessage(res));
-  return res.json();
-}
-
-async function apiPost(path: string, body: unknown): Promise<unknown> {
-  const res = await fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(await apiErrorMessage(res));
-  return res.json();
-}
-
-async function apiDelete(path: string): Promise<void> {
-  const res = await fetch(path, {
-    method: "DELETE",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) throw new Error(await apiErrorMessage(res));
+function getSdk(): RikkaSdk {
+  const sdk = (window as any).__rikka as RikkaSdk | undefined;
+  if (!sdk) {
+    throw new Error(
+      "rikka-site SDK is not loaded. Ensure /_rikka/sdk.js is included before the custom element bundle.",
+    );
+  }
+  return sdk;
 }
 
 // ---------------------------------------------------------------------------
@@ -1455,7 +1427,7 @@ const BlogArticleDetail = defineElement("blog-article-detail", {
       try {
         const id = article.get()?.id;
         if (!id) throw new Error("Missing article id");
-        const updated = await apiPatch(`/articles/${id}`, {
+        const updated = await getSdk().apiPatch(`/articles/${id}`, {
           title: titleVal,
           body: bodyVal,
           tags: editTags.get().split(",").map((t) => t.trim()).filter(Boolean),
@@ -1474,7 +1446,7 @@ const BlogArticleDetail = defineElement("blog-article-detail", {
       const id = article.get()?.id;
       if (!id) return;
       try {
-        await apiDelete(`/articles/${id}`);
+        await getSdk().apiDelete(`/articles/${id}`);
         article.set(null);
         showToast("success", "Article deleted successfully");
       } catch (err) {
@@ -1804,7 +1776,7 @@ const BlogUserList = defineElement("blog-user-list", {
 
       saving.set(true);
       try {
-        const created = await apiPost("/users", {
+        const created = await getSdk().apiPost("/users", {
           name: nameVal,
           email: emailVal,
           role: newRole.get(),
@@ -2274,7 +2246,7 @@ const BlogSettings = defineElement("blog-settings", {
       saving.set(true);
       saveStatus.set("saving");
       try {
-        const updated = await apiPatch("/settings", {
+        const updated = await getSdk().apiPatch("/settings", {
           siteName: siteNameVal,
           theme: editTheme.get(),
           postsPerPage: postsPerPageVal,
@@ -2405,7 +2377,7 @@ const BlogSettings = defineElement("blog-settings", {
               if (confirmed) {
                 try {
                   const defaults = { siteName: "Rikka Blog", theme: "dark", postsPerPage: 10 };
-                  const updated = await apiPatch("/settings", defaults);
+                  const updated = await getSdk().apiPatch("/settings", defaults);
                   originalData.set(updated as SettingsData);
                   showToast("success", "Settings reset to defaults");
                 } catch (err) {

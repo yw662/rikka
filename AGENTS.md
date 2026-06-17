@@ -34,7 +34,7 @@ There are 14 task-oriented skills, one folder each: `rikka/`, `overview/`, `reac
 These are the most common LLM errors. Internalize them before writing rikka code.
 
 1. **Pass the signal, not `.get()`** to DOM children/attributes. `p({}, count)` is reactive; `p({}, count.get())` is static.
-2. **Plain function vs `computed`** — function *children* are auto-wrapped, but function *values* (e.g. `inlineStyle` arguments) are not. Use `computed()` explicitly for value-position reactivity.
+2. **Plain function vs `computed`** — function _children_ are auto-wrapped, but function _values_ (e.g. `inlineStyle` arguments) are not. Use `computed()` explicitly for value-position reactivity.
 3. **`this.xxx` vs `this.$xxx`** in `defineElement.render()` — `this.count` is the raw number, `this.$count` is the signal. Use `$` for DOM bindings.
 4. **`events` values are transform functions** — `(e) => detail`, not `MouseEvent` type markers.
 
@@ -42,15 +42,16 @@ Full list with examples: <https://yw662.github.io/rikka/skills/common-pitfalls/S
 
 ## If you're working on this repository
 
-This is the rikka monorepo. Three published packages live under `utils/`:
+This is the rikka monorepo. Four published packages live under `utils/`:
 
-| Package | Path | Description |
-|---------|------|-------------|
-| `@takanashi/rikka-signal` | `utils/rikka-signal/` | Reactive primitives: `signal`, `computed`, `effect` |
-| `@takanashi/rikka-dom` | `utils/rikka-dom/` | DOM creation: `h`, tag helpers, `For`/`Show`/`Switch`, `css` |
-| `@takanashi/rikka-elements` | `utils/rikka-elements/` | Custom Elements: `defineElement`, `event`, attribute specs |
+| Package                     | Path                    | Description                                                                              |
+| --------------------------- | ----------------------- | ---------------------------------------------------------------------------------------- |
+| `@takanashi/rikka-signal`   | `utils/rikka-signal/`   | Reactive primitives: `signal`, `computed`, `effect`                                      |
+| `@takanashi/rikka-dom`      | `utils/rikka-dom/`      | DOM creation: `h`, tag helpers, `For`/`Show`/`Switch`, `css`                             |
+| `@takanashi/rikka-elements` | `utils/rikka-elements/` | Custom Elements: `defineElement`, `event`, attribute specs                               |
+| `@takanashi/rikka-site`     | `utils/rikka-site/`     | Resource-oriented server: Kind system, Schema, Representation, content negotiation, auth |
 
-Plus `components/rikka-live-playground/` (a web-component code playground) and `docs/rikka-homepage/` (the marketing site).
+Plus `components/rikka-live-playground/` (a web-component code playground), `docs/rikka-homepage/` (the marketing site), and `examples/blog-site/` (a rikka-site example).
 
 ### Build & test
 
@@ -70,12 +71,14 @@ utils/                        # published npm packages
   rikka-signal/
   rikka-dom/
   rikka-elements/
+  rikka-site/                 # resource-oriented server framework
 components/                   # published web components
   rikka-live-playground/
 docs/                         # documentation site source
   rikka-homepage/             # the marketing site (deployed to GitHub Pages)
   research/llm/               # LLM-friendliness design notes and benchmark
 examples/                     # example projects
+  blog-site/                  # rikka-site example with all 6 Kinds
 scripts/                      # CI / test / typecheck scripts (browser-test paused, see scripts/browser-test.mjs)
 skills/                       # 14 agentskills.io-format skills, one folder each
   rikka/                      # orientation skill (umbrella)
@@ -114,6 +117,13 @@ Use the **scoped** package form (the published names):
 import { signal, computed, effect } from "@takanashi/rikka-signal";
 import { h, div, button, For, Show } from "@takanashi/rikka-dom";
 import { defineElement, event, StringAttr } from "@takanashi/rikka-elements";
+import {
+  Collection,
+  Item,
+  site,
+  handleWebRequest,
+  registerTransformer,
+} from "@takanashi/rikka-site";
 ```
 
 Unscoped forms like `rikka-signal` are not the published names.

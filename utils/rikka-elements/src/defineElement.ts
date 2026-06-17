@@ -12,6 +12,14 @@ import {
 } from "./webmcp.js";
 import type { ToolDefinition, ToolContextMapping } from "./webmcp.js";
 
+// In Node/SSR environments HTMLElement may not be available. Use a minimal
+// stub as the base class so defineElement() can still be imported and its
+// class returned without crashing.
+const RikkaBaseElement =
+  typeof HTMLElement !== "undefined"
+    ? HTMLElement
+    : (class HTMLElementStub {} as unknown as typeof HTMLElement);
+
 // Extended isPlainObject that also excludes Element and DocumentFragment,
 // since defineElement deals with DOM APIs where these are common.
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -19,8 +27,8 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
     typeof value === "object" &&
     value !== null &&
     !Array.isArray(value) &&
-    !(value instanceof Element) &&
-    !(value instanceof DocumentFragment)
+    !(typeof Element !== "undefined" && value instanceof Element) &&
+    !(typeof DocumentFragment !== "undefined" && value instanceof DocumentFragment)
   );
 }
 
@@ -312,14 +320,17 @@ export type ElementConstructor<C extends BaseConfig> =
     ? (new (...args: any[]) => RikkaElement<C>) & {
         observedAttributes: (keyof C["attributes"] & string)[];
         readonly h: TagFunctionH<C>;
+        readonly tagName: string;
       }
     : C["dataset"] extends Record<string, DatasetSpec>
       ? (new (...args: any[]) => RikkaElement<C>) & {
           observedAttributes: (keyof C["dataset"] & string)[];
           readonly h: TagFunctionH<C>;
+          readonly tagName: string;
         }
       : (new (...args: any[]) => RikkaElement<C>) & {
           readonly h: TagFunctionH<C>;
+          readonly tagName: string;
         };
 
 // ---------------------------------------------------------------------------
@@ -1235,7 +1246,7 @@ function defineElementImpl<C extends BaseConfig = BaseConfig>(
     | ((this: HTMLElement) => Element)
     | undefined;
 
-  class RikkaElementInner extends HTMLElement {
+  class RikkaElementInner extends RikkaBaseElement {
     static observedAttributes: string[] = [];
     static tagName: string = tagName;
 
@@ -1341,7 +1352,7 @@ function defineElementImpl<C extends BaseConfig = BaseConfig>(
 
   applyEvents(proto, RikkaElementInner, events);
 
-  if (!customElements.get(tagName)) {
+  if (typeof customElements !== "undefined" && !customElements.get(tagName)) {
     customElements.define(
       tagName,
       RikkaElementInner as unknown as CustomElementConstructor,

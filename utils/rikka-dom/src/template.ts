@@ -14,6 +14,14 @@ export function css(
   strings: TemplateStringsArray,
   ...values: (string | number | CSSStyleSheet | SignalLike)[]
 ): CSSStyleSheet {
+  if (typeof CSSStyleSheet === "undefined") {
+    return {
+      cssRules: [],
+      replaceSync: () => {},
+      replace: () => Promise.resolve(undefined),
+    } as unknown as CSSStyleSheet;
+  }
+
   const sheet = new CSSStyleSheet();
 
   const signalEntries: SignalLike[] = [];

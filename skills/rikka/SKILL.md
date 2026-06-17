@@ -146,6 +146,7 @@ This is the orientation skill. For actual work, load the matching task-specific 
 - The `template` option with `{{name}}` / `{{@event}}` → `../template-binding/`
 - Composing components and embedding custom elements → `../composition/`
 - SVG → `../svg/`
+- **Full-stack server framework (resource-oriented, content negotiation)** → `../rikka-site/`
 - Old browsers, polyfills, SSR → `../browser-compatibility/`
 - Debugging LLM-specific mistakes → `../common-pitfalls/`
 

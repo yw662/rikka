@@ -1330,6 +1330,117 @@ const inlineStyleContent = {
   nextDefineElement: { en: "defineElement →", zh: "defineElement →" } as Record<Locale, string>,
 };
 
+/**
+ * Page 30 — rikka-site Overview
+ */
+const siteOverviewContent = {
+  subtitle: {
+    en: "A resource-oriented server framework with Schema, Repr, and content negotiation.",
+    zh: "基于 Schema、Repr 和内容协商的资源导向服务器框架。",
+  } as Record<Locale, string>,
+  installation: { en: "Installation", zh: "安装" } as Record<Locale, string>,
+  quickExample: { en: "Quick Example", zh: "快速示例" } as Record<Locale, string>,
+  quickExampleDesc: {
+    en: "Define resources with Kinds, wire them into a site tree, and deploy to any JS runtime:",
+    zh: "使用 Kind 定义资源，将它们连接到 site 树中，然后部署到任何 JS 运行时：",
+  } as Record<Locale, string>,
+  coreConcepts: { en: "Core Concepts", zh: "核心概念" } as Record<Locale, string>,
+  coreConceptsDesc: {
+    en: "rikka-site models your server as a tree of Resources. Each Resource has a Kind that determines its HTTP method mapping, a Schema for validation, and a TransformerRegistry for content negotiation.",
+    zh: "rikka-site 将服务器建模为资源树。每个资源有一个 Kind 决定其 HTTP 方法映射、一个 Schema 用于验证、以及一个 TransformerRegistry 用于内容协商。",
+  } as Record<Locale, string>,
+  prevApiReference: { en: "← API Reference", zh: "← API 参考" } as Record<Locale, string>,
+  nextKinds: { en: "Kinds →", zh: "资源类型 →" } as Record<Locale, string>,
+};
+
+/**
+ * Page 31 — rikka-site Kinds
+ */
+const siteKindsContent = {
+  subtitle: {
+    en: "Kinds define the HTTP method mapping and behavior of each resource.",
+    zh: "Kind 定义每个资源的 HTTP 方法映射和行为。",
+  } as Record<Locale, string>,
+  sixKinds: { en: "The Six Kinds", zh: "六种 Kind" } as Record<Locale, string>,
+  sixKindsDesc: {
+    en: "rikka-site provides six built-in Kinds, each mapping to a specific set of HTTP methods:",
+    zh: "rikka-site 提供六种内置 Kind，每种映射到一组特定的 HTTP 方法：",
+  } as Record<Locale, string>,
+  kindDetails: { en: "Kind Details", zh: "Kind 详情" } as Record<Locale, string>,
+  kindDetailsDesc: {
+    en: "Each Kind is a ResourceFactory — a function from config to a Resource constructor. The resource class implements handlers for its HTTP methods, and you can override or extend them as needed.",
+    zh: "每个 Kind 是一个 ResourceFactory — 一个从配置到 Resource 构造函数的工厂。Resource 类实现了其 HTTP 方法的处理器，你可以按需覆盖或扩展。",
+  } as Record<Locale, string>,
+  prevOverview: { en: "← Overview", zh: "← 概述" } as Record<Locale, string>,
+  nextSchema: { en: "Schema →", zh: "Schema →" } as Record<Locale, string>,
+};
+
+/**
+ * Page 32 — rikka-site Schema
+ */
+const siteSchemaContent = {
+  subtitle: {
+    en: "Schema provides runtime type validation for request and response bodies.",
+    zh: "Schema 为请求和响应体提供运行时类型验证。",
+  } as Record<Locale, string>,
+  schemaTypes: { en: "Schema Types", zh: "Schema 类型" } as Record<Locale, string>,
+  schemaTypesDesc: {
+    en: "rikka-site includes 7 built-in schema types for validating data at resource boundaries:",
+    zh: "rikka-site 包含 7 种内置 Schema 类型，用于在资源边界验证数据：",
+  } as Record<Locale, string>,
+  schemaMatches: { en: "schemaMatches", zh: "schemaMatches" } as Record<Locale, string>,
+  schemaMatchesDesc: {
+    en: "The schemaMatches function validates a value against a Schema at runtime, returning a typed result. It is used internally by Kinds to validate request bodies before handlers run.",
+    zh: "schemaMatches 函数在运行时根据 Schema 验证值，返回类型化结果。它被 Kind 内部用于在处理器运行前验证请求体。",
+  } as Record<Locale, string>,
+  prevKinds: { en: "← Kinds", zh: "← 资源类型" } as Record<Locale, string>,
+  nextTransformers: { en: "Transformers →", zh: "转换器 →" } as Record<Locale, string>,
+};
+
+/**
+ * Page 33 — rikka-site Transformers
+ */
+const siteTransformersContent = {
+  subtitle: {
+    en: "Transformers handle content negotiation and I/O transformation in the request/response pipeline.",
+    zh: "Transformer 在请求/响应管道中处理内容协商和 I/O 转换。",
+  } as Record<Locale, string>,
+  transformerInterface: { en: "Transformer Interface", zh: "Transformer 接口" } as Record<Locale, string>,
+  transformerInterfaceDesc: {
+    en: "A Transformer converts one Repr into another. The input and output fields declare what the transformer accepts and produces (Schema for structured data, MIME string for raw content). The transform method receives a Repr and returns a new one.",
+    zh: "Transformer 将一个 Repr 转换为另一个。input 和 output 字段声明了 transformer 接受和产出的内容（Schema 用于结构化数据，MIME 字符串用于原始内容）。transform 方法接收一个 Repr 并返回一个新的 Repr。",
+  } as Record<Locale, string>,
+  pipeline: { en: "Pipeline", zh: "管道" } as Record<Locale, string>,
+  pipelineDesc: {
+    en: "Transformers are registered on a TransformerRegistry instance and applied in order. Each transformer can inspect the Content-Type header and decide whether to handle the request or pass it to the next transformer.",
+    zh: "Transformer 在 TransformerRegistry 实例上注册并按顺序应用。每个 transformer 可以检查 Content-Type 头，决定是否处理请求或传递给下一个 transformer。",
+  } as Record<Locale, string>,
+  prevSchema: { en: "← Schema", zh: "← Schema" } as Record<Locale, string>,
+  nextAuth: { en: "Auth →", zh: "认证 →" } as Record<Locale, string>,
+};
+
+/**
+ * Page 34 — rikka-site Auth
+ */
+const siteAuthContent = {
+  subtitle: {
+    en: "Auth provides authentication and authorization for resource trees.",
+    zh: "Auth 为资源树提供认证和授权。",
+  } as Record<Locale, string>,
+  authConfig: { en: "AuthConfig", zh: "AuthConfig" } as Record<Locale, string>,
+  authConfigDesc: {
+    en: "AuthConfig defines how authentication is applied to your site. It specifies the authentication strategy and which paths require authentication.",
+    zh: "AuthConfig 定义认证如何应用于你的站点。它指定认证策略以及哪些路径需要认证。",
+  } as Record<Locale, string>,
+  globRules: { en: "Glob Rules", zh: "Glob 规则" } as Record<Locale, string>,
+  globRulesDesc: {
+    en: "Path matching uses glob-style patterns. Wildcards (*) match single path segments, double wildcards (**) match any number of segments. Rules are evaluated in order; the first match wins.",
+    zh: "路径匹配使用 glob 风格的模式。通配符 (*) 匹配单个路径段，双通配符 (**) 匹配任意数量的段。规则按顺序评估，第一个匹配生效。",
+  } as Record<Locale, string>,
+  prevTransformers: { en: "← Transformers", zh: "← 转换器" } as Record<Locale, string>,
+  nextApiReference: { en: "API Reference →", zh: "API 参考 →" } as Record<Locale, string>,
+};
+
 export const docContent = {
   sidebar: sidebarContent,
   ui: docUiContent,
@@ -1352,4 +1463,9 @@ export const docContent = {
   cssTemplate: cssTemplateContent,
   apiReference: apiReferenceContent,
   inlineStyle: inlineStyleContent,
+  siteOverview: siteOverviewContent,
+  siteKinds: siteKindsContent,
+  siteSchema: siteSchemaContent,
+  siteTransformers: siteTransformersContent,
+  siteAuth: siteAuthContent,
 };

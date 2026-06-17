@@ -121,10 +121,15 @@ export const app = new Site({
 import { app } from "./resources";
 import { handleWebRequest, createHtmlTransformer } from "@takanashi/rikka-site";
 
-// Customize HTML rendering (layout wrapper + client bundle)
+// Customize HTML rendering (layout wrapper + meta tags + client bundle)
 const htmlTransformer = createHtmlTransformer({
   layoutElement: "blog-layout",        // Wrap content in <blog-layout>
-  scripts: ["/elements.js"],           // Client-side bundle
+  title: (path, kind, data) => `${kind}: ${path}`,
+  meta: (path, kind, data) => ({
+    description: `A ${kind} resource at ${path}`,
+  }),
+  openGraph: true,                     // Infers og:title from title, og:description from meta
+  noscript: true,                      // Injects raw data fallback for no-JS clients
   stylesheets: [],                     // CSS files to inject in <head>
 });
 
@@ -133,6 +138,10 @@ app.registry.register(htmlTransformer);
 
 export default { fetch: (req) => handleWebRequest(app, req) };
 ```
+
+Custom element bundles and static assets are configured on `Site` via
+`customElements` / `customElementsEntry` / `assets`, and injected automatically
+by the transformer (no need to add them to `scripts` manually).
 
 ### Step 3: Build Client Components (`elements.ts`)
 
@@ -206,6 +215,24 @@ Key attributes injected by rikka-site:
 - **`kind`** on `<rikka-resource>` — resource Kind name
 - **`data-resource`** on `<rikka-resource>` — serialized resource data (when `serialization` is `"data-attr"` or `"both"`)
 - **`<script type="application/ld+json">`** — JSON-LD data (when `serialization` is `"jsonld"` or `"both"`)
+
+## HTML Transformer Options
+
+`createHtmlTransformer(config)` controls the SSR HTML envelope:
+
+| Option | Purpose |
+|--------|---------|
+| `layoutElement` | Wrap body content in a custom element (e.g. `<blog-layout>`) |
+| `title` | Static string or `(path, kind, data) => string` for `<title>` |
+| `meta` | `(path, kind, data, meta) => Record<string, string>` for `<meta name>` tags |
+| `openGraph` | `true` to infer basic OG tags, or a function returning property → content |
+| `noscript` | `true` to inject a `<noscript>` fallback with raw resource data |
+| `lang` | Fallback for `<html lang="...">`; `repr.meta.lang` takes precedence |
+| `sdk` | `false` to disable the auto-injected `/.well-known/sdk/sdk.js` script |
+| `sitemap` | Sitemap entries embedded as `<script data-sitemap>` |
+
+Static assets and the custom element bundle are injected automatically when
+registered with `Site` (`assets`, `customElements`, `customElementsEntry`).
 
 ## Patterns & Best Practices
 

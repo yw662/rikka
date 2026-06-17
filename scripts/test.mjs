@@ -5,7 +5,14 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 
-const packages = ["utils/rikka-signal", "utils/rikka-dom", "utils/rikka-elements", "components/rikka-live-playground"];
+const packages = [
+  "utils/rikka-signal",
+  "utils/rikka-dom",
+  "utils/rikka-elements",
+  "utils/rikka-site",
+  "components/rikka-live-playground",
+  "examples/blog-site",
+];
 
 let failed = false;
 

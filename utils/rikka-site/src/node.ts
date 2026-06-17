@@ -19,6 +19,7 @@
 import * as nodeHttp from "node:http";
 import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
+import * as nodeUrl from "node:url";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Site } from "./site.js";
 import type { HttpRequest, HttpResponse } from "./server.js";
@@ -47,10 +48,10 @@ export interface NodeHandlerOptions {
    */
   basePath?: string;
   /**
-   * SDK script source to serve at `/_rikka/sdk.js`.
-   * When not provided, the adapter attempts to load it from the
-   * `dist/sdk/sdk.js` file relative to the package root.
-   * Set to `false` to disable SDK serving.
+   * SDK script source to serve at `/.well-known/sdk/sdk.js`.
+   * When not provided, the adapter attempts to load it via the
+   * `@takanashi/rikka-site/sdk` package export (which resolves to the built
+   * `dist/sdk/sdk.js`). Set to `false` to disable SDK serving.
    */
   sdkScript?: string | false;
   /**
@@ -93,17 +94,16 @@ export interface NodeHandlerOptions {
 let _cachedSdk: string | null = null;
 
 /**
- * Load the SDK bundle from the dist directory.
+ * Load the SDK bundle via the package export.
  * Caches the result after the first successful load.
  */
 function loadSdkBundle(): string | null {
   if (_cachedSdk !== null) return _cachedSdk;
   try {
-    // Resolve relative to this file's location: ../../dist/sdk/sdk.js
-    const distPath = nodePath.resolve(
-      nodePath.dirname(new URL(import.meta.url).pathname),
-      "../sdk/sdk.js",
-    );
+    // Resolve via the package export so it works whether this file is run from
+    // src (tsx) or dist (built), as long as the SDK bundle has been built.
+    const sdkUrl = import.meta.resolve("@takanashi/rikka-site/sdk");
+    const distPath = nodeUrl.fileURLToPath(sdkUrl);
     _cachedSdk = nodeFs.readFileSync(distPath, "utf8");
     return _cachedSdk;
   } catch {
@@ -312,7 +312,7 @@ async function readNodeBody(
 
 function writeNodeResponse(
   res: ServerResponse,
-  response: { status: number; headers: Record<string, string>; body: string },
+  response: { status: number; headers: Record<string, string>; body: string | Uint8Array },
 ): void {
   res.statusCode = response.status;
   for (const [key, value] of Object.entries(response.headers)) {
