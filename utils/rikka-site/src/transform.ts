@@ -700,7 +700,7 @@ export function createHtmlTransformer(config?: HtmlTransformerConfig): Transform
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(pageTitle)}</title>${extraHeadLinks}${stylesheetTags ? "\n" + stylesheetTags : ""}${scriptTags ? "\n" + scriptTags : ""}${sdkTag}${jsonldTag}${sitemapTag}${headExtra ? "\n" + headExtra : ""}
+  <title>${escapeHtml(pageTitle)}</title>${extraHeadLinks}${stylesheetTags ? "\n" + stylesheetTags : ""}${sdkTag}${scriptTags ? "\n" + scriptTags : ""}${jsonldTag}${sitemapTag}${headExtra ? "\n" + headExtra : ""}
 </head>
 <body>
   ${finalBodyContent}
