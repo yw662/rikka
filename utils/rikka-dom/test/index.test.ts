@@ -8,6 +8,8 @@ import {
   Match,
   ReactiveRange,
   applyChild,
+  bindAttrs,
+  attachRange,
 } from "../src/index.js";
 import { h } from "../src/h.js";
 import { css, inlineStyle } from "../src/template.js";
@@ -3327,5 +3329,268 @@ describe("h`` template: no beacon attribute", () => {
   it("does not leave beacon on elements without signal attrs", () => {
     const elements = h`<div class="static">Text</div>`;
     expect(elements[0].hasAttribute("data-rk-bind")).toBe(false);
+  });
+});
+
+describe("bindAttrs()", () => {
+  it("applies static attributes to an existing element", () => {
+    const el = document.createElement("div");
+    bindAttrs(el, { class: "container", id: "main" });
+    expect(el.className).toBe("container");
+    expect(el.id).toBe("main");
+  });
+
+  it("reactively updates a signal attribute", async () => {
+    const className = signal("a");
+    const el = document.createElement("div");
+    bindAttrs(el, { class: className });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.className).toBe("a");
+    className.set("b");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.className).toBe("b");
+  });
+
+  it("handles style string", () => {
+    const el = document.createElement("div");
+    bindAttrs(el, { style: "color: red" });
+    expect(el.style.color).toBe("red");
+  });
+
+  it("handles style object", () => {
+    const el = document.createElement("div");
+    bindAttrs(el, { style: { color: "red", fontSize: "16px" } });
+    expect(el.style.color).toBe("red");
+    expect(el.style.fontSize).toBe("16px");
+  });
+
+  it("assigns event handlers", () => {
+    let clicked = false;
+    const el = document.createElement("button");
+    bindAttrs(el, {
+      onclick: () => {
+        clicked = true;
+      },
+    });
+    el.click();
+    expect(clicked).toBe(true);
+  });
+
+  it("two-way binds value on input", async () => {
+    const value = signal("hello");
+    const el = document.createElement("input");
+    bindAttrs(el, { value });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.value).toBe("hello");
+
+    el.value = "world";
+    el.dispatchEvent(new Event("input"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(value.get()).toBe("world");
+  });
+
+  it("two-way binds value on textarea", async () => {
+    const value = signal("hello");
+    const el = document.createElement("textarea");
+    bindAttrs(el, { value });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.value).toBe("hello");
+
+    el.value = "world";
+    el.dispatchEvent(new Event("input"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(value.get()).toBe("world");
+  });
+
+  it("two-way binds value on select", async () => {
+    const value = signal("a");
+    const el = document.createElement("select");
+    el.appendChild(document.createElement("option")).value = "a";
+    el.appendChild(document.createElement("option")).value = "b";
+    bindAttrs(el, { value });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.value).toBe("a");
+
+    el.value = "b";
+    el.dispatchEvent(new Event("change"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(value.get()).toBe("b");
+  });
+
+  it("two-way binds checked on checkbox", async () => {
+    const checked = signal(false);
+    const el = document.createElement("input");
+    el.type = "checkbox";
+    bindAttrs(el, { checked });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.checked).toBe(false);
+
+    el.checked = true;
+    el.dispatchEvent(new Event("change"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(checked.get()).toBe(true);
+  });
+
+  it("two-way binds selectedIndex on select", async () => {
+    const selectedIndex = signal(0);
+    const el = document.createElement("select");
+    el.appendChild(document.createElement("option"));
+    el.appendChild(document.createElement("option"));
+    bindAttrs(el, { selectedIndex });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.selectedIndex).toBe(0);
+
+    el.selectedIndex = 1;
+    el.dispatchEvent(new Event("change"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(selectedIndex.get()).toBe(1);
+  });
+
+  it("reads valueAsNumber for number input", async () => {
+    const value = signal(0);
+    const el = document.createElement("input");
+    el.type = "number";
+    bindAttrs(el, { value });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.valueAsNumber).toBe(0);
+
+    el.value = "42";
+    el.dispatchEvent(new Event("input"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(value.get()).toBe(42);
+    expect(typeof value.get()).toBe("number");
+  });
+
+  it("does not set up two-way binding for non-form attributes", async () => {
+    const disabled = signal(false);
+    const el = document.createElement("button");
+    bindAttrs(el, { disabled });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.disabled).toBe(false);
+
+    el.disabled = true;
+    el.dispatchEvent(new Event("input"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(disabled.get()).toBe(false);
+  });
+
+  it("binds nested signal inside style object", async () => {
+    const color = signal("red");
+    const el = document.createElement("div");
+    bindAttrs(el, { style: { color, fontSize: "16px" } });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.style.color).toBe("red");
+    expect(el.style.fontSize).toBe("16px");
+
+    color.set("blue");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.style.color).toBe("blue");
+    expect(el.style.fontSize).toBe("16px");
+  });
+
+  it("two-way binds checked on radio", async () => {
+    const checked = signal(false);
+    const el = document.createElement("input");
+    el.type = "radio";
+    bindAttrs(el, { checked });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.checked).toBe(false);
+
+    el.checked = true;
+    el.dispatchEvent(new Event("change"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(checked.get()).toBe(true);
+  });
+
+  it("reads valueAsNumber for range input", async () => {
+    const value = signal(0);
+    const el = document.createElement("input");
+    el.type = "range";
+    bindAttrs(el, { value });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.valueAsNumber).toBe(0);
+
+    el.value = "42";
+    el.dispatchEvent(new Event("input"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(value.get()).toBe(42);
+    expect(typeof value.get()).toBe("number");
+  });
+
+  it("does not two-way bind value on non-input element", async () => {
+    const value = signal("hello");
+    const el = document.createElement("div");
+    bindAttrs(el, { value });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.getAttribute("value")).toBe("hello");
+
+    el.dispatchEvent(new Event("input"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(value.get()).toBe("hello");
+  });
+
+  it("does not two-way bind computed signal on input", async () => {
+    const count = signal(1);
+    const doubled = computed(() => count.get() * 2);
+    const el = document.createElement("input");
+    bindAttrs(el, { value: doubled });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.value).toBe("2");
+
+    el.value = "99";
+    el.dispatchEvent(new Event("input"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(doubled.get()).toBe(2);
+
+    count.set(5);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.value).toBe("10");
+  });
+});
+
+describe("attachRange()", () => {
+  it("mounts a ReactiveRange into an existing parent", () => {
+    const parent = document.createElement("div");
+    const range = new ReactiveRange((range) => {
+      const p = range.parent;
+      if (!p) return;
+      const span = document.createElement("span");
+      span.textContent = "hi";
+      p.insertBefore(span, range.end);
+    });
+    attachRange(parent, range);
+    expect(parent.textContent).toBe("hi");
+  });
+
+  it("respects the ref insertion point", () => {
+    const parent = document.createElement("div");
+    const first = document.createElement("p");
+    first.textContent = "first";
+    parent.appendChild(first);
+
+    const range = new ReactiveRange((range) => {
+      const p = range.parent;
+      if (!p) return;
+      const span = document.createElement("span");
+      span.textContent = "middle";
+      p.insertBefore(span, range.end);
+    });
+    attachRange(parent, range, first);
+    expect(parent.textContent).toBe("middlefirst");
+  });
+
+  it("detaches cleanly", () => {
+    const parent = document.createElement("div");
+    const range = new ReactiveRange((range) => {
+      const p = range.parent;
+      if (!p) return;
+      const span = document.createElement("span");
+      span.textContent = "hi";
+      p.insertBefore(span, range.end);
+    });
+    attachRange(parent, range);
+    range.detach();
+    expect(parent.textContent).toBe("");
+    expect(range.alive).toBe(false);
   });
 });
