@@ -50,7 +50,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: true
+          # Temporarily disable provenance for the initial @takanashi/rikka-site publish.
+          # Re-enable after the package exists on npm.
+          # NPM_CONFIG_PROVENANCE: true
 
       - name: Enable auto-merge on Version PR
         if: steps.changesets.outputs.published == 'false'
