@@ -1,4 +1,12 @@
-export { applyChild, insertChildBefore, ReactiveRange, createElement, registerDisposable } from "./h.js";
+export {
+  applyChild,
+  insertChildBefore,
+  ReactiveRange,
+  createElement,
+  registerDisposable,
+  bindAttrs,
+  attachRange,
+} from "./h.js";
 export type {
   Child,
   Attributes,
