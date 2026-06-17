@@ -332,59 +332,30 @@ function getTwoWayEventType(attrKey: string, el: Element): string {
   return "input";
 }
 
-function applyAttrs(el: Element, attrs: Record<string, unknown>): void {
-  const signalEntries: [string, Signal.State<unknown> | Signal.Computed<unknown>][] = [];
-
+export function bindAttrs(
+  el: Element,
+  attrs: Record<string, unknown>,
+): void {
   for (const [key, value] of Object.entries(attrs)) {
     if (isSignal(value)) {
-      signalEntries.push([key, value]);
+      applyAttrSignal(el, key, value);
     } else {
       applyAttrStatic(el, key, value);
     }
   }
+}
 
-  if (signalEntries.length === 0) return;
+function applyAttrs(el: Element, attrs: Record<string, unknown>): void {
+  bindAttrs(el, attrs);
+}
 
-  if (signalEntries.length === 1) {
-    const [key, sig] = signalEntries[0];
-    applyAttrSignal(el, key, sig);
-    return;
-  }
-
-  // Batch multiple signal attributes into a single effect
-  const weakRef = new WeakRef(el);
-  const twoWayEntries: [string, Signal.State<unknown>][] = [];
-
-  const dispose = effect(() => {
-    const target = weakRef.deref();
-    if (!target) return;
-    for (const [attrKey, sig] of signalEntries) {
-      if (TWO_WAY_ATTRS.has(attrKey) && isInputElement(target)) {
-        assignDomProperty(target, attrKey, sig.get());
-      } else {
-        applyAttrStatic(target, attrKey, sig.get());
-      }
-    }
-  });
-
-  registerDisposable(el, dispose);
-
-  for (const [attrKey, sig] of signalEntries) {
-    if (isWritableSignal(sig) && TWO_WAY_ATTRS.has(attrKey) && isInputElement(el)) {
-      twoWayEntries.push([attrKey, sig]);
-    }
-  }
-
-  for (const [attrKey, sig] of twoWayEntries) {
-    const eventType = getTwoWayEventType(attrKey, el);
-    const handler = () => {
-      const target = weakRef.deref();
-      if (!target) return;
-      sig.set(readTwoWayValue(target, attrKey, sig));
-    };
-    el.addEventListener(eventType, handler);
-    registerDisposable(el, () => el.removeEventListener(eventType, handler));
-  }
+export function attachRange(
+  parent: Element,
+  range: ReactiveRange,
+  ref: ChildNode | null = null,
+): void {
+  range.attach(parent, ref);
+  registerDisposable(parent, () => range.detach());
 }
 
 function insertChildBefore(
@@ -416,8 +387,7 @@ function insertChildBefore(
   }
 
   if (child instanceof ReactiveRange) {
-    child.attach(parent, ref);
-    registerDisposable(parent, () => child.detach());
+    attachRange(parent, child, ref);
     return;
   }
 
