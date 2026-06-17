@@ -31,6 +31,9 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "rslib build && tsc -p tsconfig.node.json",
     "build:web": "rslib build",

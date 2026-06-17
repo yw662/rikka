@@ -326,12 +326,12 @@ export const homeContent = {
   // Packages section
   packagesEyebrow: { en: "Packages", zh: "包" } as Record<Locale, string>,
   packagesTitle: {
-    en: "Three Packages, Infinite Possibilities",
-    zh: "三个包，无限可能",
+    en: "Four Packages, Infinite Possibilities",
+    zh: "四个包，无限可能",
   } as Record<Locale, string>,
   packagesSubtitle: {
-    en: "Pick what you need. Each package is independently useful and tree-shakeable.",
-    zh: "按需选择。每个包都独立可用且支持 tree-shaking。",
+    en: "Three core primitives plus a resource-oriented server framework. Each package is independently useful and tree-shakeable.",
+    zh: "三大核心原语，外加一个资源导向的服务器框架。每个包都独立可用且支持 tree-shaking。",
   } as Record<Locale, string>,
   packageElementsDesc: {
     en: "Define Custom Elements with Shadow DOM, attributes, events, and styles.",
