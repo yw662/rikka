@@ -80,28 +80,28 @@ button({ onclick: (e) => console.log(e) }, "Click me");
 
 ### `defineElement` attributes — `this.xxx` vs `this.$xxx`
 
-Inside a `render()` function, declared attributes expose two accessors:
+Inside a `render()` function, declared attributes expose two accessors. Both are reactive (render is wrapped in `computed`), but they differ in granularity:
 
 | Accessor | Type | Use it for |
 |----------|------|-----------|
-| `this.name` | `T` (raw value) | Reading the value; non-reactive logic |
-| `this.$name` | `Signal.State<T>` | DOM bindings — fine-grained reactive update |
+| `this.name` | `T` (raw value) | Coarse-grained — whole render re-runs on change |
+| `this.$name` | `Signal.State<T>` | Fine-grained — only the bound DOM node updates |
 
 ```typescript
 defineElement("my-el", {
   attributes: { count: NumberAttr },
   render() {
     return div(
-      // ✅ Fine-grained — text node updates
+      // ✅ Fine-grained — text node updates, rest of DOM preserved
       p({}, this.$count),
-      // ❌ Static — captured at render time
+      // ✅ Coarse-grained — correct, but whole render re-runs on change
       // p({}, this.count),
     );
   },
 });
 ```
 
-Use the `$`-prefix signal for DOM bindings; use the raw attribute value for non-reactive logic.
+Prefer `this.$name` for DOM bindings (fine-grained). Use `this.name` for logic where re-rendering is acceptable.
 
 ## Template literal binding (`h\`\``)
 
@@ -185,14 +185,16 @@ The most common mistake. See the top of this file.
 
 See [Function values vs `computed`](#function-values-vs-computed).
 
-### 3. `this.xxx` (raw) instead of `this.$xxx` (signal) in `render()`
+### 3. `this.count` (coarse-grained) instead of `this.$count` (fine-grained) in `render()`
 
 ```typescript
 render() {
-  return p({}, this.count);     // ❌ static
-  return p({}, this.$count);    // ✅ reactive
+  return p({}, this.count);     // ✅ coarse-grained — works, but re-runs whole render
+  return p({}, this.$count);    // ✅ fine-grained — preferred, only text node updates
 }
 ```
+
+Both work (render is wrapped in `computed`). Prefer `this.$count` for DOM bindings.
 
 ### 4. Coarse-grained `computed(() => h\`\`)` when fine-grained would do
 

@@ -1,15 +1,19 @@
 import { describe, it, expect } from "@rstest/core";
-import { Site, Collection, createHtmlTransformer } from "../src/index.js";
-import type { Repr } from "../src/representation.js";
+import { Site, CollectionKind, createHtmlTransformer } from "../src/index.js";
+import type { RequestContext, Repr } from "../src/index.js";
 
 describe("HTML transformer serialization", () => {
-  const Articles = Collection(() => ({
-    list: () => [{ id: 1, title: "Hello" }],
-    create: () => ({ id: 2, title: "New" }),
-    element: "blog-article-list",
-  }));
+  class Articles extends CollectionKind {
+    element = "blog-article-list";
+    async list(ctx: RequestContext): Promise<Repr> {
+      return { content: [{ id: 1, title: "Hello" }], meta: {} };
+    }
+    async create(ctx: RequestContext): Promise<Repr> {
+      return { content: { id: 2, title: "New" }, meta: {} };
+    }
+  }
 
-  const app = new Site({ articles: Articles() });
+  const app = new Site({ articles: new Articles() });
 
   async function renderHtml(serialization?: "data-attr" | "jsonld" | "both") {
     const transformer = createHtmlTransformer({
@@ -18,9 +22,11 @@ describe("HTML transformer serialization", () => {
     });
     app.registry.register(transformer);
 
-    const resource = app.resolve("/articles")!;
+    const resolved = app.resolve("/articles")!;
+    const resource = resolved.kind;
+    const path = resolved.path;
     const repr: Repr = { content: [{ id: 1, title: "Hello" }], meta: {} };
-    const result = await transformer.transform(repr, { resource });
+    const result = await transformer.transform(repr, { path, element: resource.element });
 
     app.registry.unregister(transformer);
     return result.content as string;

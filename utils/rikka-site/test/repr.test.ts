@@ -2,16 +2,34 @@ import { describe, it, expect } from "@rstest/core";
 import {
   buildLocationHeader,
   parseRangeHeader,
-  Collection,
-  Item,
-  ReadOnly,
-  ItemResource,
+  CollectionKind,
+  ItemKind,
+  ReadOnlyKind,
   Site,
-  HttpError,
+  jsonBody,
 } from "../src/index.js";
+import type { RequestContext, Repr } from "../src/index.js";
 
-function bodyText(body: string | Uint8Array): string {
-  return typeof body === "string" ? body : new TextDecoder().decode(body);
+async function bodyText(
+  body: string | Uint8Array | ReadableStream<Uint8Array>,
+): Promise<string> {
+  if (typeof body === "string") return body;
+  if (body instanceof Uint8Array) return new TextDecoder().decode(body);
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) chunks.push(value);
+  }
+  const total = chunks.reduce((n, c) => n + c.byteLength, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    out.set(c, offset);
+    offset += c.byteLength;
+  }
+  return new TextDecoder().decode(out);
 }
 
 // ---------------------------------------------------------------------------
@@ -140,9 +158,11 @@ describe("parseRangeHeader", () => {
 // ---------------------------------------------------------------------------
 
 describe("206 Partial Content", () => {
-  const Articles = Collection(() => ({
-    create: (ctx) => ({ content: {}, meta: {} }),
-    list: (ctx) => {
+  class Articles extends CollectionKind {
+    async create(ctx: RequestContext): Promise<Repr> {
+      return { content: {}, meta: {} };
+    }
+    async list(ctx: RequestContext): Promise<Repr> {
       const all = Array.from({ length: 100 }, (_, i) => ({ id: i, title: `Article ${i}` }));
       if (!ctx.range) {
         return { content: all, meta: {} };
@@ -157,11 +177,11 @@ describe("206 Partial Content", () => {
         content: { unit: "items", data: segments, total: all.length },
         meta: {},
       };
-    },
-  }));
+    }
+  }
 
-  const Bytes = ReadOnly(() => ({
-    content: (ctx) => {
+  class Bytes extends ReadOnlyKind {
+    async content(ctx: RequestContext): Promise<Repr> {
       const all = new Uint8Array(1024);
       for (let i = 0; i < 1024; i++) all[i] = i % 256;
       if (!ctx.range) {
@@ -176,12 +196,12 @@ describe("206 Partial Content", () => {
         content: { unit: "bytes", data: segments, total: all.length },
         meta: { type: "application/octet-stream" },
       };
-    },
-  }));
+    }
+  }
 
   const app = new Site({
-    articles: Articles({}),
-    bytes: Bytes({}),
+    articles: new Articles(),
+    bytes: new Bytes(),
   });
 
   it("returns 200 + full body when no Range header", async () => {
@@ -191,7 +211,7 @@ describe("206 Partial Content", () => {
       accept: "application/json",
     });
     expect(response.status).toBe(200);
-    expect(JSON.parse(bodyText(response.body)).length).toBe(100);
+    expect(JSON.parse(await bodyText(response.body)).length).toBe(100);
   });
 
   it("returns 206 + Content-Range for single items range", async () => {
@@ -203,7 +223,7 @@ describe("206 Partial Content", () => {
     });
     expect(response.status).toBe(206);
     expect(response.headers["Content-Range"]).toBe("items 0-9/100");
-    const body = JSON.parse(bodyText(response.body));
+    const body = JSON.parse(await bodyText(response.body));
     // single segment → JSON array directly
     expect(body.length).toBe(10);
     expect(body[0].id).toBe(0);
@@ -229,7 +249,7 @@ describe("206 Partial Content", () => {
     expect(response.status).toBe(206);
     expect(response.headers["Content-Type"]).toMatch(/^multipart\/byteranges/);
     expect(response.headers["Content-Range"]).toBe("bytes 0-4,100-104/1024");
-    expect(bodyText(response.body)).toContain("RIKKA_");
+    expect(await bodyText(response.body)).toContain("RIKKA_");
   });
 
   it("returns 206 + raw bytes for single bytes range", async () => {
@@ -240,7 +260,7 @@ describe("206 Partial Content", () => {
     });
     expect(response.status).toBe(206);
     expect(response.headers["Content-Range"]).toBe("bytes 10-14/1024");
-    expect(bodyText(response.body).length).toBe(5);
+    expect((await bodyText(response.body)).length).toBe(5);
   });
 
   it("ignores malformed Range header and returns 200", async () => {
@@ -251,7 +271,7 @@ describe("206 Partial Content", () => {
       headers: { range: "garbage" },
     });
     expect(response.status).toBe(200);
-    expect(JSON.parse(bodyText(response.body)).length).toBe(100);
+    expect(JSON.parse(await bodyText(response.body)).length).toBe(100);
   });
 });
 
@@ -260,21 +280,27 @@ describe("206 Partial Content", () => {
 // ---------------------------------------------------------------------------
 
 describe("status code inference", () => {
-  const Articles = Collection(() => ({
-    list: (ctx) => ({ content: [{ id: 1 }], meta: {} }),
-    create: (ctx) => ({
-      content: { id: 2 },
-      meta: { location: "./2" },
-    }),
-  }));
+  class Articles extends CollectionKind {
+    async list(ctx: RequestContext): Promise<Repr> {
+      return { content: [{ id: 1 }], meta: {} };
+    }
+    async create(ctx: RequestContext): Promise<Repr> {
+      return {
+        content: { id: 2 },
+        meta: { location: "./2" },
+      };
+    }
+  }
 
-  const Settings = ReadOnly(() => ({
-    content: (ctx) => ({ theme: "dark" }),
-  }));
+  class Settings extends ReadOnlyKind {
+    async content(ctx: RequestContext): Promise<Repr> {
+      return { content: { theme: "dark" }, meta: {} };
+    }
+  }
 
   const App = new Site({
-    articles: Articles({}),
-    settings: Settings({}),
+    articles: new Articles(),
+    settings: new Settings(),
   });
 
   it("GET Collection.list → 200", async () => {
@@ -291,7 +317,7 @@ describe("status code inference", () => {
       method: "POST",
       path: "/articles",
       accept: "application/json",
-      body: { title: "Hello" },
+      body: jsonBody({ title: "Hello" }),
     });
     expect(response.status).toBe(201);
     expect(response.headers["Location"]).toBe("2");
@@ -307,22 +333,25 @@ describe("status code inference", () => {
   });
 
   it("DELETE on Item returning undefined → 204", async () => {
-    const Users = Collection(() => ({
-      create: (ctx) => ({ content: {}, meta: {} }),
-      list: (ctx) => ({ content: [], meta: {} }),
-      children: {
-        ":userId": (id: string) =>
-          class extends ItemResource {
-            constructor(params: Record<string, string>, path: string) {
-              super({
-                content: (ctx) => ({ content: { id: 1 }, meta: {} }),
-                delete: (ctx) => undefined,
-              }, undefined, params, path);
-            }
-          },
-      },
-    }));
-    const app = new Site({ users: Users({}) });
+    class UsersCollection extends CollectionKind {
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: {}, meta: {} };
+      }
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [], meta: {} };
+      }
+      children = {
+        ":userId": new (class extends ItemKind {
+          async content(ctx: RequestContext): Promise<Repr> {
+            return { content: { id: 1 }, meta: {} };
+          }
+          async delete(ctx: RequestContext): Promise<Repr> {
+            return { content: null, meta: {} };
+          }
+        })(),
+      };
+    }
+    const app = new Site({ users: new UsersCollection() });
     const response = await app.handleRequest({
       method: "DELETE",
       path: "/users/1",
@@ -331,13 +360,15 @@ describe("status code inference", () => {
   });
 
   it("null content + location → 302 (redirect)", async () => {
-    const Redirector = ReadOnly(() => ({
-      content: (ctx) => ({
-        content: null,
-        meta: { location: "./target" },
-      }),
-    }));
-    const app = new Site({ redirector: Redirector({}) });
+    class Redirector extends ReadOnlyKind {
+      async content(ctx: RequestContext): Promise<Repr> {
+        return {
+          content: null,
+          meta: { location: "./target" },
+        };
+      }
+    }
+    const app = new Site({ redirector: new Redirector() });
     const response = await app.handleRequest({
       method: "GET",
       path: "/redirector",
@@ -347,10 +378,12 @@ describe("status code inference", () => {
   });
 
   it("null content without location → 204 (no-content)", async () => {
-    const NoContent = ReadOnly(() => ({
-      content: (ctx) => ({ content: null, meta: {} }),
-    }));
-    const app = new Site({ nc: NoContent({}) });
+    class NoContent extends ReadOnlyKind {
+      async content(ctx: RequestContext): Promise<Repr> {
+        return { content: null, meta: {} };
+      }
+    }
+    const app = new Site({ nc: new NoContent() });
     const response = await app.handleRequest({
       method: "GET",
       path: "/nc",

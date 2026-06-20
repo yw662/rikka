@@ -24,12 +24,20 @@ export class HttpError extends Error {
   readonly status: number;
   /** Structured error body (optional) */
   readonly detail?: unknown;
+  /** Extra response headers (optional, e.g. `Allow` for 405) */
+  readonly headers?: Record<string, string>;
 
-  constructor(status: number, message?: string, detail?: unknown) {
+  constructor(
+    status: number,
+    message?: string,
+    detail?: unknown,
+    headers?: Record<string, string>,
+  ) {
     super(message ?? `HTTP ${status}`);
     this.name = "HttpError";
     this.status = status;
     this.detail = detail;
+    this.headers = headers;
   }
 }
 

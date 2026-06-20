@@ -10,7 +10,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@takanashi/rikka-signal)](https://www.npmjs.com/package/@takanashi/rikka-signal)
 [![GitHub stars](https://img.shields.io/github/stars/yw662/rikka)](https://github.com/yw662/rikka)
 [![License](https://img.shields.io/github/license/yw662/rikka)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-313%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-1076%20passing-brightgreen)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-0%20errors-blue)]()
 [![Bundle Size](https://img.shields.io/badge/gzipped-~16KB-success)]()
 
@@ -38,6 +38,7 @@ Rikka is designed for **developers who value correctness and standards**, **cros
 - 🔥 **Reactive State** — TC39 Signals-based reactivity (`signal`, `computed`, `effect`)
 - 🎨 **DOM Utilities** — Hyperscript `h()`, tag helpers, `For`/`Show`/`Switch` control flow
 - 🧩 **Custom Elements** — Function-based `defineElement()` with Shadow DOM, attributes, events
+- 🌐 **Resource-Oriented Server** — `rikka-site`: declarative resource tree, content negotiation (JSON/CSV/CBOR/HTML/protobuf), edge-ready
 - 🎮 **Live Playground** — Real-time code editor component for interactive demos
 - ⚡ **Zero Runtime** — No framework abstraction, call stacks go straight to the browser
 - 🔒 **Type-Safe** — Full TypeScript inference for signals, DOM, and components
@@ -91,12 +92,13 @@ Try Rikka in your browser: **[https://yw662.github.io/rikka/](https://yw662.gith
 
 ## 📦 Packages
 
-| Package                                                                                              | Version                                                                           | Description                                        | Size (gzip) |
-| ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------- | ----------- |
-| [`@takanashi/rikka-signal`](https://www.npmjs.com/package/@takanashi/rikka-signal)                   | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-signal.svg)          | Reactive primitives based on TC39 Signals          | ~1.6 KB     |
-| [`@takanashi/rikka-dom`](https://www.npmjs.com/package/@takanashi/rikka-dom)                         | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-dom.svg)             | DOM utilities — `h()`, tag shortcuts, control flow | ~6.3 KB     |
-| [`@takanashi/rikka-elements`](https://www.npmjs.com/package/@takanashi/rikka-elements)               | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-elements.svg)        | Function-based custom element definition           | ~3.3 KB     |
-| [`@takanashi/rikka-live-playground`](https://www.npmjs.com/package/@takanashi/rikka-live-playground) | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-live-playground.svg) | Live code editor Web Component                     | ~4.2 KB     |
+| Package                                                                                              | Version                                                                           | Description                                                 | Size (gzip) |
+| ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------- | ----------- |
+| [`@takanashi/rikka-signal`](https://www.npmjs.com/package/@takanashi/rikka-signal)                   | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-signal.svg)          | Reactive primitives based on TC39 Signals                   | ~1.6 KB     |
+| [`@takanashi/rikka-dom`](https://www.npmjs.com/package/@takanashi/rikka-dom)                         | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-dom.svg)             | DOM utilities — `h()`, tag shortcuts, control flow          | ~6.3 KB     |
+| [`@takanashi/rikka-elements`](https://www.npmjs.com/package/@takanashi/rikka-elements)               | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-elements.svg)        | Function-based custom element definition                    | ~3.3 KB     |
+| [`@takanashi/rikka-site`](https://www.npmjs.com/package/@takanashi/rikka-site)                       | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-site.svg)            | Resource-oriented server framework with content negotiation | —           |
+| [`@takanashi/rikka-live-playground`](https://www.npmjs.com/package/@takanashi/rikka-live-playground) | ![npm version](https://img.shields.io/npm/v/@takanashi/rikka-live-playground.svg) | Live code editor Web Component                              | ~4.2 KB     |
 
 ## 📖 API Reference
 
@@ -186,17 +188,17 @@ defineElement("my-counter", {
 
 **Options:**
 
-| Option       | Type                               | Description                                          |
-| ------------ | ---------------------------------- | ---------------------------------------------------- |
-| `shadow`     | `ShadowRootInit \| false`          | Shadow DOM config; `false` to disable                |
-| `styles`     | `CSSStyleSheet \| CSSStyleSheet[]` | Stylesheets injected into Shadow DOM                 |
-| `attributes` | `Record<string, AttributeSpec>`    | Reactive attributes with defaults                    |
-| `events`     | `Record<string, EventSpec>`        | Custom events to dispatch                            |
-| `methods`    | `Record<string, Function>`         | Custom methods attached to element instance          |
-| `template`   | `HTMLTemplateElement`              | Template element (mutually exclusive with `render`)  |
-| `render`     | `(this: El) => Element`            | Render function (mutually exclusive with `template`) |
+| Option       | Type                               | Description                                                                                                              |
+| ------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `shadow`     | `ShadowRootInit \| false`          | Shadow DOM config; `false` to disable                                                                                    |
+| `styles`     | `CSSStyleSheet \| CSSStyleSheet[]` | Stylesheets injected into Shadow DOM                                                                                     |
+| `attributes` | `Record<string, AttributeSpec>`    | Reactive attributes with defaults                                                                                        |
+| `events`     | `Record<string, EventSpec>`        | Custom events to dispatch                                                                                                |
+| `methods`    | `Record<string, Function>`         | Custom methods attached to element instance                                                                              |
+| `template`   | `HTMLTemplateElement`              | Template element (mutually exclusive with `render`)                                                                      |
+| `render`     | `(this: El) => Element`            | Render function (mutually exclusive with `template`). Wrapped in `computed` — `this.count` is reactive (coarse-grained). |
 
-**Attribute Access**: Use `$propertyName` (e.g., `this.$count`) for signal access in render.
+**Attribute Access**: Use `this.$count` for fine-grained DOM bindings (only the text node updates). Use `this.count` for logic where re-rendering is acceptable (coarse-grained — whole render re-runs). Both are reactive; `render` is wrapped in `computed` so `this.count` (which calls `.get()` internally) is automatically tracked.
 
 **Events**: Use `dispatchEventName(value)` to emit, `onEventName(callback)` to listen
 
@@ -248,6 +250,89 @@ const styles = css`
 // In render():
 adoptStyle(this.shadowRoot!, styles);
 ```
+
+---
+
+### @takanashi/rikka-site — Resource-Oriented Server
+
+A resource-oriented server framework with content negotiation, built on the
+same reactive primitives. Define resources as a declarative tree of
+`ResourceKind` instances; the server handles routing, content negotiation
+(JSON, JSON-LD, CSV, CBOR, HTML, …), auth, CORS, pagination, and hydration
+automatically.
+
+```typescript
+import {
+  CollectionKind,
+  ItemKind,
+  site,
+  StaticKind,
+  type Schema,
+} from "@takanashi/rikka-site";
+import type { Repr } from "@takanashi/rikka-site";
+
+// Resources are classes extending abstract base kinds.
+// Extend a Kind, then mount an instance in the site tree.
+class Articles extends CollectionKind {
+  schema: Schema = { type: "object" };
+
+  async list(): Promise<Repr> {
+    return { content: [{ id: 1, title: "Hello" }] };
+  }
+
+  async create(ctx): Promise<Repr> {
+    const body = await ctx.json(); // streaming body → parsed JSON
+    const article = { id: nextId++, ...body };
+    return { content: article, meta: { location: `./${article.id}` } };
+  }
+}
+
+class Article extends ItemKind<{ id: string }> {
+  async content(ctx): Promise<Repr> {
+    return { content: articles[ctx.params.id] };
+  }
+}
+
+// Static files — StaticKind is a concrete class, pass config to the constructor
+const app = site({
+  articles: new Articles(),
+  ":id": new Article(),
+  "assets/": new StaticKind({ root: "./public" }),
+});
+
+// Same URL serves multiple formats:
+// GET /articles              → HTML page
+// GET /articles?accept=json  → JSON
+// GET /articles?accept=csv   → CSV
+// GET /articles?accept=cbor  → CBOR binary
+```
+
+**Abstract class hierarchy**: `ResourceKind` (abstract base) → `CollectionKind`,
+`ItemKind`, `SingletonKind`, `ReadOnlyKind`, `ActionKind`, `ProxyKind` (abstract — extend and
+instantiate), and `StaticKind` (concrete — use `new StaticKind({ root })` directly).
+Each kind constrains the HTTP semantics (allowed methods, status codes). The
+site tree stores `ResourceKind` instances, cloned per request via `Object.create`.
+
+**Streaming bodies**: Request and response bodies are
+`ReadableStream<Uint8Array>`. Use `await ctx.json()` to parse JSON,
+`await ctx.text()` for text, or read the raw stream directly.
+
+**Schema types**: `SchemaObject`, `SchemaArray`, `SchemaRaw` (`{ type: "raw",
+mime: string }` for opaque binary), and schema-based formats like protobuf
+(`protobuf(schema)` returns a transformer).
+
+**Handlers return `Repr`**: All handlers explicitly return
+`Repr | Promise<Repr>` — no auto-wrapping. `Repr` is `{ content, meta?, links? }`.
+
+**Transformers**: Value→Raw pipeline with built-in JSON, JSON-LD, CSV,
+text, CBOR (binary, RFC 8949), and HTML. Binary formats produce `Uint8Array`
+that flows through the pipeline without string conversion.
+
+**Edge-ready**: Adapters for Cloudflare Workers/Pages, Deno Deploy, Vercel
+Edge, and Node.js. See [`utils/rikka-site/README.md`](./utils/rikka-site/README.md)
+for full docs.
+
+---
 
 ## 🎮 Live Playground
 
@@ -390,7 +475,7 @@ Uses native browser APIs:
 | Metric              | Value                                |
 | ------------------- | ------------------------------------ |
 | TypeScript Errors   | **0**                                |
-| Unit Tests          | **313** passing                      |
+| Unit Tests          | **1076** passing                     |
 | Test Coverage       | Signal / DOM / Elements / Playground |
 | Bundle Size (total) | **~16KB** gzip                       |
 | Tree Shakeable      | Yes                                  |
@@ -414,7 +499,7 @@ A: Rikka is built on TC39 Signals (a proposed standard) rather than a custom rea
 A: Yes. Rikka produces standard Web Components, which work in any framework. For React, use `@lit/react` to wrap them.
 
 **Q: Is Rikka production-ready?**
-A: The core API is stable and the test suite has 313 tests. Use it for new projects, evaluate carefully for existing projects.
+A: The core API is stable and the test suite has 1076 tests. Use it for new projects, evaluate carefully for existing projects.
 
 **Q: What about SSR?**
 A: Web Components SSR is evolving. Rikka works well for client-side rendering today. For SSR, follow the relevant TC39/CSSWG discussions.

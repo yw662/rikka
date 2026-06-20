@@ -43,8 +43,24 @@ export interface SchemaObject {
 }
 
 /**
+ * Raw content schema — matches pre-serialized bytes with a specific MIME type.
+ *
+ * Used by Transformer.input/output to declare that a transformer consumes
+ * or produces raw (already-serialized) content, identified by MIME type
+ * (supports wildcards like `image/*`).
+ */
+export interface SchemaRaw {
+  type: "raw";
+  /** MIME type, e.g. "application/json", "image/*" */
+  mime: string;
+}
+
+/**
  * A simplified schema type for describing data shapes.
  * Used by ResourceDescriptor and Transformer to declare data contracts.
+ *
+ * - `SchemaRaw` (`{ type: "raw", mime }`) describes raw/pre-serialized content
+ * - All other variants describe structured/value content
  */
 export type Schema =
   | SchemaAny
@@ -53,17 +69,25 @@ export type Schema =
   | SchemaNumber
   | SchemaString
   | SchemaArray
-  | SchemaObject;
+  | SchemaObject
+  | SchemaRaw;
 
 // ---------------------------------------------------------------------------
-// Type guard
+// Type guards
 // ---------------------------------------------------------------------------
 
 /**
- * Check if a value is a Schema object (vs a MIME string).
+ * Check if a schema describes raw (pre-serialized) content.
  */
-export function isSchema(input: Schema | string): input is Schema {
-  return typeof input === "object" && input !== null && "type" in input;
+export function isRawSchema(schema: Schema): schema is SchemaRaw {
+  return schema.type === "raw";
+}
+
+/**
+ * Check if a schema describes structured/value content (not raw).
+ */
+export function isValueSchema(schema: Schema): boolean {
+  return schema.type !== "raw";
 }
 
 // ---------------------------------------------------------------------------
@@ -73,7 +97,8 @@ export function isSchema(input: Schema | string): input is Schema {
 /**
  * Check if `sub` is a subtype of `sup`.
  *
- * - `{ type: "any" }` is a supertype of everything
+ * - `{ type: "any" }` is a supertype of everything (including `raw`)
+ * - `{ type: "raw", mime }` matches `raw` with compatible MIME (wildcard support)
  * - Same primitive type → match
  * - Array: items must be subtype
  * - Object: all of sup's properties must be present in sub with subtypes
@@ -82,13 +107,23 @@ export function schemaMatches(sub: Schema, sup: Schema): boolean {
   // "any" is a supertype of everything
   if (sup.type === "any") return true;
 
+  // raw matches raw with MIME pattern matching
+  if (sub.type === "raw" && sup.type === "raw") {
+    return matchesMIME(sup.mime, sub.mime);
+  }
+
+  // raw vs non-raw → no match
+  if (sub.type === "raw" || sup.type === "raw") return false;
+
   // Different type names → no match
   if (sub.type !== sup.type) return false;
 
   // Same primitive type → match
   if (
-    sub.type === "null" || sub.type === "boolean" ||
-    sub.type === "number" || sub.type === "string"
+    sub.type === "null" ||
+    sub.type === "boolean" ||
+    sub.type === "number" ||
+    sub.type === "string"
   ) {
     return true;
   }
@@ -120,3 +155,22 @@ export function schemaMatches(sub: Schema, sup: Schema): boolean {
  * The universal schema — matches everything.
  */
 export const anySchema: Schema = { type: "any" };
+
+// ---------------------------------------------------------------------------
+// MIME matching
+// ---------------------------------------------------------------------------
+
+/**
+ * Check if a MIME type pattern matches a concrete MIME type.
+ * Supports wildcards: `image/*` matches `image/png`, `image/jpeg`, etc.
+ */
+export function matchesMIME(pattern: string, concrete: string): boolean {
+  const p = pattern.toLowerCase().trim();
+  const c = concrete.toLowerCase().trim();
+  if (p === c) return true;
+  if (p.endsWith("/*")) {
+    const prefix = p.slice(0, -2);
+    return c.startsWith(prefix + "/");
+  }
+  return false;
+}

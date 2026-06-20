@@ -71,8 +71,8 @@ container.appendChild(div({},
         pre(
           { class: "code-block" },
           code(`render() {
-  console.log(this.count);        // number value
-  console.log(this.$count.get()); // Signal.State<number>
+  console.log(this.count);        // number (coarse-grained, tracked by computed)
+  console.log(this.$count.get()); // Signal.State<number> (fine-grained)
 
   effect(() => {
     console.log('Count changed:', this.$count.get());

@@ -61,7 +61,7 @@ This is equivalent to writing `render() { return p({}, this.$clickCount); }` man
 The lookup order:
 
 1. `this.$name` (signal, fine-grained)
-2. `this.name` (raw value, static)
+2. `this.name` (raw value, coarse-grained)
 
 ### Attribute bindings — `attr="{{name}}"`
 

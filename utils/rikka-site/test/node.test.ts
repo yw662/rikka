@@ -1,10 +1,11 @@
 import { describe, it, expect } from "@rstest/core";
 import * as http from "node:http";
 import {
-  Collection,
-  ItemResource,
+  CollectionKind,
+  ItemKind,
   Site,
 } from "../src/index.js";
+import type { RequestContext, Repr } from "../src/index.js";
 import { createNodeHandler, serve } from "../src/node.js";
 
 /**
@@ -49,16 +50,20 @@ function probe(
 }
 
 describe("Node adapter", () => {
-  const ItemsCtor = Collection(() => ({
-    list: (ctx) => ({ content: [{ id: 1, name: "Alice" }], meta: {} }),
-    create: (ctx) => ({
-      content: { id: 2, name: "Bob" },
-      meta: { location: "./2" },
-    }),
-  }))({});
+  class Items extends CollectionKind {
+    async list(ctx: RequestContext): Promise<Repr> {
+      return { content: [{ id: 1, name: "Alice" }], meta: {} };
+    }
+    async create(ctx: RequestContext): Promise<Repr> {
+      return {
+        content: { id: 2, name: "Bob" },
+        meta: { location: "./2" },
+      };
+    }
+  }
 
   const app = new Site({
-    items: ItemsCtor,
+    items: new Items(),
   });
 
   it("createNodeHandler works with http.createServer", async () => {
@@ -117,22 +122,25 @@ describe("Node adapter", () => {
   });
 
   it("DELETE returns 204 with no body", async () => {
-    const Deletable = Collection(() => ({
-      list: (ctx) => ({ content: [], meta: {} }),
-      create: (ctx) => ({ content: {}, meta: {} }),
-      children: {
-        ":id": (id: string) =>
-          class extends ItemResource {
-            constructor(params: Record<string, string>, path: string) {
-              super({
-                content: (ctx) => ({ content: { id }, meta: {} }),
-                delete: (ctx) => undefined,
-              }, undefined, params, path);
-            }
-          },
-      },
-    }));
-    const s = serve(new Site({ x: Deletable({}) }), { port: 0, host: "127.0.0.1" });
+    class Deletable extends CollectionKind {
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: {}, meta: {} };
+      }
+      children = {
+        ":id": new (class extends ItemKind {
+          async content(ctx: RequestContext): Promise<Repr> {
+            return { content: { id: ctx.params.id }, meta: {} };
+          }
+          async delete(ctx: RequestContext): Promise<Repr> {
+            return { content: null, meta: {} };
+          }
+        })(),
+      };
+    }
+    const s = serve(new Site({ x: new Deletable() }), { port: 0, host: "127.0.0.1" });
     await s.ready;
 
     try {
@@ -145,9 +153,11 @@ describe("Node adapter", () => {
   });
 
   it("Range header triggers 206", async () => {
-    const Rangeable = Collection(() => ({
-      create: (ctx) => ({ content: {}, meta: {} }),
-      list: (ctx) => {
+    class Rangeable extends CollectionKind {
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: {}, meta: {} };
+      }
+      async list(ctx: RequestContext): Promise<Repr> {
         const all = Array.from({ length: 20 }, (_, i) => ({ id: i }));
         if (!ctx.range) return { content: all, meta: {} };
         const segments = ctx.range.ranges.map((r) => {
@@ -159,9 +169,9 @@ describe("Node adapter", () => {
           content: { unit: "items", data: segments, total: all.length },
           meta: {},
         };
-      },
-    }));
-    const s = serve(new Site({ x: Rangeable({}) }), { port: 0, host: "127.0.0.1" });
+      }
+    }
+    const s = serve(new Site({ x: new Rangeable() }), { port: 0, host: "127.0.0.1" });
     await s.ready;
 
     try {

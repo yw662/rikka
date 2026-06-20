@@ -9,18 +9,7 @@
 import { serve } from "@takanashi/rikka-site/node";
 import { createApp } from "./resources.js";
 
-const app = createApp({
-  customElementsEntry: new URL("./elements.ts", import.meta.url),
-  assets: {
-    "robots.txt": {
-      source: new URL("../public/robots.txt", import.meta.url),
-    },
-    "favicon.ico": {
-      source: new URL("../public/favicon.ico", import.meta.url),
-      contentType: "image/svg+xml",
-    },
-  },
-});
+const app = createApp();
 
 const port = Number(process.env["PORT"] ?? 3000);
 const host = process.env["HOST"] ?? "127.0.0.1";
@@ -28,7 +17,9 @@ const host = process.env["HOST"] ?? "127.0.0.1";
 const server = serve(app, { port, host });
 
 server.ready.then(() => {
-  console.log(`[rikka-site] blog-site listening on http://${server.host}:${server.port}`);
+  console.log(
+    `[rikka-site] blog-site listening on http://${server.host}:${server.port}`,
+  );
 });
 
 // Graceful shutdown

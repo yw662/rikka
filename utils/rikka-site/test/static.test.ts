@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "@rstest/core";
-import { Site, Static } from "../src/index.js";
+import { Site, StaticKind } from "../src/index.js";
 import type { StaticResolver } from "../src/index.js";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -14,7 +14,8 @@ function makeResolver(
 describe("Static resolver (Edge)", () => {
   it("serves a text file", async () => {
     const app = new Site({
-      assets: Static({
+      assets: new StaticKind({
+        root: "",
         resolver: makeResolver({
           "style.css": { content: "body{}", type: "text/css" },
         }),
@@ -33,7 +34,8 @@ describe("Static resolver (Edge)", () => {
   it("serves a binary file", async () => {
     const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
     const app = new Site({
-      assets: Static({
+      assets: new StaticKind({
+        root: "",
         resolver: makeResolver({
           "pixel.png": { content: bytes, type: "image/png" },
         }),
@@ -46,13 +48,16 @@ describe("Static resolver (Edge)", () => {
     });
     expect(r.status).toBe(200);
     expect(r.headers["Content-Type"]).toBe("image/png");
-    expect(typeof r.body).toBe("string");
-    expect(r.body.length).toBe(bytes.length);
+    expect(r.body instanceof Uint8Array).toBe(true);
+    expect((r.body as Uint8Array).byteLength).toBe(bytes.length);
   });
 
   it("infers MIME type when resolver omits it", async () => {
     const app = new Site({
-      assets: Static({ resolver: makeResolver({ "app.js": { content: "x" } }) }),
+      assets: new StaticKind({
+        root: "",
+        resolver: makeResolver({ "app.js": { content: "x" } }),
+      }),
     });
     const r = await app.handleRequest({
       method: "GET",
@@ -65,7 +70,8 @@ describe("Static resolver (Edge)", () => {
 
   it("falls back to index.html for directory requests", async () => {
     const app = new Site({
-      assets: Static({
+      assets: new StaticKind({
+        root: "",
         resolver: makeResolver({
           "index.html": { content: "<h1>hello</h1>", type: "text/html" },
         }),
@@ -82,7 +88,10 @@ describe("Static resolver (Edge)", () => {
 
   it("returns 404 for missing files", async () => {
     const app = new Site({
-      assets: Static({ resolver: makeResolver({}) }),
+      assets: new StaticKind({
+        root: "",
+        resolver: makeResolver({}),
+      }),
     });
     const r = await app.handleRequest({
       method: "GET",
@@ -94,7 +103,8 @@ describe("Static resolver (Edge)", () => {
 
   it("rejects path traversal", async () => {
     const app = new Site({
-      assets: Static({
+      assets: new StaticKind({
+        root: "",
         resolver: makeResolver({ "secret.txt": { content: "secret" } }),
       }),
     });
@@ -121,7 +131,11 @@ describe("Static root (Node)", () => {
     tmp = mkdtempSync(join(tmpdir(), "rikka-static-"));
     writeFileSync(join(tmp, "hello.txt"), "hello");
 
-    const app = new Site({ assets: Static({ root: tmp }) });
+    const app = new Site({
+      assets: new StaticKind({
+        root: tmp!,
+      }),
+    });
     const r = await app.handleRequest({
       method: "GET",
       path: "/assets/hello.txt",

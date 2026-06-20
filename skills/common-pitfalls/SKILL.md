@@ -1,6 +1,6 @@
 ---
 name: common-pitfalls
-description: Cross-cutting mistakes that recur across rikka code generation. Load this BEFORE generating rikka code, and refer back when debugging. Covers the 4 rikka-specific LLM footguns (signal vs `.get()`, plain function vs `computed`, `this.xxx` vs `this.$xxx`, `events` as transform functions) plus `h\`\`` interpolation modes, `NumberAttr` default `NaN`, and more.
+description: Cross-cutting mistakes that recur across rikka code generation. Load this BEFORE generating rikka code, and refer back when debugging. Covers the 4 rikka-specific LLM footguns (signal vs `.get()`, plain function vs `computed`, `this.$xxx` vs `this.count` in render, `events` as transform functions) plus `h\`\`` interpolation modes, `NumberAttr` default `NaN`, and more.
 ---
 
 # Common Pitfalls
@@ -49,19 +49,21 @@ Rule of thumb:
 - **Child position** (inside `h()` or tag helpers): function → auto-wrapped, fine.
 - **Value position** (attribute value, prop value, argument to another function): function → static, use `computed()`.
 
-### 3. `this.xxx` (raw) vs `this.$xxx` (signal) in `render()`
+### 3. `this.count` (coarse-grained) vs `this.$count` (fine-grained) in `render()`
+
+`render` is wrapped in `computed` at runtime. `this.count` calls `.get()` on the underlying signal, so it IS tracked — the render re-runs when the attribute changes. The old "static snapshot" footgun is **gone**. The difference is now granularity, not correctness:
 
 ```typescript
 defineElement("my-el", {
   attributes: { count: NumberAttr },
   render() {
-    p({}, this.count);   // ❌ static
-    p({}, this.$count);  // ✅ reactive
+    p({}, this.$count);  // ✅ fine-grained — only text node updates (preferred)
+    p({}, this.count);   // ✅ coarse-grained — whole render re-runs (correct, less efficient)
   },
 });
 ```
 
-The `$`-prefix exposes the underlying `Signal.State`. Use it in DOM bindings.
+Prefer `this.$count` for DOM bindings. Use `this.count` for logic where re-rendering is acceptable.
 
 ### 4. `this` in `render` / `methods` is `any` (two-argument form)
 
@@ -72,7 +74,7 @@ TypeScript cannot infer the config generic `C` from inside a function body that 
 defineElement("my-el", {
   attributes: { label: StringAttr },
   render() {
-    return span(this.name);   // works at runtime, but TS won't catch typos
+    return span(this.label);   // works at runtime, but TS won't catch typos
   },
 });
 ```

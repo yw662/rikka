@@ -1,18 +1,22 @@
 import { describe, it, expect } from "@rstest/core";
 import {
-  Collection,
-  Item,
-  Singleton,
-  ReadOnly,
-  Action,
-  Proxy,
+  CollectionKind,
+  ItemKind,
+  SingletonKind,
+  ReadOnlyKind,
+  ActionKind,
+  ProxyKind,
+  CollectionResource,
+  ItemResource,
+  SingletonResource,
+  ReadOnlyResource,
+  ActionResource,
+  ProxyResource,
   Site,
   handleWebRequest,
   createFetchHandler,
   resolveResource,
   negotiate,
-  kindAllowsMethod,
-  kindAllowsOperation,
   TransformerRegistry,
   jsonTransformer,
   jsonldTransformer,
@@ -22,29 +26,42 @@ import {
   anySchema,
   globMatch,
   matchAuthRule,
-  Resource,
-  CollectionResource,
-  ItemResource,
-  SingletonResource,
-  ReadOnlyResource,
-  ActionResource,
-  ProxyResource,
   HttpError,
+  createRequestContext,
+  jsonBody,
 } from "../src/index.js";
 import type {
   Transformer,
   TransformContext,
   RequestContext,
   Identity,
-  Schema,
-  AuthConfig,
   AuthRule,
-  SiteOptions,
+  Schema,
   Repr,
 } from "../src/index.js";
 
-function bodyText(body: string | Uint8Array): string {
-  return typeof body === "string" ? body : new TextDecoder().decode(body);
+
+async function bodyText(
+  body: string | Uint8Array | ReadableStream<Uint8Array>,
+): Promise<string> {
+  if (typeof body === "string") return body;
+  if (body instanceof Uint8Array) return new TextDecoder().decode(body);
+  // ReadableStream
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) chunks.push(value);
+  }
+  const total = chunks.reduce((n, c) => n + c.byteLength, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    out.set(c, offset);
+    offset += c.byteLength;
+  }
+  return new TextDecoder().decode(out);
 }
 
 // ---------------------------------------------------------------------------
@@ -52,75 +69,96 @@ function bodyText(body: string | Uint8Array): string {
 // ---------------------------------------------------------------------------
 
 describe("Kind", () => {
+  class TestCollection extends CollectionKind {
+    async list(ctx: RequestContext): Promise<Repr> {
+      return { content: [], meta: {} };
+    }
+    async create(ctx: RequestContext): Promise<Repr> {
+      return { content: null, meta: {} };
+    }
+  }
+  class TestItem extends ItemKind {
+    async content(ctx: RequestContext): Promise<Repr> {
+      return { content: null, meta: {} };
+    }
+    async replace(ctx: RequestContext): Promise<Repr> {
+      return { content: null, meta: {} };
+    }
+    async patch(ctx: RequestContext): Promise<Repr> {
+      return { content: null, meta: {} };
+    }
+    async delete(ctx: RequestContext): Promise<Repr> {
+      return { content: null, meta: {} };
+    }
+  }
+  class TestSingleton extends SingletonKind {
+    async content(ctx: RequestContext): Promise<Repr> {
+      return { content: null, meta: {} };
+    }
+    async replace(ctx: RequestContext): Promise<Repr> {
+      return { content: null, meta: {} };
+    }
+    async patch(ctx: RequestContext): Promise<Repr> {
+      return { content: null, meta: {} };
+    }
+  }
+  class TestReadOnly extends ReadOnlyKind {
+    async content(ctx: RequestContext): Promise<Repr> {
+      return { content: null, meta: {} };
+    }
+  }
+  class TestAction extends ActionKind {
+    async invoke(ctx: RequestContext): Promise<Repr> {
+      return { content: null, meta: {} };
+    }
+  }
+  class TestProxy extends ProxyKind {
+    target(path: string): URL {
+      return new URL(path, "https://example.com");
+    }
+  }
+
+  const collection = new TestCollection();
+  const item = new TestItem();
+  const singleton = new TestSingleton();
+  const readOnly = new TestReadOnly();
+  const action = new TestAction();
+  const proxy = new TestProxy();
+
   it("Collection allows GET and POST", () => {
-    expect(kindAllowsMethod("Collection", "GET")).toBe(true);
-    expect(kindAllowsMethod("Collection", "POST")).toBe(true);
-    expect(kindAllowsMethod("Collection", "PUT")).toBe(false);
-    expect(kindAllowsMethod("Collection", "DELETE")).toBe(false);
-    expect(kindAllowsMethod("Collection", "PATCH")).toBe(false);
+    const resource = collection.createResource({}, "/test");
+    expect(resource).toBeInstanceOf(CollectionResource);
+    expect(resource.allowedMethods()).toEqual(["GET", "POST"]);
   });
 
   it("Item allows GET, PUT, PATCH, DELETE", () => {
-    expect(kindAllowsMethod("Item", "GET")).toBe(true);
-    expect(kindAllowsMethod("Item", "PUT")).toBe(true);
-    expect(kindAllowsMethod("Item", "PATCH")).toBe(true);
-    expect(kindAllowsMethod("Item", "DELETE")).toBe(true);
-    expect(kindAllowsMethod("Item", "POST")).toBe(false);
+    const resource = item.createResource({}, "/test");
+    expect(resource).toBeInstanceOf(ItemResource);
+    expect(resource.allowedMethods()).toEqual(["GET", "PUT", "PATCH", "DELETE"]);
   });
 
   it("Singleton allows GET, PUT, PATCH", () => {
-    expect(kindAllowsMethod("Singleton", "GET")).toBe(true);
-    expect(kindAllowsMethod("Singleton", "PUT")).toBe(true);
-    expect(kindAllowsMethod("Singleton", "PATCH")).toBe(true);
-    expect(kindAllowsMethod("Singleton", "DELETE")).toBe(false);
-    expect(kindAllowsMethod("Singleton", "POST")).toBe(false);
+    const resource = singleton.createResource({}, "/test");
+    expect(resource).toBeInstanceOf(SingletonResource);
+    expect(resource.allowedMethods()).toEqual(["GET", "PUT", "PATCH"]);
   });
 
   it("ReadOnly allows only GET", () => {
-    expect(kindAllowsMethod("ReadOnly", "GET")).toBe(true);
-    expect(kindAllowsMethod("ReadOnly", "POST")).toBe(false);
-    expect(kindAllowsMethod("ReadOnly", "DELETE")).toBe(false);
+    const resource = readOnly.createResource({}, "/test");
+    expect(resource).toBeInstanceOf(ReadOnlyResource);
+    expect(resource.allowedMethods()).toEqual(["GET"]);
   });
 
   it("Action allows only POST", () => {
-    expect(kindAllowsMethod("Action", "POST")).toBe(true);
-    expect(kindAllowsMethod("Action", "GET")).toBe(false);
+    const resource = action.createResource({}, "/test");
+    expect(resource).toBeInstanceOf(ActionResource);
+    expect(resource.allowedMethods()).toEqual(["POST"]);
   });
 
-  it("Proxy allows all methods", () => {
-    expect(kindAllowsMethod("Proxy", "GET")).toBe(true);
-    expect(kindAllowsMethod("Proxy", "POST")).toBe(true);
-    expect(kindAllowsMethod("Proxy", "PUT")).toBe(true);
-    expect(kindAllowsMethod("Proxy", "PATCH")).toBe(true);
-    expect(kindAllowsMethod("Proxy", "DELETE")).toBe(true);
-  });
-
-  it("kindAllowsOperation works", () => {
-    expect(kindAllowsOperation("Collection", "list")).toBe(true);
-    expect(kindAllowsOperation("Collection", "create")).toBe(true);
-    expect(kindAllowsOperation("Collection", "content")).toBe(false);
-    expect(kindAllowsOperation("Item", "content")).toBe(true);
-    expect(kindAllowsOperation("Item", "replace")).toBe(true);
-    expect(kindAllowsOperation("Item", "patch")).toBe(true);
-    expect(kindAllowsOperation("Item", "delete")).toBe(true);
-    expect(kindAllowsOperation("Singleton", "content")).toBe(true);
-    expect(kindAllowsOperation("Singleton", "replace")).toBe(true);
-    expect(kindAllowsOperation("Singleton", "patch")).toBe(true);
-    expect(kindAllowsOperation("Singleton", "delete")).toBe(false);
-    expect(kindAllowsOperation("ReadOnly", "content")).toBe(true);
-    expect(kindAllowsOperation("ReadOnly", "replace")).toBe(false);
-    expect(kindAllowsOperation("Action", "invoke")).toBe(true);
-    expect(kindAllowsOperation("Action", "content")).toBe(false);
-    expect(kindAllowsOperation("Proxy", "get")).toBe(true);
-    expect(kindAllowsOperation("Proxy", "post")).toBe(true);
-    expect(kindAllowsOperation("Proxy", "content")).toBe(false);
-    expect(kindAllowsOperation("Proxy", "create")).toBe(false);
-  });
-
-  it("kindAllowsMethod is case-insensitive", () => {
-    expect(kindAllowsMethod("Collection", "get")).toBe(true);
-    expect(kindAllowsMethod("Collection", "post")).toBe(true);
-    expect(kindAllowsMethod("Item", "delete")).toBe(true);
+  it("Proxy exposes proxy() method", () => {
+    const resource = proxy.createResource({}, "/test");
+    expect(resource).toBeInstanceOf(ProxyResource);
+    expect(typeof resource.proxy).toBe("function");
   });
 });
 
@@ -244,193 +282,222 @@ describe("Schema matching", () => {
 
 describe("ResourceFactory factories", () => {
   it("Collection creates a CollectionDescriptor", () => {
-    const Users = Collection<{ table: string }>(({ table }) => ({
-      list: (ctx) => [{ id: 1, table }],
-      create: (ctx) => ({
-        id: 2,
-        ...(ctx.body as Record<string, unknown>),
-        table,
-      }),
-    }));
-
-    const mount = Users({ table: "users" });
-    const instance = new mount({}, "") as CollectionResource;
-    expect(instance.kind).toBe("Collection");
-    if (instance.kind === "Collection") {
-      expect(typeof instance.list).toBe("function");
-      expect(typeof instance.create).toBe("function");
+    class Users extends CollectionKind {
+      constructor(private table: string) {
+        super();
+      }
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [{ id: 1, table: this.table }], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return {
+          content: {
+            id: 2,
+            ...(await ctx.json<Record<string, unknown>>()),
+            table: this.table,
+          },
+          meta: {},
+        };
+      }
     }
+
+    const instance = new Users("users");
+    expect(instance).toBeInstanceOf(CollectionKind);
+    expect(typeof instance.list).toBe("function");
+    expect(typeof instance.create).toBe("function");
   });
 
   it("Item creates an ItemDescriptor", () => {
-    const UserItem = Item<{ table: string }>(({ table }) => ({
-      content: (ctx) => ({ id: ctx.params.userId, table }),
-      delete: (ctx) => {
-        /* noop */
-      },
-    }));
-
-    const mount = UserItem({ table: "users" });
-    const instance = new mount({}, "") as ItemResource;
-    expect(instance.kind).toBe("Item");
-    if (instance.kind === "Item") {
-      expect(typeof instance.content).toBe("function");
+    class UserItem extends ItemKind {
+      constructor(private table: string) {
+        super();
+      }
+      async content(ctx: RequestContext): Promise<Repr> {
+        return {
+          content: { id: ctx.params.userId, table: this.table },
+          meta: {},
+        };
+      }
+      async delete(ctx: RequestContext): Promise<Repr> {
+        return { content: null, meta: {} };
+      }
     }
+
+    const instance = new UserItem("users");
+    expect(instance).toBeInstanceOf(ItemKind);
+    expect(typeof instance.content).toBe("function");
   });
 
   it("Singleton creates a SingletonDescriptor", () => {
-    const Settings = Singleton(() => ({
-      content: (ctx) => ({ theme: "dark" }),
-      patch: (ctx) => {
-        const data = ctx.body as { theme: string };
-        return { theme: data.theme };
-      },
-    }));
+    class Settings extends SingletonKind {
+      async content(ctx: RequestContext): Promise<Repr> {
+        return { content: { theme: "dark" }, meta: {} };
+      }
+      async patch(ctx: RequestContext): Promise<Repr> {
+        const data = await ctx.json<{ theme: string }>();
+        return { content: { theme: data.theme }, meta: {} };
+      }
+    }
 
-    const mount = Settings({});
-    const instance = new mount({}, "") as SingletonResource;
-    expect(instance.kind).toBe("Singleton");
+    const instance = new Settings();
+    expect(instance).toBeInstanceOf(SingletonKind);
   });
 
   it("ReadOnly creates a ReadOnlyDescriptor", () => {
-    const Dashboard = ReadOnly(() => ({
-      content: (ctx) => ({ count: 42 }),
-    }));
+    class Dashboard extends ReadOnlyKind {
+      async content(ctx: RequestContext): Promise<Repr> {
+        return { content: { count: 42 }, meta: {} };
+      }
+    }
 
-    const mount = Dashboard({});
-    const instance = new mount({}, "") as ReadOnlyResource;
-    expect(instance.kind).toBe("ReadOnly");
+    const instance = new Dashboard();
+    expect(instance).toBeInstanceOf(ReadOnlyKind);
   });
 
   it("Action creates an ActionDescriptor", () => {
-    const SendEmail = Action(() => ({
-      invoke: (ctx) => ({ sent: true, to: (ctx.body as { to: string }).to }),
-    }));
+    class SendEmail extends ActionKind {
+      async invoke(ctx: RequestContext): Promise<Repr> {
+        return {
+          content: {
+            sent: true,
+            to: (await ctx.json<{ to: string }>()).to,
+          },
+          meta: {},
+        };
+      }
+    }
 
-    const mount = SendEmail({});
-    const instance = new mount({}, "") as ActionResource;
-    expect(instance.kind).toBe("Action");
+    const instance = new SendEmail();
+    expect(instance).toBeInstanceOf(ActionKind);
   });
 
   it("Proxy creates a ProxyDescriptor", () => {
-    const ExternalAPI = Proxy(() => ({
-      target: (path) => new URL(path, "https://api.example.com"),
-    }));
+    class ExternalAPI extends ProxyKind {
+      target(path: string): URL {
+        return new URL(path, "https://api.example.com");
+      }
+    }
 
-    const mount = ExternalAPI({});
-    const instance = new mount({}, "") as ProxyResource;
-    expect(instance.kind).toBe("Proxy");
+    const instance = new ExternalAPI();
+    expect(instance).toBeInstanceOf(ProxyKind);
   });
 
   it("ResourceFactory captures config via closure", async () => {
-    const Table = Collection<{ tableName: string }>(({ tableName }) => ({
-      list: (ctx) => [{ table: tableName }],
-      create: (ctx) => ({
-        ...(ctx.body as Record<string, unknown>),
-        table: tableName,
-      }),
-    }));
+    class Table extends CollectionKind {
+      constructor(private tableName: string) {
+        super();
+      }
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [{ table: this.tableName }], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return {
+          content: {
+            ...(await ctx.json<Record<string, unknown>>()),
+            table: this.tableName,
+          },
+          meta: {},
+        };
+      }
+    }
 
-    const users = Table({ tableName: "users" });
-    const posts = Table({ tableName: "posts" });
-
-    const usersInstance = new users({}, "") as CollectionResource;
-    if (usersInstance.kind === "Collection") {
-      const result = await usersInstance.list({
+    const usersInstance = new Table("users");
+    const usersResult = await usersInstance.list(
+      createRequestContext({
         method: "GET",
         path: "/users",
-        params: {},
-        query: {},
-        headers: {},
-      });
-      expect((result as { table: string }[])[0].table).toBe("users");
-    }
-    const postsInstance = new posts({}, "") as CollectionResource;
-    if (postsInstance.kind === "Collection") {
-      const result = await postsInstance.list({
+      }),
+    );
+    expect((usersResult.content as { table: string }[])[0].table).toBe("users");
+
+    const postsInstance = new Table("posts");
+    const postsResult = await postsInstance.list(
+      createRequestContext({
         method: "GET",
         path: "/posts",
-        params: {},
-        query: {},
-        headers: {},
-      });
-      expect((result as { table: string }[])[0].table).toBe("posts");
-    }
+      }),
+    );
+    expect((postsResult.content as { table: string }[])[0].table).toBe("posts");
   });
 
   it("Collection with children", () => {
-    const Users = Collection<{ table: string }>(({ table }) => ({
-      list: (ctx) => [{ id: 1, table }],
-      create: (ctx) => ({
-        id: 2,
-        ...(ctx.body as Record<string, unknown>),
-        table,
-      }),
-      children: {
-        ":userId": (id: string) =>
-          class extends ItemResource {
-            constructor(params: Record<string, string>, path: string) {
-              super({
-                content: (ctx: RequestContext) => ({
-                  id: Number(id),
-                  table,
-                }),
-              }, undefined, params, path);
-            }
+    class Users extends CollectionKind {
+      constructor(private table: string) {
+        super();
+      }
+      children = {
+        ":userId": new (class extends ItemKind {
+          async content(ctx: RequestContext): Promise<Repr> {
+            return { content: { id: Number(ctx.params.userId) }, meta: {} };
+          }
+        })(),
+      };
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [{ id: 1, table: this.table }], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return {
+          content: {
+            id: 2,
+            ...(await ctx.json<Record<string, unknown>>()),
+            table: this.table,
           },
-      },
-    }));
+          meta: {},
+        };
+      }
+    }
 
-    const mount = Users({ table: "users" });
-    const instance = new mount({}, "") as CollectionResource;
+    const instance = new Users("users");
     expect(instance.children).toBeDefined();
     expect(":userId" in instance.children!).toBe(true);
   });
 
   it("Descriptor with element and context", () => {
     const FakeElement = class {};
-    const Users = Collection(() => ({
-      list: (ctx) => [],
-      create: (ctx) => ctx.body,
-      element: FakeElement,
-      context: "https://rikka.dev/schemas/user",
-      jsonldType: "UserCollection",
-    }));
+    class Users extends CollectionKind {
+      element = FakeElement;
+      context = "https://rikka.dev/schemas/user";
+      jsonldType = "UserCollection";
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
 
-    const mount = Users({});
-    const instance = new mount({}, "") as CollectionResource;
+    const instance = new Users();
     expect(instance.element).toBe(FakeElement);
     expect(instance.context).toBe("https://rikka.dev/schemas/user");
     expect(instance.jsonldType).toBe("UserCollection");
   });
 
   it("Item with optional handlers", () => {
-    const UserItem = Item(() => ({
-      content: (ctx) => ({ id: 1 }),
-      // replace, patch, delete are optional
-    }));
-
-    const mount = UserItem({});
-    const instance = new mount({}, "") as ItemResource;
-    expect(instance.kind).toBe("Item");
-    if (instance.kind === "Item") {
-      expect(instance.replace).toBeUndefined();
-      expect(instance.patch).toBeUndefined();
-      expect(instance.delete).toBeUndefined();
+    class UserItem extends ItemKind {
+      async content(ctx: RequestContext): Promise<Repr> {
+        return { content: { id: 1 }, meta: {} };
+      }
     }
+
+    const instance = new UserItem();
+    expect(instance).toBeInstanceOf(ItemKind);
+    expect(instance.replace).toBeUndefined();
+    expect(instance.patch).toBeUndefined();
+    expect(instance.delete).toBeUndefined();
   });
 
   it("Singleton with replace", () => {
-    const Settings = Singleton(() => ({
-      content: (ctx) => ({ theme: "dark" }),
-      replace: (ctx) => ctx.body,
-    }));
-
-    const mount = Settings({});
-    const instance = new mount({}, "") as SingletonResource;
-    if (instance.kind === "Singleton") {
-      expect(typeof instance.replace).toBe("function");
+    class Settings extends SingletonKind {
+      async content(ctx: RequestContext): Promise<Repr> {
+        return { content: { theme: "dark" }, meta: {} };
+      }
+      async replace(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
     }
+
+    const instance = new Settings();
+    expect(typeof instance.replace).toBe("function");
   });
 });
 
@@ -439,78 +506,89 @@ describe("ResourceFactory factories", () => {
 // ---------------------------------------------------------------------------
 
 describe("Resource tree", () => {
-  const Users = Collection<{ table: string }>(({ table }) => ({
-    list: (ctx) => [{ id: 1, name: "Alice", table }],
-    create: (ctx) => ({
-      id: 2,
-      ...(ctx.body as Record<string, unknown>),
-      table,
-    }),
-    children: {
-      ":userId": (id: string) =>
-        class extends ItemResource {
-            constructor(params: Record<string, string>, path: string) {
-              super({
-                content: (ctx: RequestContext) => ({
-                  id: Number(id),
-                  name: "Alice",
-                  table,
-                }),
-                delete: (ctx: RequestContext) => {
-                  /* noop */
-                },
-              }, undefined, params, path);
-          }
+  class Users extends CollectionKind {
+    constructor(private table: string) {
+      super();
+    }
+    children = {
+      ":userId": new (class extends ItemKind {
+        async content(ctx: RequestContext): Promise<Repr> {
+          return {
+            content: { id: Number(ctx.params.userId), name: "Alice" },
+            meta: {},
+          };
+        }
+        async delete(ctx: RequestContext): Promise<Repr> {
+          return { content: null, meta: {} };
+        }
+      })(),
+    };
+    async list(ctx: RequestContext): Promise<Repr> {
+      return {
+        content: [{ id: 1, name: "Alice", table: this.table }],
+        meta: {},
+      };
+    }
+    async create(ctx: RequestContext): Promise<Repr> {
+      return {
+        content: {
+          id: 2,
+          ...(await ctx.json<Record<string, unknown>>()),
+          table: this.table,
         },
-    },
-  }));
+        meta: {},
+      };
+    }
+  }
 
-  const Settings = Singleton(() => ({
-    content: (ctx) => ({ theme: "dark" }),
-    patch: (ctx) => {
-      const data = ctx.body as { theme: string };
-      return { theme: data.theme };
-    },
-  }));
+  class Settings extends SingletonKind {
+    async content(ctx: RequestContext): Promise<Repr> {
+      return { content: { theme: "dark" }, meta: {} };
+    }
+    async patch(ctx: RequestContext): Promise<Repr> {
+      const data = await ctx.json<{ theme: string }>();
+      return { content: { theme: data.theme }, meta: {} };
+    }
+  }
 
   const app = new Site({
-    users: Users({ table: "users" }),
-    settings: Settings({}),
+    users: new Users("users"),
+    settings: new Settings(),
     admin: {
-      users: Users({ table: "admin_users" }),
+      users: new Users("admin_users"),
     },
   });
 
   it("resolves a top-level Collection", () => {
     const resource = app.resolve("/users");
     expect(resource).not.toBeNull();
-    expect(resource!.kind).toBe("Collection");
+    expect(resource).toBeInstanceOf(CollectionResource);
     expect(resource!.path).toBe("/users");
   });
 
   it("resolves a child Item with params", () => {
     const resource = app.resolve("/users/42");
     expect(resource).not.toBeNull();
-    expect(resource!.kind).toBe("Item");
+    expect(resource).toBeInstanceOf(ItemResource);
     expect(resource!.params.userId).toBe("42");
   });
 
   it("resolves a Singleton", () => {
     const resource = app.resolve("/settings");
     expect(resource).not.toBeNull();
-    expect(resource!.kind).toBe("Singleton");
+    expect(resource).toBeInstanceOf(SingletonResource);
   });
 
   it("resolves nested route groups", () => {
     const resource = app.resolve("/admin/users");
     expect(resource).not.toBeNull();
-    expect(resource!.kind).toBe("Collection");
+    expect(resource).toBeInstanceOf(CollectionResource);
   });
 
   it("resolves nested route groups with params", () => {
     const resource = app.resolve("/admin/users/7");
     expect(resource).not.toBeNull();
-    expect(resource!.kind).toBe("Item");
+    expect(resource).toBeInstanceOf(ItemResource);
     expect(resource!.params.userId).toBe("7");
   });
 
@@ -527,14 +605,14 @@ describe("Resource tree", () => {
   it("handles trailing slashes", () => {
     const resource = app.resolve("/users/");
     expect(resource).not.toBeNull();
-    expect(resource!.kind).toBe("Collection");
+    expect(resource).toBeInstanceOf(CollectionResource);
   });
 
   it("handles double slashes gracefully", () => {
     // Double slashes produce empty segments which are filtered out
     const resource = app.resolve("//users//42");
     expect(resource).not.toBeNull();
-    expect(resource!.kind).toBe("Item");
+    expect(resource).toBeInstanceOf(ItemResource);
     expect(resource!.params.userId).toBe("42");
   });
 });
@@ -545,102 +623,92 @@ describe("Resource tree", () => {
 
 describe("Deep resource trees", () => {
   it("supports 3+ levels of nesting", () => {
-    const Posts = Collection(() => ({
-      list: (ctx) => [{ id: 1, title: "Hello" }],
-      create: (ctx) => ({ id: 2, ...(ctx.body as Record<string, unknown>) }),
-      children: {
-        ":postId": (postId: string) =>
-          class extends ItemResource {
-            constructor(params: Record<string, string>, path: string) {
-              super(
-                {
-                  content: (ctx: RequestContext) => ({
-                    id: Number(postId),
-                    title: "Hello",
-                  }),
-                },
-                {
-                  children: {
-                    comments: {
-                      ":commentId": (commentId: string) =>
-                        class extends ItemResource {
-                          constructor(params: Record<string, string>, path: string) {
-                            super({
-                              content: (ctx: RequestContext) => ({
-                                id: Number(commentId),
-                                text: "Nice",
-                              }),
-                            }, undefined, params, path);
-                          }
-                        },
-                    },
-                  },
-                },
-                params,
-                path,
-              );
-            }
-          },
-      },
-    }));
+    class Posts extends CollectionKind {
+      children = {
+        ":postId": new (class extends ItemKind {
+          children = {
+            comments: {
+              ":commentId": new (class extends ItemKind {
+                async content(ctx: RequestContext): Promise<Repr> {
+                  return {
+                    content: { id: Number(ctx.params.commentId), text: "Nice" },
+                    meta: {},
+                  };
+                }
+              })(),
+            },
+          };
+          async content(ctx: RequestContext): Promise<Repr> {
+            return {
+              content: { id: Number(ctx.params.postId), title: "Hello" },
+              meta: {},
+            };
+          }
+        })(),
+      };
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [{ id: 1, title: "Hello" }], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return {
+          content: { id: 2, ...(await ctx.json<Record<string, unknown>>()) },
+          meta: {},
+        };
+      }
+    }
 
-    const app = new Site({ posts: Posts({}) });
+    const app = new Site({ posts: new Posts() });
 
     // /posts
     const posts = app.resolve("/posts");
-    expect(posts!.kind).toBe("Collection");
+    expect(posts).toBeInstanceOf(CollectionResource);
 
     // /posts/1
     const post = app.resolve("/posts/1");
-    expect(post!.kind).toBe("Item");
+    expect(post).toBeInstanceOf(ItemResource);
     expect(post!.params.postId).toBe("1");
 
     // /posts/1/comments/5 — nested children map
     const comment = app.resolve("/posts/1/comments/5");
     expect(comment).not.toBeNull();
-    expect(comment!.kind).toBe("Item");
+    expect(comment).toBeInstanceOf(ItemResource);
     expect(comment!.params.postId).toBe("1");
     expect(comment!.params.commentId).toBe("5");
   });
 
   it("supports multiple parameterized children at the same level", () => {
-    const Users = Collection(() => ({
-      list: (ctx) => [],
-      create: (ctx) => ctx.body,
-      children: {
-        ":userId": (userId: string) =>
-          class extends ItemResource {
-            constructor(params: Record<string, string>, path: string) {
-              super(
-                {
-                  content: (ctx: RequestContext) => ({ id: Number(userId) }),
-                },
-                {
-                  children: {
-                    posts: {
-                      ":postId": (postId: string) =>
-                        class extends ItemResource {
-                          constructor(params: Record<string, string>, path: string) {
-                            super({
-                              content: (ctx: RequestContext) => ({
-                                id: Number(postId),
-                                authorId: Number(userId),
-                              }),
-                            }, undefined, params, path);
-                          }
-                        },
+    class Users extends CollectionKind {
+      children = {
+        ":userId": new (class extends ItemKind {
+          children = {
+            posts: {
+              ":postId": new (class extends ItemKind {
+                async content(ctx: RequestContext): Promise<Repr> {
+                  return {
+                    content: {
+                      id: Number(ctx.params.postId),
+                      authorId: Number(ctx.params.userId),
                     },
-                  },
-                },
-                params,
-                path,
-              );
-            }
-          },
-      },
-    }));
+                    meta: {},
+                  };
+                }
+              })(),
+            },
+          };
+          async content(ctx: RequestContext): Promise<Repr> {
+            return { content: { id: Number(ctx.params.userId) }, meta: {} };
+          }
+        })(),
+      };
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
 
-    const app = new Site({ users: Users({}) });
+    const app = new Site({ users: new Users() });
     const resource = app.resolve("/users/42/posts/7");
     expect(resource).not.toBeNull();
     expect(resource!.params.userId).toBe("42");
@@ -648,39 +716,38 @@ describe("Deep resource trees", () => {
   });
 
   it("supports exact match before parameterized match", () => {
-    const Items = Collection(() => ({
-      list: (ctx) => [],
-      create: (ctx) => ctx.body,
-      children: {
+    const NewItem = new (class extends ReadOnlyKind {
+      async content(ctx: RequestContext): Promise<Repr> {
+        return { content: { form: "new-item" }, meta: {} };
+      }
+    })();
+    class Items extends CollectionKind {
+      children = {
         // "new" is an exact match, ":id" is parameterized
-        new: () =>
-          class extends ReadOnlyResource {
-            constructor(params: Record<string, string>, path: string) {
-              super({
-                content: (ctx: RequestContext) => ({ form: "new-item" }),
-              }, undefined, params, path);
-            }
-          },
-        ":id": (id: string) =>
-          class extends ItemResource {
-            constructor(params: Record<string, string>, path: string) {
-              super({
-                content: (ctx: RequestContext) => ({ id: Number(id) }),
-              }, undefined, params, path);
-            }
-          },
-      },
-    }));
+        new: NewItem,
+        ":id": new (class extends ItemKind {
+          async content(ctx: RequestContext): Promise<Repr> {
+            return { content: { id: Number(ctx.params.id) }, meta: {} };
+          }
+        })(),
+      };
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
 
-    const app = new Site({ items: Items({}) });
+    const app = new Site({ items: new Items() });
 
     // Exact match
     const newResource = app.resolve("/items/new");
-    expect(newResource!.kind).toBe("ReadOnly");
+    expect(newResource).toBeInstanceOf(ReadOnlyResource);
 
     // Parameterized match
     const itemResource = app.resolve("/items/123");
-    expect(itemResource!.kind).toBe("Item");
+    expect(itemResource).toBeInstanceOf(ItemResource);
     expect(itemResource!.params.id).toBe("123");
   });
 });
@@ -691,68 +758,64 @@ describe("Deep resource trees", () => {
 
 describe("Trailing slash / child node", () => {
   it("resolves / child on trailing slash", () => {
-    const Files = Collection(() => ({
-      list: (ctx) => [{ name: "readme.md" }],
-      create: (ctx) => ctx.body,
-      children: {
-        ":filename": (filename: string) =>
-          class extends ItemResource {
-            constructor(params: Record<string, string>, path: string) {
-              super(
-                {
-                  content: (ctx: RequestContext) => ({
-                    name: filename,
-                    type: "file",
-                  }),
-                },
-                {
-                  children: {
-                    "/": () =>
-                      class extends CollectionResource {
-                        constructor(params: Record<string, string>, path: string) {
-                          super({
-                            list: (ctx: RequestContext) => [
-                              { name: "nested.txt" },
-                            ],
-                            create: (ctx: RequestContext) => ctx.body,
-                          }, undefined, params, path);
-                        }
-                      },
-                  },
-                },
-                params,
-                path,
-              );
-            }
-          },
-      },
-    }));
+    class Files extends CollectionKind {
+      children = {
+        ":filename": new (class extends ItemKind {
+          children = {
+            "/": new (class extends CollectionKind {
+              async list(ctx: RequestContext): Promise<Repr> {
+                return { content: [{ name: "nested.txt" }], meta: {} };
+              }
+              async create(ctx: RequestContext): Promise<Repr> {
+                return { content: await ctx.json(), meta: {} };
+              }
+            })(),
+          };
+          async content(ctx: RequestContext): Promise<Repr> {
+            return {
+              content: { name: ctx.params.filename, type: "file" },
+              meta: {},
+            };
+          }
+        })(),
+      };
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [{ name: "readme.md" }], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
 
-    const app = new Site({ files: Files({}) });
+    const app = new Site({ files: new Files() });
 
     // Without trailing slash → Item
     const file = app.resolve("/files/readme.md");
     expect(file).not.toBeNull();
-    expect(file!.kind).toBe("Item");
+    expect(file).toBeInstanceOf(ItemResource);
 
     // With trailing slash → "/" child (Collection)
     const dir = app.resolve("/files/readme.md/");
     expect(dir).not.toBeNull();
-    expect(dir!.kind).toBe("Collection");
+    expect(dir).toBeInstanceOf(CollectionResource);
   });
 
   it("falls back to same descriptor when no / child exists", () => {
-    const Users = Collection(() => ({
-      list: (ctx) => [{ id: 1 }],
-      create: (ctx) => ctx.body,
-    }));
+    class Users extends CollectionKind {
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [{ id: 1 }], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
 
-    const app = new Site({ users: Users({}) });
+    const app = new Site({ users: new Users() });
 
     // With trailing slash but no "/" child → still resolves to Collection
     const resource = app.resolve("/users/");
     expect(resource).not.toBeNull();
-    expect(resource!.kind).toBe("Collection");
+    expect(resource).toBeInstanceOf(CollectionResource);
   });
 });
 
@@ -860,137 +923,169 @@ describe("Content negotiation", () => {
 
 describe("Operation invocation", () => {
   it("invokes list on a Collection", async () => {
-    const Users = Collection(() => ({
-      list: (ctx) => [{ id: 1 }],
-      create: (ctx) => ({ id: 2, ...(ctx.body as Record<string, unknown>) }),
-    }));
+    class Users extends CollectionKind {
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [{ id: 1 }], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return {
+          content: { id: 2, ...(await ctx.json<Record<string, unknown>>()) },
+          meta: {},
+        };
+      }
+    }
 
-    const app = new Site({ users: Users({}) });
+    const app = new Site({ users: new Users() });
     const resource = app.resolve("/users")!;
 
     expect(resource).toBeInstanceOf(CollectionResource);
-    const result = await (resource as CollectionResource).list({
-      method: "GET",
-      path: "/users",
-      params: {},
-      query: {},
-      headers: {},
-    });
-    expect(result).toEqual([{ id: 1 }]);
+    const result = await resource.get(
+      createRequestContext({
+        method: "GET",
+        path: "/users",
+      }),
+    );
+    expect(result).toEqual({ content: [{ id: 1 }], meta: {} });
   });
 
   it("invokes create on a Collection", async () => {
-    const Users = Collection(() => ({
-      list: (ctx) => [],
-      create: (ctx) => ({ id: 1, ...(ctx.body as Record<string, unknown>) }),
-    }));
+    class Users extends CollectionKind {
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return {
+          content: { id: 1, ...(await ctx.json<Record<string, unknown>>()) },
+          meta: {},
+        };
+      }
+    }
 
-    const app = new Site({ users: Users({}) });
+    const app = new Site({ users: new Users() });
     const resource = app.resolve("/users")!;
 
     expect(resource).toBeInstanceOf(CollectionResource);
-    const result = await (resource as CollectionResource).create({
-      method: "POST",
-      path: "/users",
-      params: {},
-      query: {},
-      headers: {},
-      body: { name: "Bob" },
-    });
-    expect(result).toEqual({ id: 1, name: "Bob" });
+    const result = await resource.post(
+      createRequestContext({
+        method: "POST",
+        path: "/users",
+        body: { name: "Bob" },
+      }),
+    );
+    expect(result).toEqual({ content: { id: 1, name: "Bob" }, meta: {} });
   });
 
   it("invokes content on an Item", async () => {
-    const UserItem = Item(() => ({
-      content: (ctx) => ({ id: ctx.params.userId, name: "Alice" }),
-    }));
+    class UserItem extends ItemKind {
+      async content(ctx: RequestContext): Promise<Repr> {
+        return { content: { id: ctx.params.userId, name: "Alice" }, meta: {} };
+      }
+    }
 
-    const app = new Site({ user: UserItem({}) });
+    const app = new Site({ user: new UserItem() });
     const resource = app.resolve("/user")!;
 
     expect(resource).toBeInstanceOf(ItemResource);
-    const result = await (resource as ItemResource).content({
-      method: "GET",
-      path: "/user",
-      params: { userId: "42" },
-      query: {},
-      headers: {},
-    });
-    expect(result).toEqual({ id: "42", name: "Alice" });
+    const result = await resource.get(
+      createRequestContext({
+        method: "GET",
+        path: "/user",
+        params: { userId: "42" },
+      }),
+    );
+    expect(result).toEqual({ content: { id: "42", name: "Alice" }, meta: {} });
   });
 
   it("invokes invoke on an Action", async () => {
-    const SendEmail = Action(() => ({
-      invoke: (ctx) => ({ sent: true, to: (ctx.body as { to: string }).to }),
-    }));
+    class SendEmail extends ActionKind {
+      async invoke(ctx: RequestContext): Promise<Repr> {
+        return {
+          content: {
+            sent: true,
+            to: (await ctx.json<{ to: string }>()).to,
+          },
+          meta: {},
+        };
+      }
+    }
 
-    const app = new Site({ sendEmail: SendEmail({}) });
+    const app = new Site({ sendEmail: new SendEmail() });
     const resource = app.resolve("/sendEmail")!;
 
     expect(resource).toBeInstanceOf(ActionResource);
-    const result = await (resource as ActionResource).invoke({
-      method: "POST",
-      path: "/sendEmail",
-      params: {},
-      query: {},
-      headers: {},
-      body: { to: "alice@example.com" },
+    const result = await resource.invoke!(
+      createRequestContext({
+        method: "POST",
+        path: "/sendEmail",
+        body: { to: "alice@example.com" },
+      }),
+    );
+    expect(result).toEqual({
+      content: { sent: true, to: "alice@example.com" },
+      meta: {},
     });
-    expect(result).toEqual({ sent: true, to: "alice@example.com" });
   });
 
   it("disallowed operations are not present on the resource", () => {
-    const Users = Collection(() => ({
-      list: (ctx) => [],
-      create: (ctx) => ctx.body,
-    }));
+    class Users extends CollectionKind {
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
 
-    const app = new Site({ users: Users({}) });
+    const app = new Site({ users: new Users() });
     const resource = app.resolve("/users")!;
 
     // Collection does not have a "content" operation
-    expect(kindAllowsOperation(resource.kind, "content")).toBe(false);
     expect(resource).toBeInstanceOf(CollectionResource);
+    expect(resource.allowedMethods()).toEqual(["GET", "POST"]);
     expect("content" in resource).toBe(false);
   });
 
   it("unimplemented operations are undefined", () => {
-    const UserItem = Item(() => ({
-      content: (ctx) => ({ id: 1 }),
+    class UserItem extends ItemKind {
+      async content(ctx: RequestContext): Promise<Repr> {
+        return { content: { id: 1 }, meta: {} };
+      }
       // no delete
-    }));
+    }
 
-    const app = new Site({ user: UserItem({}) });
+    const app = new Site({ user: new UserItem() });
     const resource = app.resolve("/user")!;
 
     expect(resource).toBeInstanceOf(ItemResource);
-    expect((resource as ItemResource).delete).toBeUndefined();
+    expect(resource.allowedMethods()).toEqual(["GET"]);
   });
 
   it("supports async handlers", async () => {
-    const Users = Collection(() => ({
-      list: async (ctx) => {
+    class Users extends CollectionKind {
+      async list(ctx: RequestContext): Promise<Repr> {
         await new Promise((r) => setTimeout(r, 1));
-        return [{ id: 1 }];
-      },
-      create: async (ctx) => {
+        return { content: [{ id: 1 }], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
         await new Promise((r) => setTimeout(r, 1));
-        return { id: 2, ...(ctx.body as Record<string, unknown>) };
-      },
-    }));
+        return {
+          content: { id: 2, ...(await ctx.json<Record<string, unknown>>()) },
+          meta: {},
+        };
+      }
+    }
 
-    const app = new Site({ users: Users({}) });
+    const app = new Site({ users: new Users() });
     const resource = app.resolve("/users")!;
 
     expect(resource).toBeInstanceOf(CollectionResource);
-    const result = await (resource as CollectionResource).list({
-      method: "GET",
-      path: "/users",
-      params: {},
-      query: {},
-      headers: {},
-    });
-    expect(result).toEqual([{ id: 1 }]);
+    const result = await resource.get(
+      createRequestContext({
+        method: "GET",
+        path: "/users",
+      }),
+    );
+    expect(result).toEqual({ content: [{ id: 1 }], meta: {} });
   });
 });
 
@@ -1000,84 +1095,99 @@ describe("Operation invocation", () => {
 
 describe("RequestContext", () => {
   it("handlers can access ctx.params", async () => {
-    const UserItem = Item(() => ({
-      content: (ctx) => ({ id: ctx.params.userId, name: "Alice" }),
-    }));
+    class UserItem extends ItemKind {
+      async content(ctx: RequestContext): Promise<Repr> {
+        return { content: { id: ctx.params.userId, name: "Alice" }, meta: {} };
+      }
+    }
 
-    const app = new Site({ user: UserItem({}) });
+    const app = new Site({ user: new UserItem() });
     const resource = app.resolve("/user")!;
 
     expect(resource).toBeInstanceOf(ItemResource);
-    const result = await (resource as ItemResource).content({
-      method: "GET",
-      path: "/user",
-      params: { userId: "99" },
-      query: {},
-      headers: {},
-    });
-    expect(result).toEqual({ id: "99", name: "Alice" });
+    const result = await resource.get(
+      createRequestContext({
+        method: "GET",
+        path: "/user",
+        params: { userId: "99" },
+      }),
+    );
+    expect(result).toEqual({ content: { id: "99", name: "Alice" }, meta: {} });
   });
 
   it("handlers can access ctx.body", async () => {
-    const Users = Collection(() => ({
-      list: (ctx) => [],
-      create: (ctx) => ({ id: 1, ...(ctx.body as Record<string, unknown>) }),
-    }));
+    class Users extends CollectionKind {
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return {
+          content: { id: 1, ...(await ctx.json<Record<string, unknown>>()) },
+          meta: {},
+        };
+      }
+    }
 
-    const app = new Site({ users: Users({}) });
+    const app = new Site({ users: new Users() });
     const resource = app.resolve("/users")!;
 
     expect(resource).toBeInstanceOf(CollectionResource);
-    const result = await (resource as CollectionResource).create({
-      method: "POST",
-      path: "/users",
-      params: {},
-      query: {},
-      headers: {},
-      body: { name: "Charlie" },
-    });
-    expect(result).toEqual({ id: 1, name: "Charlie" });
+    const result = await resource.post(
+      createRequestContext({
+        method: "POST",
+        path: "/users",
+        body: { name: "Charlie" },
+      }),
+    );
+    expect(result).toEqual({ content: { id: 1, name: "Charlie" }, meta: {} });
   });
 
   it("handlers can access ctx.query", async () => {
-    const Users = Collection(() => ({
-      list: (ctx) => [{ id: 1, page: ctx.query.page ?? "1" }],
-      create: (ctx) => ctx.body,
-    }));
+    class Users extends CollectionKind {
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [{ id: 1, page: ctx.query.page ?? "1" }], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
 
-    const app = new Site({ users: Users({}) });
+    const app = new Site({ users: new Users() });
     const resource = app.resolve("/users")!;
 
     expect(resource).toBeInstanceOf(CollectionResource);
-    const result = await (resource as CollectionResource).list({
-      method: "GET",
-      path: "/users",
-      params: {},
-      query: { page: "3" },
-      headers: {},
-    });
-    expect(result).toEqual([{ id: 1, page: "3" }]);
+    const result = await resource.get(
+      createRequestContext({
+        method: "GET",
+        path: "/users",
+        query: { page: "3" },
+      }),
+    );
+    expect(result).toEqual({ content: [{ id: 1, page: "3" }], meta: {} });
   });
 
   it("handlers can access ctx.headers", async () => {
-    const Echo = Action(() => ({
-      invoke: (ctx) => ({
-        auth: ctx.headers["authorization"] ?? "none",
-      }),
-    }));
+    class Echo extends ActionKind {
+      async invoke(ctx: RequestContext): Promise<Repr> {
+        return {
+          content: { auth: ctx.headers["authorization"] ?? "none" },
+          meta: {},
+        };
+      }
+    }
 
-    const app = new Site({ echo: Echo({}) });
+    const app = new Site({ echo: new Echo() });
     const resource = app.resolve("/echo")!;
 
     expect(resource).toBeInstanceOf(ActionResource);
-    const result = await (resource as ActionResource).invoke({
-      method: "POST",
-      path: "/echo",
-      params: {},
-      query: {},
-      headers: { authorization: "Bearer token123" },
-    });
-    expect(result).toEqual({ auth: "Bearer token123" });
+    const result = await resource.invoke!(
+      createRequestContext({
+        method: "POST",
+        path: "/echo",
+        headers: { authorization: "Bearer token123" },
+      }),
+    );
+    expect(result).toEqual({ content: { auth: "Bearer token123" }, meta: {} });
   });
 });
 
@@ -1086,62 +1196,84 @@ describe("RequestContext", () => {
 // ---------------------------------------------------------------------------
 
 describe("HTTP request handling", () => {
-  const Users = Collection<{ table: string }>(({ table }) => ({
-    list: (ctx) => ({ content: [{ id: 1, name: "Alice" }], meta: {} }),
-    create: (ctx) => {
-      const item = { id: 2, ...(ctx.body as Record<string, unknown>) };
+  class Users extends CollectionKind {
+    async list(ctx: RequestContext): Promise<Repr> {
+      return { content: [{ id: 1, name: "Alice" }], meta: {} };
+    }
+    async create(ctx: RequestContext): Promise<Repr> {
+      const item = { id: 2, ...(await ctx.json<Record<string, unknown>>()) };
       return {
         content: item,
         meta: { location: `./${(item as { id: number }).id}` },
       };
-    },
-    children: {
-      ":userId": (id: string) =>
-        class extends ItemResource {
-          constructor(params: Record<string, string>, path: string) {
-            super({
-              content: (ctx: RequestContext) => ({
-                id: Number(id),
-                name: "Alice",
-              }),
-              replace: (ctx: RequestContext) => ({
-                id: Number(id),
-                ...(ctx.body as Record<string, unknown>),
-              }),
-              patch: (ctx: RequestContext) => ({
-                id: Number(id),
-                ...(ctx.body as Record<string, unknown>),
-              }),
-              delete: (ctx: RequestContext) => undefined,
-            }, undefined, params, path);
-          }
-        },
-    },
-  }));
+    }
+    children = {
+      ":userId": new (class extends ItemKind {
+        async content(ctx: RequestContext): Promise<Repr> {
+          return {
+            content: { id: Number(ctx.params.userId), name: "Alice" },
+            meta: {},
+          };
+        }
+        async replace(ctx: RequestContext): Promise<Repr> {
+          return {
+            content: {
+              id: Number(ctx.params.userId),
+              ...(await ctx.json<Record<string, unknown>>()),
+            },
+            meta: {},
+          };
+        }
+        async patch(ctx: RequestContext): Promise<Repr> {
+          return {
+            content: {
+              id: Number(ctx.params.userId),
+              ...(await ctx.json<Record<string, unknown>>()),
+            },
+            meta: {},
+          };
+        }
+        async delete(ctx: RequestContext): Promise<Repr> {
+          return { content: null, meta: {} };
+        }
+      })(),
+    };
+  }
 
-  const Settings = Singleton(() => ({
-    content: (ctx) => ({ theme: "dark" }),
-    replace: (ctx) => ctx.body,
-    patch: (ctx) => {
-      const data = ctx.body as { theme: string };
-      return { theme: data.theme };
-    },
-  }));
+  class Settings extends SingletonKind {
+    async content(ctx: RequestContext): Promise<Repr> {
+      return { content: { theme: "dark" }, meta: {} };
+    }
+    async replace(ctx: RequestContext): Promise<Repr> {
+      return { content: await ctx.json(), meta: {} };
+    }
+    async patch(ctx: RequestContext): Promise<Repr> {
+      const data = await ctx.json<{ theme: string }>();
+      return { content: { theme: data.theme }, meta: {} };
+    }
+  }
 
-  const Dashboard = ReadOnly(() => ({
-    content: (ctx) => ({ count: 42, active: true }),
-  }));
+  class Dashboard extends ReadOnlyKind {
+    async content(ctx: RequestContext): Promise<Repr> {
+      return { content: { count: 42, active: true }, meta: {} };
+    }
+  }
 
-  const CalculateTax = Action(() => ({
-    invoke: (ctx) => ({ tax: (ctx.body as { amount: number }).amount * 0.1 }),
-  }));
+  class CalculateTax extends ActionKind {
+    async invoke(ctx: RequestContext): Promise<Repr> {
+      return {
+        content: { tax: (await ctx.json<{ amount: number }>()).amount * 0.1 },
+        meta: {},
+      };
+    }
+  }
 
   const app = new Site({
-    users: Users({ table: "users" }),
-    settings: Settings({}),
-    dashboard: Dashboard({}),
+    users: new Users(),
+    settings: new Settings(),
+    dashboard: new Dashboard(),
     actions: {
-      calculateTax: CalculateTax({}),
+      calculateTax: new CalculateTax(),
     },
   });
 
@@ -1153,7 +1285,7 @@ describe("HTTP request handling", () => {
     });
     expect(response.status).toBe(200);
     expect(response.headers["Content-Type"]).toBe("application/json");
-    const body = JSON.parse(bodyText(response.body));
+    const body = JSON.parse(await bodyText(response.body));
     expect(body).toEqual([{ id: 1, name: "Alice" }]);
   });
 
@@ -1164,7 +1296,7 @@ describe("HTTP request handling", () => {
     });
     expect(response.status).toBe(200);
     expect(response.headers["Content-Type"]).toBe("text/html");
-    expect(bodyText(response.body)).toContain("<!DOCTYPE html>");
+    expect(await bodyText(response.body)).toContain("<!DOCTYPE html>");
   });
 
   it("GET /users/42 returns Item data", async () => {
@@ -1174,7 +1306,7 @@ describe("HTTP request handling", () => {
       accept: "application/json",
     });
     expect(response.status).toBe(200);
-    const body = JSON.parse(bodyText(response.body));
+    const body = JSON.parse(await bodyText(response.body));
     expect(body.id).toBe(42);
   });
 
@@ -1183,7 +1315,7 @@ describe("HTTP request handling", () => {
       method: "POST",
       path: "/users",
       accept: "application/json",
-      body: { name: "Bob" },
+      body: jsonBody({ name: "Bob" }),
     });
     expect(response.status).toBe(201);
   });
@@ -1193,10 +1325,10 @@ describe("HTTP request handling", () => {
       method: "PUT",
       path: "/users/42",
       accept: "application/json",
-      body: { name: "Charlie" },
+      body: jsonBody({ name: "Charlie" }),
     });
     expect(response.status).toBe(200);
-    const body = JSON.parse(bodyText(response.body));
+    const body = JSON.parse(await bodyText(response.body));
     expect(body.name).toBe("Charlie");
   });
 
@@ -1205,7 +1337,7 @@ describe("HTTP request handling", () => {
       method: "PATCH",
       path: "/users/42",
       accept: "application/json",
-      body: { name: "Dave" },
+      body: jsonBody({ name: "Dave" }),
     });
     expect(response.status).toBe(200);
   });
@@ -1225,7 +1357,7 @@ describe("HTTP request handling", () => {
       accept: "application/json",
     });
     expect(response.status).toBe(200);
-    const body = JSON.parse(bodyText(response.body));
+    const body = JSON.parse(await bodyText(response.body));
     expect(body.theme).toBe("dark");
   });
 
@@ -1234,7 +1366,7 @@ describe("HTTP request handling", () => {
       method: "PUT",
       path: "/settings",
       accept: "application/json",
-      body: { theme: "light" },
+      body: jsonBody({ theme: "light" }),
     });
     expect(response.status).toBe(200);
   });
@@ -1244,7 +1376,7 @@ describe("HTTP request handling", () => {
       method: "PATCH",
       path: "/settings",
       accept: "application/json",
-      body: { theme: "light" },
+      body: jsonBody({ theme: "light" }),
     });
     expect(response.status).toBe(200);
   });
@@ -1256,7 +1388,7 @@ describe("HTTP request handling", () => {
       accept: "application/json",
     });
     expect(response.status).toBe(200);
-    const body = JSON.parse(bodyText(response.body));
+    const body = JSON.parse(await bodyText(response.body));
     expect(body.count).toBe(42);
   });
 
@@ -1265,10 +1397,10 @@ describe("HTTP request handling", () => {
       method: "POST",
       path: "/actions/calculateTax",
       accept: "application/json",
-      body: { amount: 100 },
+      body: jsonBody({ amount: 100 }),
     });
     expect(response.status).toBe(200);
-    const body = JSON.parse(bodyText(response.body));
+    const body = JSON.parse(await bodyText(response.body));
     expect(body.tax).toBe(10);
   });
 
@@ -1332,9 +1464,8 @@ describe("HTTP request handling", () => {
     });
     expect(response.status).toBe(200);
     expect(response.headers["Content-Type"]).toBe("application/ld+json");
-    const body = JSON.parse(bodyText(response.body));
+    const body = JSON.parse(await bodyText(response.body));
     expect(body["@context"]).toBeDefined();
-    expect(body["@type"]).toBe("Collection");
     expect(body["@graph"]).toBeDefined();
     expect(Array.isArray(body["@graph"])).toBe(true);
   });
@@ -1346,9 +1477,8 @@ describe("HTTP request handling", () => {
       accept: "application/ld+json",
     });
     expect(response.status).toBe(200);
-    const body = JSON.parse(bodyText(response.body));
+    const body = JSON.parse(await bodyText(response.body));
     expect(body["@id"]).toBeDefined();
-    expect(body["@type"]).toBe("Item");
   });
 
   it("HTML response includes data-resource attribute (data-attr hydration)", async () => {
@@ -1356,7 +1486,7 @@ describe("HTTP request handling", () => {
       method: "GET",
       path: "/users",
     });
-    expect(bodyText(response.body)).toContain('data-resource="');
+    expect(await bodyText(response.body)).toContain('data-resource="');
   });
 
   it("HTML response includes rikka-resource element", async () => {
@@ -1364,70 +1494,79 @@ describe("HTTP request handling", () => {
       method: "GET",
       path: "/users",
     });
-    expect(bodyText(response.body)).toContain("<rikka-resource");
-    expect(bodyText(response.body)).toContain('kind="Collection"');
+    expect(await bodyText(response.body)).toContain("<rikka-resource");
+    expect(await bodyText(response.body)).toContain('path="/users"');
   });
 
   it("handles handler errors with 500", async () => {
-    const Broken = Collection(() => ({
-      list: (ctx) => {
+    class Broken extends CollectionKind {
+      async list(ctx: RequestContext): Promise<Repr> {
         throw new Error("DB connection failed");
-      },
-      create: (ctx) => ctx.body,
-    }));
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
 
-    const brokenApp = new Site({ broken: Broken({}) });
+    const brokenApp = new Site({ broken: new Broken() });
     const response = await brokenApp.handleRequest({
       method: "GET",
       path: "/broken",
       accept: "application/json",
     });
     expect(response.status).toBe(500);
-    expect(bodyText(response.body)).toBe("DB connection failed");
+    expect(await bodyText(response.body)).toBe("DB connection failed");
   });
 
   it("handles non-Error throws with 500", async () => {
-    const Broken = Collection(() => ({
-      list: (ctx) => {
+    class Broken extends CollectionKind {
+      async list(ctx: RequestContext): Promise<Repr> {
         throw "string error";
-      },
-      create: (ctx) => ctx.body,
-    }));
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
 
-    const brokenApp = new Site({ broken: Broken({}) });
+    const brokenApp = new Site({ broken: new Broken() });
     const response = await brokenApp.handleRequest({
       method: "GET",
       path: "/broken",
     });
     expect(response.status).toBe(500);
-    expect(bodyText(response.body)).toBe("Internal Server Error");
+    expect(await bodyText(response.body)).toBe("Internal Server Error");
   });
 
   it("handles async handler errors", async () => {
-    const Broken = Collection(() => ({
-      list: async (ctx) => {
+    class Broken extends CollectionKind {
+      async list(ctx: RequestContext): Promise<Repr> {
         throw new Error("Async fail");
-      },
-      create: (ctx) => ctx.body,
-    }));
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
 
-    const brokenApp = new Site({ broken: Broken({}) });
+    const brokenApp = new Site({ broken: new Broken() });
     const response = await brokenApp.handleRequest({
       method: "GET",
       path: "/broken",
     });
     expect(response.status).toBe(500);
-    expect(bodyText(response.body)).toBe("Async fail");
+    expect(await bodyText(response.body)).toBe("Async fail");
   });
 
   it("passes headers in RequestContext", async () => {
-    const Echo = Action(() => ({
-      invoke: (ctx) => ({
-        auth: ctx.headers["authorization"] ?? "none",
-      }),
-    }));
+    class Echo extends ActionKind {
+      async invoke(ctx: RequestContext): Promise<Repr> {
+        return {
+          content: { auth: ctx.headers["authorization"] ?? "none" },
+          meta: {},
+        };
+      }
+    }
 
-    const echoApp = new Site({ echo: Echo({}) });
+    const echoApp = new Site({ echo: new Echo() });
     const response = await echoApp.handleRequest({
       method: "POST",
       path: "/echo",
@@ -1435,7 +1574,7 @@ describe("HTTP request handling", () => {
       headers: { authorization: "Bearer test123" },
     });
     expect(response.status).toBe(200);
-    const body = JSON.parse(bodyText(response.body));
+    const body = JSON.parse(await bodyText(response.body));
     expect(body.auth).toBe("Bearer test123");
   });
 });
@@ -1446,44 +1585,51 @@ describe("HTTP request handling", () => {
 
 describe("resolveResource", () => {
   it("resolves root descriptor with empty path", () => {
-    const desc = Collection(() => ({
-      list: (ctx) => [],
-      create: (ctx) => ctx.body,
-    }))({});
+    class TestCollection extends CollectionKind {
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
 
-    const result = resolveResource(desc, "");
+    const result = resolveResource(new TestCollection(), "");
     expect(result).not.toBeNull();
-    expect(result!.kind).toBe("Collection");
+    expect(result).toBeInstanceOf(CollectionResource);
   });
 
   it("returns null when no children and path has segments", () => {
-    const desc = ReadOnly(() => ({
-      content: (ctx) => ({ value: 1 }),
-    }))({});
+    class TestReadOnly extends ReadOnlyKind {
+      async content(ctx: RequestContext): Promise<Repr> {
+        return { content: { value: 1 }, meta: {} };
+      }
+    }
 
-    const result = resolveResource(desc, "something");
+    const result = resolveResource(new TestReadOnly(), "something");
     expect(result).toBeNull();
   });
 
   it("resolves children with exact match", () => {
-    const desc = Collection(() => ({
-      list: (ctx) => [],
-      create: (ctx) => ctx.body,
-      children: {
-        special: () =>
-          class extends ReadOnlyResource {
-            constructor(params: Record<string, string>, path: string) {
-              super({
-                content: (ctx: RequestContext) => ({ special: true }),
-              }, undefined, params, path);
-            }
-          },
-      },
-    }))({});
+    class TestCollection extends CollectionKind {
+      children = {
+        special: new (class extends ReadOnlyKind {
+          async content(ctx: RequestContext): Promise<Repr> {
+            return { content: { special: true }, meta: {} };
+          }
+        })(),
+      };
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
 
-    const result = resolveResource(desc, "special");
+    const result = resolveResource(new TestCollection(), "special");
     expect(result).not.toBeNull();
-    expect(result!.kind).toBe("ReadOnly");
+    expect(result).toBeInstanceOf(ReadOnlyResource);
   });
 });
 
@@ -1493,83 +1639,113 @@ describe("resolveResource", () => {
 
 describe("Full site integration", () => {
   // Simulating a realistic site structure
-  const Articles = Collection(() => ({
-    list: (ctx) => [
-      { id: 1, title: "First Post", authorId: 1 },
-      { id: 2, title: "Second Post", authorId: 2 },
-    ],
-    create: (ctx) => ({ id: 3, ...(ctx.body as Record<string, unknown>) }),
-    children: {
-      ":articleId": (articleId: string) =>
-        class extends ItemResource {
-          constructor(params: Record<string, string>, path: string) {
-            super(
-              {
-                content: (ctx: RequestContext) => ({
-                  id: Number(articleId),
-                  title: "First Post",
-                  authorId: 1,
-                }),
-                replace: (ctx: RequestContext) => ({
-                  id: Number(articleId),
-                  ...(ctx.body as Record<string, unknown>),
-                }),
-                patch: (ctx: RequestContext) => ({
-                  id: Number(articleId),
-                  ...(ctx.body as Record<string, unknown>),
-                }),
-                delete: (ctx: RequestContext) => undefined,
-              },
-              {
-                children: {
-                  comments: {
-                    ":commentId": (commentId: string) =>
-                      class extends ItemResource {
-                        constructor(params: Record<string, string>, path: string) {
-                          super({
-                            content: (ctx: RequestContext) => ({
-                              id: Number(commentId),
-                              text: "Great article!",
-                            }),
-                          }, undefined, params, path);
-                        }
-                      },
+  class Articles extends CollectionKind {
+    children = {
+      ":articleId": new (class extends ItemKind {
+        children = {
+          comments: {
+            ":commentId": new (class extends ItemKind {
+              async content(ctx: RequestContext): Promise<Repr> {
+                return {
+                  content: {
+                    id: Number(ctx.params.commentId),
+                    text: "Great article!",
                   },
-                },
-              },
-              params,
-              path,
-            );
-          }
+                  meta: {},
+                };
+              }
+            })(),
+          },
+        };
+        async content(ctx: RequestContext): Promise<Repr> {
+          return {
+            content: {
+              id: Number(ctx.params.articleId),
+              title: "First Post",
+              authorId: 1,
+            },
+            meta: {},
+          };
+        }
+        async replace(ctx: RequestContext): Promise<Repr> {
+          return {
+            content: {
+              id: Number(ctx.params.articleId),
+              ...(await ctx.json<Record<string, unknown>>()),
+            },
+            meta: {},
+          };
+        }
+        async patch(ctx: RequestContext): Promise<Repr> {
+          return {
+            content: {
+              id: Number(ctx.params.articleId),
+              ...(await ctx.json<Record<string, unknown>>()),
+            },
+            meta: {},
+          };
+        }
+        async delete(ctx: RequestContext): Promise<Repr> {
+          return { content: null, meta: {} };
+        }
+      })(),
+    };
+    async list(ctx: RequestContext): Promise<Repr> {
+      return {
+        content: [
+          { id: 1, title: "First Post", authorId: 1 },
+          { id: 2, title: "Second Post", authorId: 2 },
+        ],
+        meta: {},
+      };
+    }
+    async create(ctx: RequestContext): Promise<Repr> {
+      return {
+        content: { id: 3, ...(await ctx.json<Record<string, unknown>>()) },
+        meta: {},
+      };
+    }
+  }
+
+  class Profile extends SingletonKind {
+    async content(ctx: RequestContext): Promise<Repr> {
+      return { content: { name: "Alice", bio: "Developer" }, meta: {} };
+    }
+    async patch(ctx: RequestContext): Promise<Repr> {
+      return {
+        content: {
+          name: "Alice",
+          ...(await ctx.json<Record<string, unknown>>()),
         },
-    },
-  }));
+        meta: {},
+      };
+    }
+  }
 
-  const Profile = Singleton(() => ({
-    content: (ctx) => ({ name: "Alice", bio: "Developer" }),
-    patch: (ctx) => ({
-      name: "Alice",
-      ...(ctx.body as Record<string, unknown>),
-    }),
-  }));
+  class Stats extends ReadOnlyKind {
+    async content(ctx: RequestContext): Promise<Repr> {
+      return { content: { views: 1000, likes: 42 }, meta: {} };
+    }
+  }
 
-  const Stats = ReadOnly(() => ({
-    content: (ctx) => ({ views: 1000, likes: 42 }),
-  }));
-
-  const SendNotification = Action(() => ({
-    invoke: (ctx) => ({ sent: true, to: (ctx.body as { to: string }).to }),
-  }));
+  class SendNotification extends ActionKind {
+    async invoke(ctx: RequestContext): Promise<Repr> {
+      return {
+        content: { sent: true, to: (await ctx.json<{ to: string }>()).to },
+        meta: {},
+      };
+    }
+  }
 
   const app = new Site({
-    articles: Articles({}),
-    profile: Profile({}),
-    stats: Stats({}),
+    articles: new Articles(),
+    profile: new Profile(),
+    stats: new Stats(),
     actions: {
-      sendNotification: SendNotification({}),
+      sendNotification: new SendNotification(),
     },
     admin: {
-      articles: Articles({}),
+      articles: new Articles(),
     },
   });
 
@@ -1580,7 +1756,7 @@ describe("Full site integration", () => {
       accept: "application/json",
     });
     expect(res.status).toBe(200);
-    const body = JSON.parse(bodyText(res.body));
+    const body = JSON.parse(await bodyText(res.body));
     expect(body).toHaveLength(2);
   });
 
@@ -1591,7 +1767,7 @@ describe("Full site integration", () => {
       accept: "application/json",
     });
     expect(res.status).toBe(200);
-    const body = JSON.parse(bodyText(res.body));
+    const body = JSON.parse(await bodyText(res.body));
     expect(body.id).toBe(5);
     expect(body.text).toBe("Great article!");
   });
@@ -1603,7 +1779,7 @@ describe("Full site integration", () => {
       accept: "application/json",
     });
     expect(res.status).toBe(200);
-    const body = JSON.parse(bodyText(res.body));
+    const body = JSON.parse(await bodyText(res.body));
     expect(body.name).toBe("Alice");
   });
 
@@ -1614,7 +1790,7 @@ describe("Full site integration", () => {
       accept: "application/json",
     });
     expect(res.status).toBe(200);
-    const body = JSON.parse(bodyText(res.body));
+    const body = JSON.parse(await bodyText(res.body));
     expect(body.views).toBe(1000);
   });
 
@@ -1623,10 +1799,10 @@ describe("Full site integration", () => {
       method: "POST",
       path: "/actions/sendNotification",
       accept: "application/json",
-      body: { to: "bob@example.com" },
+      body: jsonBody({ to: "bob@example.com" }),
     });
     expect(res.status).toBe(200);
-    const body = JSON.parse(bodyText(res.body));
+    const body = JSON.parse(await bodyText(res.body));
     expect(body.sent).toBe(true);
   });
 
@@ -1674,7 +1850,7 @@ describe("Transformer registry", () => {
     const registry = new TransformerRegistry();
     const csvTransformer: Transformer = {
       input: { type: "array", items: { type: "object" } },
-      output: "text/csv",
+      output: { type: "raw", mime: "text/csv" },
       transform(repr: Repr, ctx: TransformContext): Repr {
         if (!Array.isArray(repr.content))
           return { content: "", meta: { type: "text/csv" } };
@@ -1694,8 +1870,8 @@ describe("Transformer registry", () => {
   it("registers and finds Raw→Raw transformers", () => {
     const registry = new TransformerRegistry();
     const imageToHtml: Transformer = {
-      input: "image/*",
-      output: "text/html",
+      input: { type: "raw", mime: "image/*" },
+      output: { type: "raw", mime: "text/html" },
       transform(repr: Repr, ctx: TransformContext): Repr {
         const mimeType = repr.meta.type ?? "";
         return {
@@ -1734,7 +1910,7 @@ describe("Transformer registry", () => {
     const registry = new TransformerRegistry();
     const csvTransformer: Transformer = {
       input: { type: "array", items: { type: "object" } },
-      output: "text/csv",
+      output: { type: "raw", mime: "text/csv" },
       transform(repr: Repr, ctx: TransformContext): Repr {
         return { content: "", meta: { type: "text/csv" } };
       },
@@ -1791,7 +1967,7 @@ describe("Transformer registry", () => {
     const registry = new TransformerRegistry();
     const xmlTransformer: Transformer = {
       input: { type: "any" },
-      output: "text/xml",
+      output: { type: "raw", mime: "text/xml" },
       transform(repr: Repr, ctx: TransformContext): Repr {
         return {
           content: `<root>${repr.content}</root>`,
@@ -1810,8 +1986,8 @@ describe("Transformer registry", () => {
   it("Raw→Raw transformer wildcard matching works", () => {
     const registry = new TransformerRegistry();
     const anyImageTransformer: Transformer = {
-      input: "image/*",
-      output: "text/html",
+      input: { type: "raw", mime: "image/*" },
+      output: { type: "raw", mime: "text/html" },
       transform(repr: Repr, ctx: TransformContext): Repr {
         const mimeType = repr.meta.type ?? "";
         return {
@@ -1840,36 +2016,48 @@ describe("Transformer registry", () => {
 });
 
 describe("Transformer pipeline", () => {
-  const Users = Collection(() => ({
-    list: (ctx) => [
-      { id: 1, name: "Alice" },
-      { id: 2, name: "Bob" },
-    ],
-    create: (ctx) => ({ id: 3, ...(ctx.body as Record<string, unknown>) }),
-  }));
+  class Users extends CollectionKind {
+    async list(ctx: RequestContext): Promise<Repr> {
+      return {
+        content: [
+          { id: 1, name: "Alice" },
+          { id: 2, name: "Bob" },
+        ],
+        meta: {},
+      };
+    }
+    async create(ctx: RequestContext): Promise<Repr> {
+      return {
+        content: { id: 3, ...(await ctx.json<Record<string, unknown>>()) },
+        meta: {},
+      };
+    }
+  }
 
-  const app = new Site({ users: Users({}) });
+  const app = new Site({ users: new Users() });
 
   it("Value → JSON transformation", async () => {
     const resource = app.resolve("/users")!;
     const result = await app.registry.transformPipeline(
       resource,
+      resource.path,
       { content: [{ id: 1 }], meta: {} },
       "application/json",
     );
     expect(result.contentType).toBe("application/json");
-    expect(JSON.parse(result.body)).toEqual([{ id: 1 }]);
+    expect(JSON.parse(await bodyText(result.body))).toEqual([{ id: 1 }]);
   });
 
   it("Value → JSON-LD transformation", async () => {
     const resource = app.resolve("/users")!;
     const result = await app.registry.transformPipeline(
       resource,
+      resource.path,
       { content: [{ id: 1 }], meta: {} },
       "application/ld+json",
     );
     expect(result.contentType).toBe("application/ld+json");
-    const body = JSON.parse(result.body);
+    const body = JSON.parse(await bodyText(result.body));
     expect(body["@context"]).toBeDefined();
     expect(body["@graph"]).toEqual([{ id: 1 }]);
   });
@@ -1878,6 +2066,7 @@ describe("Transformer pipeline", () => {
     const resource = app.resolve("/users")!;
     const result = await app.registry.transformPipeline(
       resource,
+      resource.path,
       { content: [{ id: 1 }], meta: {} },
       "text/html",
     );
@@ -1888,7 +2077,7 @@ describe("Transformer pipeline", () => {
   it("custom Value→Raw CSV transformer", async () => {
     const csvTransformer: Transformer = {
       input: anySchema,
-      output: "text/csv",
+      output: { type: "raw", mime: "text/csv" },
       transform(repr: Repr, ctx: TransformContext): Repr {
         if (!Array.isArray(repr.content))
           return { content: "", meta: { type: "text/csv" } };
@@ -1908,16 +2097,16 @@ describe("Transformer pipeline", () => {
     app.registry.register(csvTransformer);
 
     const resource = app.resolve("/users")!;
-    const data = await (resource as CollectionResource).list({
-      method: "GET",
-      path: "/users",
-      params: {},
-      query: {},
-      headers: {},
-    });
+    const repr = await resource.get(
+      createRequestContext({
+        method: "GET",
+        path: "/users",
+      }),
+    );
     const result = await app.registry.transformPipeline(
       resource,
-      { content: data, meta: {} },
+      resource.path,
+      repr,
       "text/csv",
     );
 
@@ -1931,8 +2120,8 @@ describe("Transformer pipeline", () => {
 
   it("Raw→Raw chain: JSON → HTML wrapper", async () => {
     const jsonToHtmlWrapper: Transformer = {
-      input: "application/json",
-      output: "text/html",
+      input: { type: "raw", mime: "application/json" },
+      output: { type: "raw", mime: "text/html" },
       transform(repr: Repr, ctx: TransformContext): Repr {
         const jsonData = typeof repr.content === "string" ? repr.content : "";
         return {
@@ -1945,16 +2134,16 @@ describe("Transformer pipeline", () => {
     app.registry.register(jsonToHtmlWrapper);
 
     const resource = app.resolve("/users")!;
-    const data = await (resource as CollectionResource).list({
-      method: "GET",
-      path: "/users",
-      params: {},
-      query: {},
-      headers: {},
-    });
+    const repr = await resource.get(
+      createRequestContext({
+        method: "GET",
+        path: "/users",
+      }),
+    );
     const result = await app.registry.transformPipeline(
       resource,
-      { content: data, meta: {} },
+      resource.path,
+      repr,
       "text/html",
     );
 
@@ -1992,21 +2181,21 @@ describe("Transformer pipeline", () => {
     app.registry.register(filterTransformer);
 
     const resource = app.resolve("/users")!;
-    const data = await (resource as CollectionResource).list({
-      method: "GET",
-      path: "/users",
-      params: {},
-      query: {},
-      headers: {},
-    });
+    const repr = await resource.get(
+      createRequestContext({
+        method: "GET",
+        path: "/users",
+      }),
+    );
     const result = await app.registry.transformPipeline(
       resource,
-      { content: data, meta: {} },
+      resource.path,
+      repr,
       "application/json",
     );
 
     expect(result.contentType).toBe("application/json");
-    const body = JSON.parse(result.body);
+    const body = JSON.parse(await bodyText(result.body));
     // Only Bob (id: 2) should remain
     expect(body).toEqual([{ id: 2, name: "Bob" }]);
 
@@ -2017,12 +2206,13 @@ describe("Transformer pipeline", () => {
     const resource = app.resolve("/users")!;
     const result = await app.registry.transformPipeline(
       resource,
+      resource.path,
       { content: { hello: "world" }, meta: {} },
       "text/xml",
     );
     // No XML transformer registered, falls back to JSON
     expect(result.contentType).toBe("application/json");
-    expect(JSON.parse(result.body)).toEqual({ hello: "world" });
+    expect(JSON.parse(await bodyText(result.body))).toEqual({ hello: "world" });
   });
 });
 
@@ -2030,7 +2220,7 @@ describe("Transformer + HTTP integration", () => {
   it("custom CSV transformer works through handleRequest", async () => {
     const csvTransformer: Transformer = {
       input: anySchema,
-      output: "text/csv",
+      output: { type: "raw", mime: "text/csv" },
       transform(repr: Repr, ctx: TransformContext): Repr {
         if (!Array.isArray(repr.content))
           return { content: "", meta: { type: "text/csv" } };
@@ -2047,12 +2237,16 @@ describe("Transformer + HTTP integration", () => {
       },
     };
 
-    const Users = Collection(() => ({
-      list: (ctx) => [{ id: 1, name: "Alice" }],
-      create: (ctx) => ctx.body,
-    }));
+    class Users extends CollectionKind {
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [{ id: 1, name: "Alice" }], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
 
-    const app = new Site({ users: Users({}) });
+    const app = new Site({ users: new Users() });
     app.registry.register(csvTransformer);
 
     const response = await app.handleRequest({
@@ -2063,8 +2257,8 @@ describe("Transformer + HTTP integration", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers["Content-Type"]).toBe("text/csv");
-    expect(bodyText(response.body)).toContain("id,name");
-    expect(bodyText(response.body)).toContain("1,Alice");
+    expect(await bodyText(response.body)).toContain("id,name");
+    expect(await bodyText(response.body)).toContain("1,Alice");
 
     app.registry.unregister(csvTransformer);
   });
@@ -2072,8 +2266,8 @@ describe("Transformer + HTTP integration", () => {
   it("Raw→Raw chain works through handleRequest", async () => {
     // Register a JSON → XML wrapper transformer
     const jsonToXml: Transformer = {
-      input: "application/json",
-      output: "text/xml",
+      input: { type: "raw", mime: "application/json" },
+      output: { type: "raw", mime: "text/xml" },
       transform(repr: Repr, ctx: TransformContext): Repr {
         const jsonData = typeof repr.content === "string" ? repr.content : "{}";
         return {
@@ -2083,12 +2277,16 @@ describe("Transformer + HTTP integration", () => {
       },
     };
 
-    const Users = Collection(() => ({
-      list: (ctx) => [{ id: 1 }],
-      create: (ctx) => ctx.body,
-    }));
+    class Users extends CollectionKind {
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [{ id: 1 }], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
 
-    const app = new Site({ users: Users({}) });
+    const app = new Site({ users: new Users() });
     app.registry.register(jsonToXml);
 
     const response = await app.handleRequest({
@@ -2099,8 +2297,8 @@ describe("Transformer + HTTP integration", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers["Content-Type"]).toBe("text/xml");
-    expect(bodyText(response.body)).toContain("<?xml");
-    expect(bodyText(response.body)).toContain("<data>");
+    expect(await bodyText(response.body)).toContain("<?xml");
+    expect(await bodyText(response.body)).toContain("<data>");
 
     app.registry.unregister(jsonToXml);
   });
@@ -2112,12 +2310,16 @@ describe("Transformer + HTTP integration", () => {
 
 describe("getDescriptorSchema", () => {
   it("returns the descriptor schema when set", () => {
-    const Ctor = Collection(() => ({
-      schema: { type: "array", items: { type: "object" } },
-      list: (ctx) => [],
-      create: (ctx) => ctx.body,
-    }))({});
-    const desc = new Ctor({}, "");
+    class TestCollection extends CollectionKind {
+      schema: Schema = { type: "array", items: { type: "object" } };
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
+    const desc = new TestCollection();
 
     expect(getDescriptorSchema(desc)).toEqual({
       type: "array",
@@ -2126,10 +2328,12 @@ describe("getDescriptorSchema", () => {
   });
 
   it("returns anySchema when no schema set", () => {
-    const Ctor = ReadOnly(() => ({
-      content: (ctx) => ({ value: 1 }),
-    }))({});
-    const desc = new Ctor({}, "");
+    class TestReadOnly extends ReadOnlyKind {
+      async content(ctx: RequestContext): Promise<Repr> {
+        return { content: { value: 1 }, meta: {} };
+      }
+    }
+    const desc = new TestReadOnly();
 
     expect(getDescriptorSchema(desc)).toEqual({ type: "any" });
   });
@@ -2204,33 +2408,35 @@ describe("Auth", () => {
 
   describe("Proxy resolves with sub-paths", () => {
     it("resolve returns Proxy for any sub-path under the prefix", () => {
-      const Proxy2 = Proxy(() => ({
-        target: (path) => new URL(path, "https://example.test"),
-      }));
-      const app = new Site({ proxy: Proxy2({}) });
+      class Proxy2 extends ProxyKind {
+        target(path: string): URL {
+          return new URL(path, "https://example.test");
+        }
+      }
+      const app = new Site({ proxy: new Proxy2() });
 
       const r1 = app.resolve("/proxy");
-      expect(r1?.kind).toBe("Proxy");
+      expect(r1).toBeInstanceOf(ProxyResource);
       expect(r1?.path).toBe("/proxy");
 
       const r2 = app.resolve("/proxy/posts/1");
-      expect(r2?.kind).toBe("Proxy");
+      expect(r2).toBeInstanceOf(ProxyResource);
       expect(r2?.path).toBe("/proxy");
 
       const r3 = app.resolve("/proxy/a/b/c/d");
-      expect(r3?.kind).toBe("Proxy");
+      expect(r3).toBeInstanceOf(ProxyResource);
     });
 
     it("Proxy handler receives the full request path in target", async () => {
       let capturedPath = "";
-      const P = Proxy(() => ({
-        target: (path) => {
+      class P extends ProxyKind {
+        target(path: string): URL {
           capturedPath = path;
           // Throw to short-circuit fetch — we only care about what `path` was passed in
           throw new Error("STOP_FETCH");
-        },
-      }));
-      const app = new Site({ p: P({}) });
+        }
+      }
+      const app = new Site({ p: new P() });
       try {
         await app.handleRequest({
           method: "GET",
@@ -2245,25 +2451,32 @@ describe("Auth", () => {
 
   describe("Auth integration with handleRequest", () => {
     it("blocks unauthenticated requests to protected routes", async () => {
-      const JwtAuth = Action(() => ({
-        invoke: (ctx) => {
+      class JwtAuth extends ActionKind {
+        async invoke(ctx: RequestContext): Promise<Repr> {
           const auth = ctx.headers["authorization"];
           if (!auth) {
             throw new HttpError(401, "Missing token");
           }
-          return { subject: "user1", scopes: "read" } as Identity;
-        },
-      }));
+          return {
+            content: { subject: "user1", scopes: "read" } as Identity,
+            meta: {},
+          };
+        }
+      }
 
-      const Users = Collection(() => ({
-        list: (ctx) => [{ id: 1, name: "Alice" }],
-        create: (ctx) => ctx.body,
-      }));
+      class Users extends CollectionKind {
+        async list(ctx: RequestContext): Promise<Repr> {
+          return { content: [{ id: 1, name: "Alice" }], meta: {} };
+        }
+        async create(ctx: RequestContext): Promise<Repr> {
+          return { content: await ctx.json(), meta: {} };
+        }
+      }
 
       const app = new Site(
         {
-          "jwt-auth": JwtAuth({}),
-          users: Users({}),
+          "jwt-auth": new JwtAuth(),
+          users: new Users(),
         },
         {
           auth: {
@@ -2283,25 +2496,32 @@ describe("Auth", () => {
     });
 
     it("allows authenticated requests to protected routes", async () => {
-      const JwtAuth = Action(() => ({
-        invoke: (ctx) => {
+      class JwtAuth extends ActionKind {
+        async invoke(ctx: RequestContext): Promise<Repr> {
           const auth = ctx.headers["authorization"];
           if (!auth) {
             throw new HttpError(401, "Missing token");
           }
-          return { subject: "user1", scopes: "read" } as Identity;
-        },
-      }));
+          return {
+            content: { subject: "user1", scopes: "read" } as Identity,
+            meta: {},
+          };
+        }
+      }
 
-      const Users = Collection(() => ({
-        list: (ctx) => [{ id: 1, name: "Alice" }],
-        create: (ctx) => ctx.body,
-      }));
+      class Users extends CollectionKind {
+        async list(ctx: RequestContext): Promise<Repr> {
+          return { content: [{ id: 1, name: "Alice" }], meta: {} };
+        }
+        async create(ctx: RequestContext): Promise<Repr> {
+          return { content: await ctx.json(), meta: {} };
+        }
+      }
 
       const app = new Site(
         {
-          "jwt-auth": JwtAuth({}),
-          users: Users({}),
+          "jwt-auth": new JwtAuth(),
+          users: new Users(),
         },
         {
           auth: {
@@ -2322,26 +2542,32 @@ describe("Auth", () => {
     });
 
     it("allows access to routes with auth: null", async () => {
-      const JwtAuth = Action(() => ({
-        invoke: (ctx) => {
+      class JwtAuth extends ActionKind {
+        async invoke(ctx: RequestContext): Promise<Repr> {
           throw new HttpError(401, "Unauthorized");
-        },
-      }));
+        }
+      }
 
-      const Public = ReadOnly(() => ({
-        content: (ctx) => ({ message: "hello" }),
-      }));
+      class Public extends ReadOnlyKind {
+        async content(ctx: RequestContext): Promise<Repr> {
+          return { content: { message: "hello" }, meta: {} };
+        }
+      }
 
-      const Users = Collection(() => ({
-        list: (ctx) => [{ id: 1 }],
-        create: (ctx) => ctx.body,
-      }));
+      class Users extends CollectionKind {
+        async list(ctx: RequestContext): Promise<Repr> {
+          return { content: [{ id: 1 }], meta: {} };
+        }
+        async create(ctx: RequestContext): Promise<Repr> {
+          return { content: await ctx.json(), meta: {} };
+        }
+      }
 
       const app = new Site(
         {
-          "jwt-auth": JwtAuth({}),
-          public: Public({}),
-          users: Users({}),
+          "jwt-auth": new JwtAuth(),
+          public: new Public(),
+          users: new Users(),
         },
         {
           auth: {
@@ -2378,38 +2604,41 @@ describe("Auth", () => {
 // ---------------------------------------------------------------------------
 
 describe("Edge runtime adapter", () => {
-  const Users = Collection(() => ({
-    list: (ctx) => ({ content: [{ id: 1, name: "Alice" }], meta: {} }),
-    create: (ctx) => {
-      const item = { id: 2, ...(ctx.body as Record<string, unknown>) };
+  class Users extends CollectionKind {
+    async list(ctx: RequestContext): Promise<Repr> {
+      return { content: [{ id: 1, name: "Alice" }], meta: {} };
+    }
+    async create(ctx: RequestContext): Promise<Repr> {
+      const item = { id: 2, ...(await ctx.json<Record<string, unknown>>()) };
       return {
         content: item,
         meta: { location: `./${(item as { id: number }).id}` },
       };
-    },
-    children: {
-      ":userId": (id: string) =>
-        class extends ItemResource {
-          constructor(params: Record<string, string>, path: string) {
-            super({
-              content: (ctx: RequestContext) => ({
-                id: Number(id),
-                name: "Alice",
-              }),
-              delete: (ctx: RequestContext) => undefined,
-            }, undefined, params, path);
-          }
-        },
-    },
-  }));
+    }
+    children = {
+      ":userId": new (class extends ItemKind {
+        async content(ctx: RequestContext): Promise<Repr> {
+          return {
+            content: { id: Number(ctx.params.userId), name: "Alice" },
+            meta: {},
+          };
+        }
+        async delete(ctx: RequestContext): Promise<Repr> {
+          return { content: null, meta: {} };
+        }
+      })(),
+    };
+  }
 
-  const Settings = Singleton(() => ({
-    content: (ctx) => ({ theme: "dark" }),
-  }));
+  class Settings extends SingletonKind {
+    async content(ctx: RequestContext): Promise<Repr> {
+      return { content: { theme: "dark" }, meta: {} };
+    }
+  }
 
   const app = new Site({
-    users: Users({}),
-    settings: Settings({}),
+    users: new Users(),
+    settings: new Settings(),
   });
 
   it("handleWebRequest converts Web Request to Response", async () => {
@@ -2515,7 +2744,6 @@ describe("Edge runtime adapter", () => {
     );
     const body = await response.json();
     expect(body["@context"]).toBeDefined();
-    expect(body["@type"]).toBe("Collection");
   });
 });
 
@@ -2525,12 +2753,16 @@ describe("Edge runtime adapter", () => {
 
 describe("new Site() return type", () => {
   it("returns definition, options, registry, and resolve", () => {
-    const Users = Collection(() => ({
-      list: (ctx) => [],
-      create: (ctx) => ctx.body,
-    }));
+    class Users extends CollectionKind {
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
 
-    const app = new Site({ users: Users({}) });
+    const app = new Site({ users: new Users() });
     expect(app.definition).toBeDefined();
     expect(app.options).toBeDefined();
     expect(app.registry).toBeInstanceOf(TransformerRegistry);
@@ -2538,17 +2770,23 @@ describe("new Site() return type", () => {
   });
 
   it("accepts SiteOptions with auth config", () => {
-    const JwtAuth = Action(() => ({
-      invoke: (ctx) => ({ subject: "test" }) as Identity,
-    }));
+    class JwtAuth extends ActionKind {
+      async invoke(ctx: RequestContext): Promise<Repr> {
+        return { content: { subject: "test" } as Identity, meta: {} };
+      }
+    }
 
-    const Users = Collection(() => ({
-      list: (ctx) => [],
-      create: (ctx) => ctx.body,
-    }));
+    class Users extends CollectionKind {
+      async list(ctx: RequestContext): Promise<Repr> {
+        return { content: [], meta: {} };
+      }
+      async create(ctx: RequestContext): Promise<Repr> {
+        return { content: await ctx.json(), meta: {} };
+      }
+    }
 
     const app = new Site(
-      { "jwt-auth": JwtAuth({}), users: Users({}) },
+      { "jwt-auth": new JwtAuth(), users: new Users() },
       {
         auth: {
           verifier: "jwt-auth",

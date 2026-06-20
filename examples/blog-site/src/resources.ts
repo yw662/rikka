@@ -6,18 +6,20 @@
  */
 
 import {
-  Collection,
-  Item,
-  Singleton,
-  ReadOnly,
-  Action,
-  Proxy,
-  Static,
+  CollectionKind,
+  ItemKind,
+  SingletonKind,
+  ReadOnlyKind,
+  ActionKind,
+  ProxyKind,
+  StaticKind,
   Site,
   HttpError,
   paginate,
   type Transformer,
   type Repr,
+  type RequestContext,
+  type Schema,
   type StaticResolver,
 } from "@takanashi/rikka-site";
 import { elements } from "./elements.js";
@@ -176,7 +178,7 @@ function requireString(
 
 const csvTransformer: Transformer = {
   input: { type: "array", items: { type: "object" } },
-  output: "text/csv",
+  output: { type: "raw", mime: "text/csv" },
   priority: 5,
   transform(repr: Repr): Repr {
     const data = repr.content;
@@ -198,13 +200,12 @@ const csvTransformer: Transformer = {
 
 const textTransformer: Transformer = {
   input: { type: "any" },
-  output: "text/plain",
+  output: { type: "raw", mime: "text/plain" },
   priority: 0,
   transform(repr: Repr, ctx): Repr {
     const data = repr.content;
     const lines: string[] = [];
-    lines.push(`Resource: ${ctx.resource.path}`);
-    lines.push(`Kind: ${ctx.resource.kind}`);
+    lines.push(`Resource: ${ctx.path}`);
     lines.push("---");
     if (Array.isArray(data)) {
       for (const item of data) {
@@ -233,45 +234,191 @@ const textTransformer: Transformer = {
 // Resource definitions
 // ---------------------------------------------------------------------------
 
-const SiteRoot = ReadOnly(() => ({
-  content: () => ({
-    content: {
-      name: settings.siteName,
-      tagline: "A resource-oriented blog built with Rikka",
-      articleCount: articles.length,
-      userCount: users.length,
-      commentCount: comments.length,
-      recentArticles: articles
-        .slice(-3)
-        .reverse()
-        .map((a) => ({
-          id: a.id,
-          title: a.title,
-        })),
-      links: {
-        articles: "/articles",
-        users: "/users",
-        dashboard: "/dashboard",
-        settings: "/settings",
-      },
-    },
-    meta: {},
-  }),
-  schema: { type: "object" },
-  element: "blog-home",
-}));
+class SiteRoot extends ReadOnlyKind {
+  schema: Schema = { type: "object" };
+  element = "blog-home";
 
-const Articles = Collection(() => ({
-  list: (ctx) => {
+  async content(_ctx: RequestContext): Promise<Repr> {
+    return {
+      content: {
+        name: settings.siteName,
+        tagline: "A resource-oriented blog built with Rikka",
+        articleCount: articles.length,
+        userCount: users.length,
+        commentCount: comments.length,
+        recentArticles: articles
+          .slice(-3)
+          .reverse()
+          .map((a) => ({
+            id: a.id,
+            title: a.title,
+          })),
+        links: {
+          articles: "/articles",
+          users: "/users",
+          dashboard: "/dashboard",
+          settings: "/settings",
+        },
+      },
+      meta: {},
+    };
+  }
+}
+
+class ArticleComment extends ItemKind {
+  schema: Schema = { type: "object" };
+
+  async content(ctx: RequestContext): Promise<Repr> {
+    const cid = Number(ctx.params.commentId);
+    const aid = Number(ctx.params.articleId);
+    const comment = comments.find((c) => c.id === cid && c.articleId === aid);
+    if (!comment) throw new HttpError(404, "Comment not found");
+    return { content: comment, meta: {} };
+  }
+
+  async delete(ctx: RequestContext): Promise<Repr> {
+    const cid = Number(ctx.params.commentId);
+    const idx = comments.findIndex((c) => c.id === cid);
+    if (idx === -1) throw new HttpError(404, "Comment not found");
+    comments.splice(idx, 1);
+    return { content: null, meta: {} };
+  }
+}
+
+class ArticleComments extends CollectionKind {
+  schema: Schema = { type: "array", items: { type: "object" } };
+
+  async list(_ctx: RequestContext): Promise<Repr> {
+    const id = Number(_ctx.params.articleId);
+    return {
+      content: comments.filter((c) => c.articleId === id),
+      meta: {},
+    };
+  }
+
+  async create(ctx: RequestContext): Promise<Repr> {
+    const id = Number(ctx.params.articleId);
+    const obj = requireFields(await ctx.json(), ["author", "text"]);
+    const comment: Comment = {
+      id: nextCommentId++,
+      articleId: id,
+      author: requireString(obj, "author", 100),
+      text: requireString(obj, "text", 1000),
+      createdAt: new Date().toISOString().slice(0, 10),
+    };
+    comments.push(comment);
+    return { content: comment, meta: { location: `./${comment.id}` } };
+  }
+
+  children = {
+    ":commentId": new ArticleComment(),
+  };
+}
+
+class ArticleItem extends ItemKind {
+  schema: Schema = { type: "object" };
+  context = "https://rikka.dev/schemas/article";
+  jsonldType = "Article";
+  element = "blog-article-detail";
+
+  children = {
+    comments: new ArticleComments(),
+  };
+
+  async content(ctx: RequestContext): Promise<Repr> {
+    const id = Number(ctx.params.articleId);
+    const article = articles.find((a) => a.id === id);
+    if (!article) throw new HttpError(404, "Article not found");
+    const articleComments = comments.filter((c) => c.articleId === id);
+    return {
+      content: {
+        ...article,
+        authorName:
+          users.find((u) => u.id === article.authorId)?.name ?? "Unknown",
+        comments: articleComments,
+      },
+      meta: {},
+    };
+  }
+
+  async replace(ctx: RequestContext): Promise<Repr> {
+    const id = Number(ctx.params.articleId);
+    const idx = articles.findIndex((a) => a.id === id);
+    if (idx === -1) throw new HttpError(404, "Article not found");
+    const obj = requireFields(await ctx.json(), ["title", "body"]);
+    const title = requireString(obj, "title", 200);
+    const body = requireString(obj, "body", 10000);
+    articles[idx] = {
+      ...articles[idx]!,
+      title,
+      body,
+      tags: Array.isArray(obj.tags)
+        ? (obj.tags as string[])
+        : articles[idx]!.tags,
+    };
+    return { content: articles[idx], meta: {} };
+  }
+
+  async patch(ctx: RequestContext): Promise<Repr> {
+    const id = Number(ctx.params.articleId);
+    const idx = articles.findIndex((a) => a.id === id);
+    if (idx === -1) throw new HttpError(404, "Article not found");
+    const obj = ((await ctx.json()) as Record<string, unknown>) ?? {};
+    if (
+      obj.title === undefined &&
+      obj.body === undefined &&
+      obj.tags === undefined
+    ) {
+      throw new HttpError(
+        400,
+        "At least one of title, body, or tags is required",
+      );
+    }
+    if (obj.title !== undefined) {
+      articles[idx]!.title = requireString(obj, "title", 200);
+    }
+    if (obj.body !== undefined) {
+      articles[idx]!.body = requireString(obj, "body", 10000);
+    }
+    if (Array.isArray(obj.tags)) {
+      articles[idx]!.tags = obj.tags as string[];
+    }
+    return { content: articles[idx], meta: {} };
+  }
+
+  async delete(ctx: RequestContext): Promise<Repr> {
+    const id = Number(ctx.params.articleId);
+    const idx = articles.findIndex((a) => a.id === id);
+    if (idx === -1) throw new HttpError(404, "Article not found");
+    articles.splice(idx, 1);
+    for (let i = comments.length - 1; i >= 0; i--) {
+      if (comments[i]!.articleId === id) comments.splice(i, 1);
+    }
+    return { content: null, meta: {} };
+  }
+}
+
+class Articles extends CollectionKind {
+  schema: Schema = { type: "array", items: { type: "object" } };
+  context = "https://rikka.dev/schemas/article";
+  jsonldType = "ArticleCollection";
+  element = "blog-article-list";
+
+  children = {
+    ":articleId": new ArticleItem(),
+  };
+
+  async list(ctx: RequestContext): Promise<Repr> {
     const enriched = articles.map((a) => ({
       ...a,
       authorName: users.find((u) => u.id === a.authorId)?.name ?? "Unknown",
       authorRole: users.find((u) => u.id === a.authorId)?.role ?? "reader",
     }));
     return paginate(enriched, ctx.range);
-  },
-  create: (ctx) => {
-    const obj = requireFields(ctx.body, ["title", "body"]);
+  }
+
+  async create(ctx: RequestContext): Promise<Repr> {
+    const obj = requireFields(await ctx.json(), ["title", "body"]);
     const title = requireString(obj, "title", 200);
     const body = requireString(obj, "body", 10000);
     const article: Article = {
@@ -284,139 +431,34 @@ const Articles = Collection(() => ({
     };
     articles.push(article);
     return { content: article, meta: { location: `./${article.id}` } };
-  },
-  schema: { type: "array", items: { type: "object" } },
-  context: "https://rikka.dev/schemas/article",
-  jsonldType: "ArticleCollection",
-  element: "blog-article-list",
-  children: {
-    ":articleId": Item((articleId) => ({
-      content: () => {
-        const id = Number(articleId);
-        const article = articles.find((a) => a.id === id);
-        if (!article) throw new HttpError(404, "Article not found");
-        const articleComments = comments.filter((c) => c.articleId === id);
-        return {
-          content: {
-            ...article,
-            authorName:
-              users.find((u) => u.id === article.authorId)?.name ?? "Unknown",
-            comments: articleComments,
-          },
-          meta: {},
-        };
-      },
-      replace: (ctx) => {
-        const id = Number(articleId);
-        const idx = articles.findIndex((a) => a.id === id);
-        if (idx === -1) throw new HttpError(404, "Article not found");
-        const obj = requireFields(ctx.body, ["title", "body"]);
-        const title = requireString(obj, "title", 200);
-        const body = requireString(obj, "body", 10000);
-        articles[idx] = {
-          ...articles[idx]!,
-          title,
-          body,
-          tags: Array.isArray(obj.tags)
-            ? (obj.tags as string[])
-            : articles[idx]!.tags,
-        };
-        return { content: articles[idx], meta: {} };
-      },
-      patch: (ctx) => {
-        const id = Number(articleId);
-        const idx = articles.findIndex((a) => a.id === id);
-        if (idx === -1) throw new HttpError(404, "Article not found");
-        const obj = (ctx.body as Record<string, unknown>) ?? {};
-        if (
-          obj.title === undefined &&
-          obj.body === undefined &&
-          obj.tags === undefined
-        ) {
-          throw new HttpError(
-            400,
-            "At least one of title, body, or tags is required",
-          );
-        }
-        if (obj.title !== undefined) {
-          articles[idx]!.title = requireString(obj, "title", 200);
-        }
-        if (obj.body !== undefined) {
-          articles[idx]!.body = requireString(obj, "body", 10000);
-        }
-        if (Array.isArray(obj.tags)) {
-          articles[idx]!.tags = obj.tags as string[];
-        }
-        return { content: articles[idx], meta: {} };
-      },
-      delete: () => {
-        const id = Number(articleId);
-        const idx = articles.findIndex((a) => a.id === id);
-        if (idx === -1) throw new HttpError(404, "Article not found");
-        articles.splice(idx, 1);
-        for (let i = comments.length - 1; i >= 0; i--) {
-          if (comments[i]!.articleId === id) comments.splice(i, 1);
-        }
-        return { content: null, meta: {} };
-      },
-      schema: { type: "object" },
-      context: "https://rikka.dev/schemas/article",
-      jsonldType: "Article",
-      element: "blog-article-detail",
-      children: {
-        comments: Collection(() => ({
-          list: () => {
-            const id = Number(articleId);
-            return {
-              content: comments.filter((c) => c.articleId === id),
-              meta: {},
-            };
-          },
-          create: (ctx) => {
-            const id = Number(articleId);
-            const obj = requireFields(ctx.body, ["author", "text"]);
-            const comment: Comment = {
-              id: nextCommentId++,
-              articleId: id,
-              author: requireString(obj, "author", 100),
-              text: requireString(obj, "text", 1000),
-              createdAt: new Date().toISOString().slice(0, 10),
-            };
-            comments.push(comment);
-            return { content: comment, meta: { location: `./${comment.id}` } };
-          },
-          schema: { type: "array", items: { type: "object" } },
-          children: {
-            ":commentId": Item((commentId) => ({
-              content: () => {
-                const cid = Number(commentId);
-                const aid = Number(articleId);
-                const comment = comments.find(
-                  (c) => c.id === cid && c.articleId === aid,
-                );
-                if (!comment) throw new HttpError(404, "Comment not found");
-                return { content: comment, meta: {} };
-              },
-              delete: () => {
-                const cid = Number(commentId);
-                const idx = comments.findIndex((c) => c.id === cid);
-                if (idx === -1) throw new HttpError(404, "Comment not found");
-                comments.splice(idx, 1);
-                return { content: null, meta: {} };
-              },
-              schema: { type: "object" },
-            })),
-          },
-        })),
-      },
-    })),
-  },
-}));
+  }
+}
 
-const Users = Collection(() => ({
-  list: () => ({ content: users, meta: {} }),
-  create: (ctx) => {
-    const obj = requireFields(ctx.body, ["name", "email"]);
+class UserItem extends ItemKind {
+  schema: Schema = { type: "object" };
+
+  async content(ctx: RequestContext): Promise<Repr> {
+    const id = Number(ctx.params.userId);
+    const user = users.find((u) => u.id === id);
+    if (!user) throw new HttpError(404, "User not found");
+    return { content: user, meta: {} };
+  }
+}
+
+class Users extends CollectionKind {
+  schema: Schema = { type: "array", items: { type: "object" } };
+  element = "blog-user-list";
+
+  children = {
+    ":userId": new UserItem(),
+  };
+
+  async list(_ctx: RequestContext): Promise<Repr> {
+    return { content: users, meta: {} };
+  }
+
+  async create(ctx: RequestContext): Promise<Repr> {
+    const obj = requireFields(await ctx.json(), ["name", "email"]);
     const user: User = {
       id: users.length + 1,
       name: requireString(obj, "name", 100),
@@ -425,61 +467,58 @@ const Users = Collection(() => ({
     };
     users.push(user);
     return { content: user, meta: { location: `./${user.id}` } };
-  },
-  schema: { type: "array", items: { type: "object" } },
-  element: "blog-user-list",
-  children: {
-    ":userId": Item((userId) => ({
-      content: () => {
-        const id = Number(userId);
-        const user = users.find((u) => u.id === id);
-        if (!user) throw new HttpError(404, "User not found");
-        return { content: user, meta: {} };
+  }
+}
+
+class SiteSettings extends SingletonKind {
+  schema: Schema = { type: "object" };
+  element = "blog-settings";
+
+  async content(_ctx: RequestContext): Promise<Repr> {
+    return { content: settings, meta: {} };
+  }
+
+  async replace(ctx: RequestContext): Promise<Repr> {
+    const obj = requireFields(await ctx.json(), ["siteName"]);
+    settings.siteName = requireString(obj, "siteName", 100);
+    if (obj.theme !== undefined) settings.theme = String(obj.theme);
+    if (obj.postsPerPage !== undefined)
+      settings.postsPerPage = Number(obj.postsPerPage);
+    return { content: settings, meta: {} };
+  }
+
+  async patch(ctx: RequestContext): Promise<Repr> {
+    const obj = requireFields(await ctx.json(), ["siteName"]);
+    settings.siteName = requireString(obj, "siteName", 100);
+    if (obj.theme !== undefined) settings.theme = String(obj.theme);
+    if (obj.postsPerPage !== undefined)
+      settings.postsPerPage = Number(obj.postsPerPage);
+    return { content: settings, meta: {} };
+  }
+}
+
+class Dashboard extends ReadOnlyKind {
+  schema: Schema = { type: "object" };
+  element = "blog-dashboard";
+
+  async content(_ctx: RequestContext): Promise<Repr> {
+    return {
+      content: {
+        articleCount: articles.length,
+        commentCount: comments.length,
+        userCount: users.length,
+        recentArticles: articles.slice(-3).reverse(),
       },
-      schema: { type: "object" },
-    })),
-  },
-}));
+      meta: {},
+    };
+  }
+}
 
-const SiteSettings = Singleton(() => ({
-  content: () => ({ content: settings, meta: {} }),
-  replace: (ctx) => {
-    const obj = requireFields(ctx.body, ["siteName"]);
-    settings.siteName = requireString(obj, "siteName", 100);
-    if (obj.theme !== undefined) settings.theme = String(obj.theme);
-    if (obj.postsPerPage !== undefined)
-      settings.postsPerPage = Number(obj.postsPerPage);
-    return { content: settings, meta: {} };
-  },
-  patch: (ctx) => {
-    const obj = requireFields(ctx.body, ["siteName"]);
-    settings.siteName = requireString(obj, "siteName", 100);
-    if (obj.theme !== undefined) settings.theme = String(obj.theme);
-    if (obj.postsPerPage !== undefined)
-      settings.postsPerPage = Number(obj.postsPerPage);
-    return { content: settings, meta: {} };
-  },
-  schema: { type: "object" },
-  element: "blog-settings",
-}));
+class Search extends ActionKind {
+  schema: Schema = { type: "object" };
 
-const Dashboard = ReadOnly(() => ({
-  content: () => ({
-    content: {
-      articleCount: articles.length,
-      commentCount: comments.length,
-      userCount: users.length,
-      recentArticles: articles.slice(-3).reverse(),
-    },
-    meta: {},
-  }),
-  schema: { type: "object" },
-  element: "blog-dashboard",
-}));
-
-const Search = Action(() => ({
-  invoke: (ctx) => {
-    const obj = requireFields(ctx.body, ["query"]);
+  async invoke(ctx: RequestContext): Promise<Repr> {
+    const obj = requireFields(await ctx.json(), ["query"]);
     const query = requireString(obj, "query", 200).toLowerCase();
     const results = articles.filter(
       (a) =>
@@ -488,12 +527,11 @@ const Search = Action(() => ({
         a.tags.some((t) => t.toLowerCase().includes(query)),
     );
     return { content: results, meta: {} };
-  },
-  schema: { type: "object" },
-}));
+  }
+}
 
-const AuthVerifier = Action(() => ({
-  invoke: (ctx) => {
+class AuthVerifier extends ActionKind {
+  async invoke(ctx: RequestContext): Promise<Repr> {
     const authHeader = ctx.headers["authorization"];
     if (!authHeader?.startsWith("Bearer ")) {
       throw new HttpError(401, "Missing or invalid Authorization header");
@@ -507,16 +545,16 @@ const AuthVerifier = Action(() => ({
     const identity = tokenMap[token];
     if (!identity) throw new HttpError(401, "Invalid token");
     return { content: identity, meta: {} };
-  },
-}));
+  }
+}
 
-const ExternalAPI = Proxy(() => ({
-  target: (path) => {
+class ExternalAPI extends ProxyKind {
+  target(path: string): URL {
     // Strip the /proxy mount prefix to get the upstream path
     const upstream = path.replace(/^\/proxy/, "") || "/";
     return new URL(`https://jsonplaceholder.typicode.com${upstream}`);
-  },
-}));
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Site definition
@@ -525,37 +563,30 @@ const ExternalAPI = Proxy(() => ({
 export interface BlogAppOptions {
   /** Edge-compatible static file resolver. If omitted, the Node filesystem root is used. */
   staticResolver?: StaticResolver;
-  /**
-   * Browser entry module for custom elements. When provided, rikka-site bundles
-   * it on demand and serves the result at `/.well-known/assets/elements.js`.
-   * Accepts a filesystem path string or a `file:` URL.
-   */
-  customElementsEntry?: string | URL;
-  /** Static assets served at `/.well-known/assets/:name`. */
-  assets?: Record<string, { source: string | URL; contentType?: string }>;
 }
 
-export function createApp(options: BlogAppOptions = {}) {
-  const staticResource = options.staticResolver
-    ? Static({ resolver: options.staticResolver })
-    : Static({ root: "./public" });
+/** `import.meta.url` is a `file:` URL on Node/Bun, `https:` on edge runtimes. */
+const isNode = import.meta.url.startsWith("file:");
 
+export function createApp(options: BlogAppOptions = {}) {
   const app = new Site(
     {
-      "": SiteRoot(),
-      articles: Articles(),
-      users: Users(),
-      settings: SiteSettings(),
-      dashboard: Dashboard(),
+      "": new SiteRoot(),
+      articles: new Articles(),
+      users: new Users(),
+      settings: new SiteSettings(),
+      dashboard: new Dashboard(),
       actions: {
-        search: Search(),
+        search: new Search(),
       },
-      auth: AuthVerifier(),
-      proxy: ExternalAPI(),
-      static: staticResource,
+      auth: new AuthVerifier(),
+      proxy: new ExternalAPI(),
+      static: options.staticResolver
+        ? new StaticKind({ resolver: options.staticResolver })
+        : new StaticKind({ root: "./public" }),
       admin: {
-        articles: Articles(),
-        users: Users(),
+        articles: new Articles(),
+        users: new Users(),
       },
     },
     {
@@ -573,8 +604,22 @@ export function createApp(options: BlogAppOptions = {}) {
         ],
       },
       customElements: elements,
-      customElementsEntry: options.customElementsEntry,
-      assets: options.assets,
+      // Frontend assets & on-demand element bundling are Node-only (need fs + esbuild).
+      // Edge runtimes pass a `staticResolver` and skip these.
+      ...(isNode
+        ? {
+            customElementsEntry: new URL("./elements.ts", import.meta.url),
+            assets: {
+              "robots.txt": {
+                source: new URL("../public/robots.txt", import.meta.url),
+              },
+              "favicon.ico": {
+                source: new URL("../public/favicon.ico", import.meta.url),
+                contentType: "image/svg+xml",
+              },
+            } as Record<string, { source: URL; contentType?: string }>,
+          }
+        : {}),
     },
   );
 

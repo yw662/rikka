@@ -161,7 +161,7 @@ export function createNodeHandler(
       const url = parseNodeUrl(req.url ?? "/", req.headers.host);
       const method = (req.method ?? "GET").toUpperCase();
       const headers = collectNodeHeaders(req.headers);
-      const body = await readNodeBody(req, headers);
+      const body = readNodeBodyStream(req, method);
 
       const httpRequest: HttpRequest = {
         method,
@@ -282,41 +282,76 @@ function collectNodeQuery(url: URL): Record<string, string> {
   return out;
 }
 
-async function readNodeBody(
+/**
+ * Convert a Node.js `IncomingMessage` into a Web `ReadableStream<Uint8Array>`.
+ *
+ * Returns `undefined` for GET/HEAD requests (no body). The stream is
+ * lazily consumed — if the handler never calls `ctx.json()` / `ctx.text()`
+ * / `ctx.bytes()`, the request body is never read.
+ */
+function readNodeBodyStream(
   req: IncomingMessage,
-  headers: Record<string, string>,
-): Promise<unknown> {
-  const method = (req.method ?? "GET").toUpperCase();
+  method: string,
+): ReadableStream<Uint8Array> | undefined {
   if (method === "GET" || method === "HEAD") return undefined;
 
-  const chunks: Buffer[] = [];
-  await new Promise<void>((resolve, reject) => {
-    req.on("data", (chunk: Buffer | string) => {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    });
-    req.on("end", () => resolve());
-    req.on("error", (err) => reject(err));
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      req.on("data", (chunk: Buffer | string) => {
+        const bytes =
+          typeof chunk === "string"
+            ? new TextEncoder().encode(chunk)
+            : new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+        controller.enqueue(bytes);
+      });
+      req.on("end", () => controller.close());
+      req.on("error", (err) => controller.error(err));
+    },
   });
-
-  if (chunks.length === 0) return undefined;
-  const raw = Buffer.concat(chunks).toString("utf8");
-  if ((headers["content-type"] ?? "").includes("application/json")) {
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return undefined;
-    }
-  }
-  return raw;
 }
 
+/**
+ * Write an {@link HttpResponse} to a Node.js `ServerResponse`.
+ *
+ * Handles all three body shapes:
+ * - `string` / `Uint8Array` — written directly via `res.end()`
+ * - `ReadableStream<Uint8Array>` — piped chunk-by-chunk, then `res.end()`
+ */
 function writeNodeResponse(
   res: ServerResponse,
-  response: { status: number; headers: Record<string, string>; body: string | Uint8Array },
+  response: HttpResponse,
 ): void {
   res.statusCode = response.status;
   for (const [key, value] of Object.entries(response.headers)) {
     res.setHeader(key, value);
   }
-  res.end(response.body);
+
+  const body = response.body;
+
+  if (typeof body === "string" || body instanceof Uint8Array) {
+    res.end(body);
+    return;
+  }
+
+  // Stream — pipe chunk by chunk
+  const reader = body.getReader();
+  const pump = (): void => {
+    reader
+      .read()
+      .then(({ done, value }) => {
+        if (done) {
+          res.end();
+          return;
+        }
+        if (value) res.write(value);
+        pump();
+      })
+      .catch((err) => {
+        if (!res.headersSent) {
+          res.statusCode = 500;
+        }
+        res.end(err instanceof Error ? err.message : "Stream error");
+      });
+  };
+  pump();
 }

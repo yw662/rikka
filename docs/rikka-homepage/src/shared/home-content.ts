@@ -346,7 +346,7 @@ export const homeContent = {
     zh: "TC39 Signals 垫片。signal()、computed() 和 effect() 实现响应式。基于标准的原语。",
   } as Record<Locale, string>,
   packageSiteDesc: {
-    en: "Resource-oriented server framework with Schema, Representation, and content negotiation.",
-    zh: "基于 Schema、Representation 和内容协商的资源导向服务器框架。",
+    en: "Resource-oriented server framework with content negotiation (JSON, JSON-LD, CSV, CBOR, HTML, protobuf), auth, CORS, pagination, and edge-ready adapters.",
+    zh: "资源导向服务器框架，支持内容协商（JSON、JSON-LD、CSV、CBOR、HTML、protobuf）、认证、CORS、分页，以及边缘运行时适配器。",
   } as Record<Locale, string>,
 };

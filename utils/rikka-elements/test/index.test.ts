@@ -2231,6 +2231,37 @@ describe("defineElement builder API (strict this typing)", () => {
 
     el.remove();
   });
+
+  it("Builder: this.count (raw value) is reactive via computed wrapping", async () => {
+    const { defineElement, NumberAttr } =
+      await import("../src/defineElement.js");
+    const { span } = await import("@takanashi/rikka-dom");
+    const tag = `test-builder-computed-${Date.now()}`;
+
+    const TestEl = defineElement(tag)
+      .attrs({ count: { ...NumberAttr, default: 0 } })
+      .render(function () {
+        // this.count calls .get() internally — tracked by the computed
+        // wrapping render. Coarse-grained: whole render re-runs on change.
+        return span(`Count: ${this.count}`);
+      })
+      .build();
+
+    await new Promise((r) => setTimeout(r, 20));
+    const el = document.createElement(tag) as InstanceType<typeof TestEl>;
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(el.shadowRoot?.textContent).toContain("Count: 0");
+
+    // Mutate the attribute — render should re-run (coarse-grained)
+    el.count = 42;
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(el.shadowRoot?.textContent).toContain("Count: 42");
+
+    el.remove();
+  });
 });
 
 describe("defineElement builder phased state machine (type-level)", () => {

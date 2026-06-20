@@ -1,15 +1,22 @@
 import { describe, it, expect } from "@rstest/core";
-import { Site, Collection, createHtmlTransformer } from "../src/index.js";
-import type { Repr } from "../src/representation.js";
+import { Site, CollectionKind, createHtmlTransformer } from "../src/index.js";
+import type { RequestContext, Repr } from "../src/index.js";
 
 describe("HTML transformer meta / lang / noscript / openGraph", () => {
-  const Articles = Collection(() => ({
-    list: () => [{ id: 1, title: "Hello" }],
-    element: "blog-article-list",
-  }));
+  class Articles extends CollectionKind {
+    element = "blog-article-list";
+    async list(ctx: RequestContext): Promise<Repr> {
+      return { content: [{ id: 1, title: "Hello" }], meta: {} };
+    }
+    async create(ctx: RequestContext): Promise<Repr> {
+      return { content: { id: 0, title: "" }, meta: {} };
+    }
+  }
 
-  const app = new Site({ articles: Articles() });
-  const resource = app.resolve("/articles")!;
+  const app = new Site({ articles: new Articles() });
+  const resolved = app.resolve("/articles")!;
+  const resource = resolved.kind;
+  const path = resolved.path;
   const repr: Repr = {
     content: [{ id: 1, title: "Hello" }],
     meta: { type: "application/json" },
@@ -17,7 +24,7 @@ describe("HTML transformer meta / lang / noscript / openGraph", () => {
 
   it("omits html lang when neither repr.meta.lang nor config.lang is set", async () => {
     const transformer = createHtmlTransformer();
-    const result = await transformer.transform(repr, { resource });
+    const result = await transformer.transform(repr, { path, element: resource.element });
     expect(result.content).not.toContain("<html lang=");
     expect(result.content).toContain("<html>");
   });
@@ -26,25 +33,25 @@ describe("HTML transformer meta / lang / noscript / openGraph", () => {
     const transformer = createHtmlTransformer({ lang: "en" });
     const result = await transformer.transform(
       { ...repr, meta: { ...repr.meta, lang: "zh-CN" } },
-      { resource },
+      { path, element: resource.element },
     );
     expect(result.content).toContain('<html lang="zh-CN">');
   });
 
   it("falls back to config.lang", async () => {
     const transformer = createHtmlTransformer({ lang: "ja" });
-    const result = await transformer.transform(repr, { resource });
+    const result = await transformer.transform(repr, { path, element: resource.element });
     expect(result.content).toContain('<html lang="ja">');
   });
 
   it("injects custom <meta name=...> tags", async () => {
     const transformer = createHtmlTransformer({
-      meta: (_path, _kind, data) => ({
+      meta: (_path, data) => ({
         description: `Articles: ${(data as { title: string }[]).length}`,
         robots: "index,follow",
       }),
     });
-    const result = await transformer.transform(repr, { resource });
+    const result = await transformer.transform(repr, { path, element: resource.element });
     expect(result.content).toContain(
       '<meta name="description" content="Articles: 1">',
     );
@@ -59,7 +66,7 @@ describe("HTML transformer meta / lang / noscript / openGraph", () => {
       meta: () => ({ description: "List of articles" }),
       openGraph: true,
     });
-    const result = await transformer.transform(repr, { resource });
+    const result = await transformer.transform(repr, { path, element: resource.element });
     expect(result.content).toContain(
       '<meta property="og:title" content="Articles">',
     );
@@ -70,12 +77,12 @@ describe("HTML transformer meta / lang / noscript / openGraph", () => {
 
   it("injects custom Open Graph tags from function", async () => {
     const transformer = createHtmlTransformer({
-      openGraph: (_path, kind, data) => ({
-        "og:type": kind === "Collection" ? "website" : "article",
+      openGraph: (path, data) => ({
+        "og:type": path === "/articles" ? "website" : "article",
         "og:count": String((data as unknown[]).length),
       }),
     });
-    const result = await transformer.transform(repr, { resource });
+    const result = await transformer.transform(repr, { path, element: resource.element });
     expect(result.content).toContain(
       '<meta property="og:type" content="website">',
     );
@@ -84,7 +91,7 @@ describe("HTML transformer meta / lang / noscript / openGraph", () => {
 
   it("injects a noscript fallback with raw data when enabled", async () => {
     const transformer = createHtmlTransformer({ noscript: true });
-    const result = await transformer.transform(repr, { resource });
+    const result = await transformer.transform(repr, { path, element: resource.element });
     expect(result.content).toContain("<noscript>");
     expect(result.content).toContain("Hello");
     expect(result.content).toContain("</noscript>");
@@ -92,7 +99,7 @@ describe("HTML transformer meta / lang / noscript / openGraph", () => {
 
   it("does not inject noscript by default", async () => {
     const transformer = createHtmlTransformer();
-    const result = await transformer.transform(repr, { resource });
+    const result = await transformer.transform(repr, { path, element: resource.element });
     expect(result.content).not.toContain("<noscript>");
   });
 });

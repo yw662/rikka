@@ -6,31 +6,36 @@
  * - **Kind** — HTTP semantic constraint (Collection, Item, Singleton, ReadOnly, Action, Proxy)
  * - **Repr** — A Resource's Representation: `{ content, meta }`. Returned by methods.
  * - **Schema** — Describes the shape of structured data
- * - **ResourceFactory** — A function from config to constructor (Kind factory)
- * - **Resource** — Resolved from a URL path; has methods (list, content, create, ...)
+ * - **ResourceKind** — Abstract base class for all resources; instances are mounted in the site tree
  * - **Transformer** — Converts structured values into raw bytes (JSON, HTML, CSV, ...)
  * - **RequestContext** — Unified request context (params, query, body, range, identity)
  * - **Auth** — Declarative authentication via auth resources and rules
  *
  * @example
  * ```ts
- * import { Collection, Site } from "@takanashi/rikka-site";
+ * import { CollectionKind, Site } from "@takanashi/rikka-site";
  *
- * const Articles = Collection(() => ({
- *   list: (ctx) => ({ content: [...articles], meta: {} }),
- *   create: (ctx) => {
- *     const article = { id: nextId++, ...ctx.body };
+ * class Articles extends CollectionKind {
+ *   async list(ctx) { return { content: [...articles], meta: {} }; }
+ *   async create(ctx) {
+ *     const article = { id: nextId++, ...(await ctx.json()) };
  *     articles.push(article);
  *     return { content: article, meta: { location: `./${article.id}` } };
- *   },
- * }));
+ *   }
+ * }
  *
- * const app = new Site({ articles: Articles() });
+ * const app = new Site({ articles: new Articles() });
  * ```
  */
 
 // Schema
-export { isSchema, schemaMatches, anySchema } from "./schema.js";
+export {
+  isRawSchema,
+  isValueSchema,
+  schemaMatches,
+  anySchema,
+  matchesMIME,
+} from "./schema.js";
 export type {
   Schema,
   SchemaAny,
@@ -40,6 +45,7 @@ export type {
   SchemaString,
   SchemaArray,
   SchemaObject,
+  SchemaRaw,
 } from "./schema.js";
 
 // Repr
@@ -53,34 +59,28 @@ export {
 export type { Repr, ReprMeta, PartialContent } from "./representation.js";
 
 // Context
-export { getHeader } from "./context.js";
-export type { RequestContext, Identity, RangeSpec, Range } from "./context.js";
+export {
+  getHeader,
+  createRequestContext,
+  jsonBody,
+  textBody,
+  bytesBody,
+} from "./context.js";
+export type {
+  RequestContext,
+  RequestContextInit,
+  Identity,
+  RangeSpec,
+  Range,
+} from "./context.js";
 
 // Auth
 export { globMatch, matchAuthRule, corsHeaders } from "./auth.js";
 export type { AuthConfig, AuthRule, CorsConfig } from "./auth.js";
 
-// Kind system
-export {
-  KindMethods,
-  KindOperations,
-  kindAllowsMethod,
-  kindAllowsOperation,
-} from "./kind.js";
-export type { Kind } from "./kind.js";
-
 // Resource types and classes
 export {
-  Collection,
-  Item,
-  Singleton,
-  ReadOnly,
-  Action,
-  Proxy,
-  Static,
-  resolveResource,
-  tryResolveTrailingSlash,
-  getDescriptorSchema,
+  ResourceKind,
   Resource,
   CollectionResource,
   ItemResource,
@@ -88,22 +88,33 @@ export {
   ReadOnlyResource,
   ActionResource,
   ProxyResource,
-  StaticResource,
+  CollectionKind,
+  ItemKind,
+  SingletonKind,
+  ReadOnlyKind,
+  ActionKind,
+  ProxyKind,
+  StaticKind,
+  isResourceKind,
+  resolveResource,
+  tryResolveTrailingSlash,
+  getDescriptorSchema,
 } from "./resource.js";
 export type {
   ChildResolver,
   ChildrenMap,
   CustomElementConstructor,
-  Handler,
-  ProxyTarget,
-  ResourceFactory,
-  ResourceConstructor,
   StaticResolver,
 } from "./resource.js";
 
 // Site definition
 export { Site } from "./site.js";
-export type { SiteNode, SiteDefinition, SiteOptions, SiteAsset } from "./site.js";
+export type {
+  SiteNode,
+  SiteDefinition,
+  SiteOptions,
+  SiteAsset,
+} from "./site.js";
 
 // Sitemap generation
 export { generateSitemap } from "./sitemap.js";
@@ -119,6 +130,10 @@ export {
   createHtmlTransformer,
   jsonTransformer,
   jsonldTransformer,
+  csvTransformer,
+  textTransformer,
+  cborTransformer,
+  protobuf,
   htmlTransformer,
 } from "./transform.js";
 export type {
@@ -128,6 +143,7 @@ export type {
   HtmlTransformerConfig,
   HydrationStrategy,
   SerializationStrategy,
+  ProtobufMessage,
 } from "./transform.js";
 
 // HTTP adapter

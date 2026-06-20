@@ -1,4 +1,4 @@
-import { Signal, effect } from "@takanashi/rikka-signal";
+import { Signal, effect, computed } from "@takanashi/rikka-signal";
 import { h } from "@takanashi/rikka-dom";
 import type { Child, CommonHTMLAttributes } from "@takanashi/rikka-dom";
 import type { CamelCase, PascalCase } from "./utils.js";
@@ -28,7 +28,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
     value !== null &&
     !Array.isArray(value) &&
     !(typeof Element !== "undefined" && value instanceof Element) &&
-    !(typeof DocumentFragment !== "undefined" && value instanceof DocumentFragment)
+    !(
+      typeof DocumentFragment !== "undefined" &&
+      value instanceof DocumentFragment
+    )
   );
 }
 
@@ -1085,8 +1088,12 @@ export class BuilderWithBindings<C extends BaseConfig> extends BuilderBase<C> {
   }
 
   /**
-   * Imperative render. `this` is typed as `RikkaElement<C>`. Mutually
-   * exclusive with `.template()`; transitions to {@link BuilderWithRender}.
+   * Imperative render. `this` is typed as `RikkaElement<C>` (attributes,
+   * signals, methods, events, shadowRoot). Mutually exclusive with
+   * `.template()`. The render function is wrapped in a `computed` at
+   * runtime, so accessing `this.xxx` (which calls `.get()` on the
+   * underlying signal) automatically tracks the dependency — the render
+   * re-runs when any accessed attribute changes.
    */
   render(
     fn: (this: RikkaElement<C>) => Element,
@@ -1124,8 +1131,12 @@ export class BuilderWithMethods<C extends BaseConfig> extends BuilderBase<C> {
   }
 
   /**
-   * Imperative render. `this` is typed as `RikkaElement<C>`. Mutually
-   * exclusive with `.template()`; transitions to {@link BuilderWithRender}.
+   * Imperative render. `this` is typed as `RikkaElement<C>` (attributes,
+   * signals, methods, events, shadowRoot). Mutually exclusive with
+   * `.template()`. The render function is wrapped in a `computed` at
+   * runtime, so accessing `this.xxx` (which calls `.get()` on the
+   * underlying signal) automatically tracks the dependency — the render
+   * re-runs when any accessed attribute changes.
    */
   render(
     fn: (this: RikkaElement<C>) => Element,
@@ -1222,6 +1233,9 @@ export function defineElement<C extends BaseConfig = BaseConfig>(
   return defineElementImpl<C>(tagName, config as ElementConfig<C>);
 }
 
+/**
+ * @internal
+ */
 function defineElementImpl<C extends BaseConfig = BaseConfig>(
   tagName: string,
   config?: ElementConfig<C>,
@@ -1293,10 +1307,19 @@ function defineElementImpl<C extends BaseConfig = BaseConfig>(
           shadow.appendChild(templateEl.content.cloneNode(true));
           bindSlots(this, shadow);
         } else if (renderFn) {
-          const result = renderFn.call(this);
-          if (result instanceof Element) {
-            shadow.appendChild(result);
-          }
+          // Wrap render in computed: `this.xxx` (a getter calling `.get()`)
+          // is automatically tracked. When any accessed attribute changes,
+          // the computed re-computes and the effect replaces the DOM.
+          // Use `this.$xxx` for fine-grained bindings (not tracked by this
+          // computed — the DOM child's own effect handles updates).
+          const tree = computed(() => renderFn.call(this));
+          const dispose = effect(() => {
+            const result = tree.get();
+            if (result instanceof Element) {
+              shadow.replaceChildren(result);
+            }
+          });
+          trackDisposable(this, dispose);
         }
       }
     }

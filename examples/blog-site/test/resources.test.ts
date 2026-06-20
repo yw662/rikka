@@ -15,13 +15,27 @@ import { describe, it, expect, beforeEach } from "@rstest/core";
 import { type HttpRequest } from "@takanashi/rikka-site";
 import { app, resetData } from "../src/resources.js";
 
-function makeRequest(overrides: Partial<HttpRequest>): HttpRequest {
+/** Convert a plain object/string to a ReadableStream for use as request body. */
+function toBody(data: unknown): ReadableStream<Uint8Array> {
+  const text = typeof data === "string" ? data : JSON.stringify(data);
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(text));
+      controller.close();
+    },
+  });
+}
+
+function makeRequest(overrides: Partial<HttpRequest> & { jsonBody?: unknown }): HttpRequest {
+  const { jsonBody, ...rest } = overrides;
   return {
     method: "GET",
     path: "/",
     headers: {},
     query: {},
-    ...overrides,
+    ...rest,
+    ...(jsonBody !== undefined ? { body: toBody(jsonBody) } : {}),
   };
 }
 
@@ -67,7 +81,7 @@ describe("resource tree behavior", () => {
       method: "POST",
       path: "/articles",
       accept: "application/json",
-      body: { title: "T", body: "x", tags: ["new"] },
+      jsonBody: { title: "T", body: "x", tags: ["new"] },
     }));
     expect(r.status).toBe(201);
     expect(r.headers["Location"]).toBeTruthy();
@@ -77,7 +91,7 @@ describe("resource tree behavior", () => {
     const r = await app.handleRequest(makeRequest({
       method: "POST",
       path: "/articles",
-      body: { title: "T" }, // missing body
+      jsonBody: { title: "T" }, // missing body
     }));
     expect(r.status).toBe(400);
   });
@@ -86,7 +100,7 @@ describe("resource tree behavior", () => {
     const r = await app.handleRequest(makeRequest({
       method: "POST",
       path: "/articles",
-      body: { title: "x".repeat(201), body: "y" },
+      jsonBody: { title: "x".repeat(201), body: "y" },
     }));
     expect(r.status).toBe(400);
   });
@@ -121,7 +135,7 @@ describe("resource tree behavior", () => {
       method: "POST",
       path: "/articles",
       accept: "application/json",
-      body: { title: "to-delete", body: "x" },
+      jsonBody: { title: "to-delete", body: "x" },
     }));
     const id = c.headers["Location"];
     expect(c.status).toBe(201);
@@ -148,7 +162,7 @@ describe("resource tree behavior", () => {
       method: "POST",
       path: "/articles",
       accept: "application/json",
-      body: { title: "original", body: "orig" },
+      jsonBody: { title: "original", body: "orig" },
     }));
     const id = c.headers["Location"];
 
@@ -157,7 +171,7 @@ describe("resource tree behavior", () => {
       method: "PATCH",
       path: `/articles/${id}`,
       accept: "application/json",
-      body: { title: "patched" },
+      jsonBody: { title: "patched" },
     }));
     expect(p.status).toBe(200);
     const article = JSON.parse(p.body as string);
@@ -184,7 +198,7 @@ describe("resource tree behavior", () => {
     const r = await app.handleRequest(makeRequest({
       method: "PUT",
       path: "/settings",
-      body: { theme: "light" }, // missing siteName
+      jsonBody: { theme: "light" }, // missing siteName
     }));
     expect(r.status).toBe(400);
   });
@@ -216,7 +230,7 @@ describe("resource tree behavior", () => {
         "content-type": "application/json",
         authorization: "Bearer reader-token",
       },
-      body: { query: "Signals" },
+      jsonBody: { query: "Signals" },
     }));
     expect(r.status).toBe(200);
     const results = JSON.parse(r.body as string);
@@ -228,7 +242,7 @@ describe("resource tree behavior", () => {
       method: "POST",
       path: "/actions/search",
       headers: { "content-type": "application/json" },
-      body: { query: "Signals" },
+      jsonBody: { query: "Signals" },
     }));
     expect(r.status).toBe(401);
   });
@@ -342,7 +356,7 @@ describe("write operations", () => {
       method: "PATCH",
       path: "/articles/1",
       accept: "application/json",
-      body: { title: "Updated Title", body: "Updated body." },
+      jsonBody: { title: "Updated Title", body: "Updated body." },
     }));
     expect(response.status).toBe(200);
     const data = JSON.parse(response.body as string);
@@ -355,7 +369,7 @@ describe("write operations", () => {
       method: "PATCH",
       path: "/articles/1",
       accept: "application/json",
-      body: {},
+      jsonBody: {},
     }));
     expect(response.status).toBe(400);
   });
@@ -365,7 +379,7 @@ describe("write operations", () => {
       method: "POST",
       path: "/users",
       accept: "application/json",
-      body: { name: "Frank", email: "frank@example.com", role: "reader" },
+      jsonBody: { name: "Frank", email: "frank@example.com", role: "reader" },
     }));
     expect(response.status).toBe(201);
     const data = JSON.parse(response.body as string);
@@ -377,7 +391,7 @@ describe("write operations", () => {
       method: "POST",
       path: "/users",
       accept: "application/json",
-      body: { name: "Frank" },
+      jsonBody: { name: "Frank" },
     }));
     expect(response.status).toBe(400);
   });
@@ -387,7 +401,7 @@ describe("write operations", () => {
       method: "PATCH",
       path: "/settings",
       accept: "application/json",
-      body: { siteName: "New Name", theme: "light", postsPerPage: 5 },
+      jsonBody: { siteName: "New Name", theme: "light", postsPerPage: 5 },
     }));
     expect(response.status).toBe(200);
     const data = JSON.parse(response.body as string);
@@ -401,7 +415,7 @@ describe("write operations", () => {
       method: "PATCH",
       path: "/settings",
       accept: "application/json",
-      body: { theme: "light" },
+      jsonBody: { theme: "light" },
     }));
     expect(response.status).toBe(400);
   });

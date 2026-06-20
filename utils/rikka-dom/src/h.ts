@@ -135,6 +135,7 @@ export type Child =
   | null
   | string
   | number
+  | boolean
   | Element
   | DocumentFragment
   | ReactiveRange
@@ -147,9 +148,20 @@ export type Child =
 
 const elementDisposables = new WeakMap<Element, Set<() => void>>();
 
+const keyedDisposables = new WeakMap<Element, Map<string, () => void>>();
+
 const effectRegistry = new FinalizationRegistry<() => void>((cleanup) => {
   cleanup();
 });
+
+function once(fn: () => void): () => void {
+  let called = false;
+  return () => {
+    if (called) return;
+    called = true;
+    fn();
+  };
+}
 
 export function registerDisposable(el: Element, dispose: () => void): void {
   let set = elementDisposables.get(el);
@@ -176,10 +188,11 @@ function applyStyle(
   el: Element,
   styleObj: Record<string, unknown>,
   clear = false,
-): void {
+): () => void {
   const style = getStyle(el);
-  if (!style) return;
+  if (!style) return () => {};
   if (clear) style.cssText = "";
+  const disposers: Array<() => void> = [];
   for (const [prop, val] of Object.entries(styleObj)) {
     if (isSignal(val)) {
       const signal = val;
@@ -202,7 +215,7 @@ function applyStyle(
           (targetStyle as unknown as Record<string, unknown>)[prop] = value;
         }
       });
-      registerDisposable(el, dispose);
+      disposers.push(dispose);
     } else if (val != null) {
       if (prop.startsWith("--")) {
         style.setProperty(prop, String(val));
@@ -211,6 +224,9 @@ function applyStyle(
       }
     }
   }
+  return () => {
+    for (const d of disposers) d();
+  };
 }
 
 function assignDomProperty(el: Element, key: string, value: unknown): void {
@@ -248,67 +264,69 @@ function toAttrName(key: string): string {
   return PROPERTY_TO_ATTR[key] ?? key;
 }
 
-function applyAttrStatic(el: Element, key: string, value: unknown): void {
+function applyAttrStatic(el: Element, key: string, value: unknown): () => void {
   if (key.startsWith("on") && key.length > 2) {
     if (typeof value === "function") {
       assignDomProperty(el, key, value);
     }
-    return;
+    return () => {};
   }
 
   if (key === "style") {
     const style = getStyle(el);
-    if (!style) return;
+    if (!style) return () => {};
     if (typeof value === "string") {
       style.cssText = value;
-    } else if (
-      value != null &&
-      typeof value === "object" &&
-      !Array.isArray(value)
-    ) {
-      applyStyle(el, value as Record<string, unknown>, true);
+      return () => {};
     }
-    return;
+    if (value != null && typeof value === "object" && !Array.isArray(value)) {
+      return applyStyle(el, value as Record<string, unknown>, true);
+    }
+    return () => {};
   }
 
   if (key === "defaultValue") {
     if ("defaultValue" in el) {
       (el as HTMLTextAreaElement).defaultValue = String(value);
     }
-    return;
+    return () => {};
   }
 
   if (value == null || value === false) {
     el.removeAttribute(toAttrName(key));
-    return;
+    return () => {};
   }
   if (value === true) {
     el.setAttribute(toAttrName(key), "");
-    return;
+    return () => {};
   }
   el.setAttribute(toAttrName(key), String(value));
+  return () => {};
 }
 
 function applyAttrSignal(
   el: Element,
   key: string,
   signal: Signal.State<unknown> | Signal.Computed<unknown>,
-): void {
+): () => void {
   const attrKey = key;
   const weakRef = new WeakRef(el);
 
-  const dispose = effect(() => {
+  let innerDispose: (() => void) | null = null;
+
+  const disposeEffect = effect(() => {
     const target = weakRef.deref();
     if (!target) return;
+    innerDispose?.();
+    innerDispose = null;
     if (TWO_WAY_ATTRS.has(attrKey) && isInputElement(target)) {
       assignDomProperty(target, attrKey, signal.get());
     } else {
-      applyAttrStatic(target, attrKey, signal.get());
+      innerDispose = applyAttrStatic(target, attrKey, signal.get());
     }
   });
 
-  registerDisposable(el, dispose);
-
+  let disposeListener: (() => void) | null = null;
   if (
     isWritableSignal(signal) &&
     TWO_WAY_ATTRS.has(attrKey) &&
@@ -321,8 +339,20 @@ function applyAttrSignal(
       signal.set(readTwoWayValue(target, attrKey, signal));
     };
     el.addEventListener(eventType, handler);
-    registerDisposable(el, () => el.removeEventListener(eventType, handler));
+    disposeListener = () => {
+      const target = weakRef.deref();
+      if (!target) return;
+      target.removeEventListener(eventType, handler);
+    };
   }
+
+  return () => {
+    innerDispose?.();
+    innerDispose = null;
+    disposeEffect();
+    disposeListener?.();
+    disposeListener = null;
+  };
 }
 
 function getTwoWayEventType(attrKey: string, el: Element): string {
@@ -332,16 +362,37 @@ function getTwoWayEventType(attrKey: string, el: Element): string {
   return "input";
 }
 
-export function bindAttrs(
-  el: Element,
-  attrs: Record<string, unknown>,
-): void {
+export function unbindAttr(el: Element, key: string): void {
+  const keyMap = keyedDisposables.get(el);
+  if (!keyMap) return;
+  const dispose = keyMap.get(key);
+  if (!dispose) return;
+  dispose();
+  keyMap.delete(key);
+}
+
+export function bindAttr(el: Element, key: string, value: unknown): void {
+  unbindAttr(el, key);
+
+  const dispose = isSignal(value)
+    ? applyAttrSignal(el, key, value)
+    : applyAttrStatic(el, key, value);
+
+  const safeDispose = once(dispose);
+
+  let keyMap = keyedDisposables.get(el);
+  if (!keyMap) {
+    keyMap = new Map();
+    keyedDisposables.set(el, keyMap);
+  }
+  keyMap.set(key, safeDispose);
+
+  registerDisposable(el, safeDispose);
+}
+
+export function bindAttrs(el: Element, attrs: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(attrs)) {
-    if (isSignal(value)) {
-      applyAttrSignal(el, key, value);
-    } else {
-      applyAttrStatic(el, key, value);
-    }
+    bindAttr(el, key, value);
   }
 }
 
@@ -363,7 +414,7 @@ function insertChildBefore(
   child: Child,
   ref: ChildNode | null,
 ): void {
-  if (child == null) return;
+  if (child == null || typeof child === "boolean") return;
 
   if (typeof child === "function") {
     return insertChildBefore(parent, computed(child), ref);

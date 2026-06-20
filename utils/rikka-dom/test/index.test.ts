@@ -8,7 +8,9 @@ import {
   Match,
   ReactiveRange,
   applyChild,
+  bindAttr,
   bindAttrs,
+  unbindAttr,
   attachRange,
 } from "../src/index.js";
 import { h } from "../src/h.js";
@@ -2047,12 +2049,12 @@ describe("h() edge cases", () => {
   });
 
   it("handles boolean false children (renders nothing)", () => {
-    const el = h("div", false as any, "text");
+    const el = h("div", false, "text");
     expect(el.textContent).toBe("text");
   });
 
   it("handles boolean true children (renders nothing)", () => {
-    const el = h("div", true as any, "text");
+    const el = h("div", true, "text");
     expect(el.textContent).toBe("text");
   });
 
@@ -3113,7 +3115,9 @@ describe("h`` template: <template> container", () => {
     const elements = h`<template><template id="inner"><span>deep</span></template></template>`;
     expect(elements.length).toBe(1);
     const outer = elements[0] as HTMLTemplateElement;
-    const inner = outer.content.querySelector("template") as HTMLTemplateElement;
+    const inner = outer.content.querySelector(
+      "template",
+    ) as HTMLTemplateElement;
     expect(inner).not.toBe(null);
     expect(inner.content.querySelector("span")?.textContent).toBe("deep");
   });
@@ -3299,7 +3303,9 @@ describe("h`` template: caching", () => {
     });
     for (let i = 0; i < items.length; i++) {
       expect(containers[i].textContent).toBe(["A", "B", "C"][i]);
-      expect((containers[i].firstChild as HTMLElement).style.color).toBe(["red", "green", "blue"][i]);
+      expect((containers[i].firstChild as HTMLElement).style.color).toBe(
+        ["red", "green", "blue"][i],
+      );
     }
     items[0].name.set("X");
     items[1].color.set("yellow");
@@ -3307,7 +3313,9 @@ describe("h`` template: caching", () => {
     expect(containers[0].textContent).toBe("X");
     expect((containers[0].firstChild as HTMLElement).style.color).toBe("red");
     expect(containers[1].textContent).toBe("B");
-    expect((containers[1].firstChild as HTMLElement).style.color).toBe("yellow");
+    expect((containers[1].firstChild as HTMLElement).style.color).toBe(
+      "yellow",
+    );
     expect(containers[2].textContent).toBe("C");
     expect((containers[2].firstChild as HTMLElement).style.color).toBe("blue");
   });
@@ -3545,6 +3553,181 @@ describe("bindAttrs()", () => {
     count.set(5);
     await new Promise((r) => setTimeout(r, 50));
     expect(el.value).toBe("10");
+  });
+});
+
+describe("bindAttr()", () => {
+  it("applies a static attribute to an existing element", () => {
+    const el = document.createElement("div");
+    bindAttr(el, "class", "container");
+    bindAttr(el, "id", "main");
+    expect(el.className).toBe("container");
+    expect(el.id).toBe("main");
+  });
+
+  it("reactively updates a signal attribute", async () => {
+    const className = signal("a");
+    const el = document.createElement("div");
+    bindAttr(el, "class", className);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.className).toBe("a");
+    className.set("b");
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.className).toBe("b");
+  });
+
+  it("handles style string", () => {
+    const el = document.createElement("div");
+    bindAttr(el, "style", "color: red");
+    expect(el.style.color).toBe("red");
+  });
+
+  it("assigns event handlers", () => {
+    let clicked = false;
+    const el = document.createElement("button");
+    bindAttr(el, "onclick", () => {
+      clicked = true;
+    });
+    el.click();
+    expect(clicked).toBe(true);
+  });
+
+  it("on* key with non-function value does not fall through to setAttribute", () => {
+    const el = document.createElement("button");
+    bindAttr(el, "onclick", null);
+    expect(el.hasAttribute("onclick")).toBe(false);
+    bindAttr(el, "onclick", undefined);
+    expect(el.hasAttribute("onclick")).toBe(false);
+    bindAttr(el, "onclick", "not a function");
+    expect(el.hasAttribute("onclick")).toBe(false);
+  });
+
+  it("two-way binds value on input", async () => {
+    const value = signal("hello");
+    const el = document.createElement("input");
+    bindAttr(el, "value", value);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.value).toBe("hello");
+
+    el.value = "world";
+    el.dispatchEvent(new Event("input"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(value.get()).toBe("world");
+  });
+
+  it("removes attribute for null/false static values", () => {
+    const el = document.createElement("div");
+    el.setAttribute("data-x", "1");
+    bindAttr(el, "data-x", null);
+    expect(el.getAttribute("data-x")).toBe(null);
+    bindAttr(el, "data-y", false);
+    expect(el.hasAttribute("data-y")).toBe(false);
+  });
+
+  it("sets boolean attribute for true", () => {
+    const el = document.createElement("button");
+    bindAttr(el, "disabled", true);
+    expect(el.hasAttribute("disabled")).toBe(true);
+  });
+
+  it("unbindAttr stops reactive updates for a signal binding", async () => {
+    const className = signal("a");
+    const el = document.createElement("div");
+    bindAttr(el, "class", className);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.className).toBe("a");
+
+    unbindAttr(el, "class");
+    className.set("b");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(el.className).toBe("a");
+  });
+
+  it("unbindAttr on a missing key is a no-op", () => {
+    const el = document.createElement("div");
+    expect(() => unbindAttr(el, "class")).not.toThrow();
+  });
+
+  it("unbindAttr removes two-way listener", async () => {
+    const value = signal("hello");
+    const el = document.createElement("input");
+    bindAttr(el, "value", value);
+    await new Promise((r) => setTimeout(r, 10));
+
+    unbindAttr(el, "value");
+    el.value = "world";
+    el.dispatchEvent(new Event("input"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(value.get()).toBe("hello");
+  });
+
+  it("re-binding same key replaces the previous signal binding", async () => {
+    const a = signal("a");
+    const b = signal("b");
+    const el = document.createElement("div");
+    bindAttr(el, "class", a);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.className).toBe("a");
+
+    bindAttr(el, "class", b);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.className).toBe("b");
+
+    a.set("a2");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(el.className).toBe("b");
+
+    b.set("b2");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(el.className).toBe("b2");
+  });
+
+  it("re-binding two-way attr does not double-write the signal", async () => {
+    const first = signal("x");
+    const second = signal("y");
+    const el = document.createElement("input");
+    bindAttr(el, "value", first);
+    await new Promise((r) => setTimeout(r, 10));
+
+    bindAttr(el, "value", second);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.value).toBe("y");
+
+    el.value = "typed";
+    el.dispatchEvent(new Event("input"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(second.get()).toBe("typed");
+    expect(first.get()).toBe("x");
+  });
+
+  it("two-way binding survives multiple signal changes", async () => {
+    const value = signal("a");
+    const el = document.createElement("input");
+    bindAttr(el, "value", value);
+    await new Promise((r) => setTimeout(r, 10));
+
+    for (const next of ["b", "c", "d", "e"]) {
+      value.set(next);
+      await new Promise((r) => setTimeout(r, 10));
+      expect(el.value).toBe(next);
+      el.value = next + "!";
+      el.dispatchEvent(new Event("input"));
+      await new Promise((r) => setTimeout(r, 10));
+      expect(value.get()).toBe(next + "!");
+    }
+  });
+
+  it("unbindAttr disposes nested style signal effects", async () => {
+    const color = signal("red");
+    const el = document.createElement("div");
+    bindAttr(el, "style", { color });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.style.color).toBe("red");
+
+    unbindAttr(el, "style");
+    color.set("blue");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(el.style.color).toBe("red");
   });
 });
 

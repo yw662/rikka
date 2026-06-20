@@ -152,10 +152,25 @@ export function isPartial(content: unknown): content is PartialContent {
 }
 
 /**
- * Check if a Repr's content is pre-serialized bytes (Uint8Array or string).
+ * Check if a Repr's content is pre-serialized raw content.
+ *
+ * Raw content is one of:
+ * - `Uint8Array` — binary bytes
+ * - `string` — text
+ * - `ReadableStream<Uint8Array>` — a live byte stream (streamed/proxied)
+ *
+ * Raw content bypasses the Value→Raw transformer pipeline; it is passed
+ * through to the response (possibly via Raw→Raw transformers).
  */
-export function isBytes(content: unknown): content is Uint8Array | string {
-  return content instanceof Uint8Array || typeof content === "string";
+export function isBytes(
+  content: unknown,
+): content is Uint8Array | string | ReadableStream<Uint8Array> {
+  return (
+    content instanceof Uint8Array ||
+    typeof content === "string" ||
+    (typeof ReadableStream !== "undefined" &&
+      content instanceof ReadableStream)
+  );
 }
 
 // ---------------------------------------------------------------------------

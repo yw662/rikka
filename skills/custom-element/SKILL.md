@@ -31,6 +31,8 @@ All instance types are inferred from `config`. No decorators, no base class, no 
 
 > **Caveat — `this` typing.** TypeScript cannot infer the config generic `C` from inside the body of a function literal. With the two-argument form, the `this` type of `render` and `methods` is `any`. Use the [builder form](#builder-form-strict-this-typing) below for strict `this` typing.
 
+> **`render` is wrapped in `computed`.** At runtime, `render()` is wrapped in a `computed`, so accessing `this.xxx` (which calls `.get()` on the underlying signal) automatically tracks the dependency. When any accessed attribute changes, the render re-runs (coarse-grained). For fine-grained updates (only the text node changes, preserving focus/cursor), pass `this.$xxx` directly to DOM children — it returns the signal object, which is NOT tracked by the outer computed.
+
 ## Builder form (strict `this` typing)
 
 When you need `this` to be correctly typed inside `render` / `methods` callbacks, call `defineElement(tagName)` (one argument) and chain the builder methods. The builder is **phased**: its return type narrows as you call methods, so by the time the `render` body is type-checked, `this` is `RikkaElement<FullConfig>` and typos become compile errors.
@@ -141,21 +143,23 @@ Each attribute generates two accessors on the instance:
 
 | Accessor | Type | Use for |
 |----------|------|---------|
-| `el.name` | `T` (raw value) | Reading; non-reactive logic |
-| `el.$name` | `Signal.State<T>` | DOM bindings — fine-grained reactive update |
+| `el.name` | `T` (raw value) | Reading; non-reactive logic. In `render`, tracked by the outer `computed` (coarse-grained re-render). |
+| `el.$name` | `Signal.State<T>` | DOM bindings — fine-grained reactive update. NOT tracked by the outer `computed`. |
 
 ```typescript
 defineElement("my-el", {
   attributes: { count: NumberAttr },
   render() {
-    // this.count → number (static)
-    // this.$count → Signal.State<number> (reactive)
+    // this.count → number (calls .get() internally — tracked by computed, coarse-grained)
+    // this.$count → Signal.State<number> (the signal itself — not tracked, fine-grained)
 
-    p({}, this.$count); // ✅ fine-grained: text node updates
-    // p({}, this.count); // ❌ static
+    p({}, this.$count); // ✅ fine-grained: only text node updates
+    p({}, this.count);  // ✅ coarse-grained: whole render re-runs on change (but correct!)
   },
 });
 ```
+
+> **Both work in `render` — they just differ in granularity.** `this.$count` is fine-grained (preferred for performance). `this.count` is coarse-grained (simpler, re-runs render). The old "static snapshot" footgun is gone — `this.count` is now reactive thanks to the `computed` wrapping.
 
 ### `dataset` — `data-*` attribute bindings
 
@@ -275,7 +279,7 @@ shadow: false,             // no Shadow DOM
 
 ### `render` — function returning Element
 
-Mounted on the prototype. `this` is the element instance. Called in `connectedCallback`, exactly once per element instance.
+Mounted on the prototype. `this` is the element instance. Called in `connectedCallback`, exactly once per element instance. At runtime, `render` is wrapped in a `computed`, so accessing `this.xxx` (which calls `.get()` on the underlying signal) automatically tracks the dependency — the render re-runs when any accessed attribute changes.
 
 ```typescript
 defineElement("my-el", {
@@ -287,6 +291,8 @@ defineElement("my-el", {
 ```
 
 `render` must return an `Element`, not a string.
+
+> **Fine-grained vs coarse-grained.** `this.$count` passed to DOM children = fine-grained (only the text node updates). `this.count` accessed in render = coarse-grained (whole render re-runs). Both are correct; prefer `this.$count` for performance-critical bindings.
 
 ### `methods` — custom methods
 
@@ -367,9 +373,18 @@ render() { return "<p>Hello</p>"; }
 render() { return p({}, "Hello"); }
 ```
 
-### 3. `this.count` (static) vs `this.$count` (reactive) in `render()`
+### 3. `this.count` (coarse-grained) vs `this.$count` (fine-grained) in `render()`
 
-Already mentioned twice. The TL;DR: use `this.$count` in DOM bindings.
+Both work in `render` — the old "static snapshot" footgun is gone. `render` is wrapped in `computed`, so `this.count` (which calls `.get()`) is tracked and triggers a re-render. The difference is granularity:
+
+```typescript
+render() {
+  p({}, this.$count);  // ✅ fine-grained — only text node updates
+  p({}, this.count);   // ✅ coarse-grained — whole render re-runs (correct, but less efficient)
+}
+```
+
+Prefer `this.$count` for DOM bindings (fine-grained). Use `this.count` for logic where re-rendering is acceptable.
 
 ### 4. `NumberAttr` default is `NaN`
 
@@ -385,9 +400,9 @@ defineElement("my-el", {
 attributes: { count: { ...NumberAttr, default: 0 } }
 ```
 
-### 5. `connectedCallback` runs `render` only once
+### 5. `render` re-runs on attribute change (coarse-grained)
 
-If you need re-rendering on attribute change, use a `template` with `{{name}}` bindings (auto-reactive) or wire up an `effect` manually.
+`render` is wrapped in `computed`, so it re-runs whenever an accessed attribute changes. This is coarse-grained (whole DOM tree recreated). For fine-grained updates (only the changed text node updates, preserving focus/cursor), pass `this.$xxx` directly to DOM children instead of reading `this.xxx`.
 
 ### 6. Forgetting `customElements.define` order
 

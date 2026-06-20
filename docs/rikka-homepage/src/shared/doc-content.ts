@@ -5,7 +5,10 @@ import type { Locale } from "./i18n";
  */
 export const sidebarContent = {
   // 01 — Getting Started
-  gettingStarted: { en: "Getting Started", zh: "快速开始" } as Record<Locale, string>,
+  gettingStarted: { en: "Getting Started", zh: "快速开始" } as Record<
+    Locale,
+    string
+  >,
   signal: { en: "signal()", zh: "signal()" } as Record<Locale, string>,
   computed: { en: "computed()", zh: "computed()" } as Record<Locale, string>,
   effect: { en: "effect()", zh: "effect()" } as Record<Locale, string>,
@@ -14,25 +17,46 @@ export const sidebarContent = {
   h: { en: "h()", zh: "h()" } as Record<Locale, string>,
   tagHelpers: { en: "Tag Helpers", zh: "标签助手" } as Record<Locale, string>,
   for: { en: "For", zh: "For" } as Record<Locale, string>,
-  conditionals: { en: "Conditionals", zh: "条件渲染" } as Record<Locale, string>,
+  conditionals: { en: "Conditionals", zh: "条件渲染" } as Record<
+    Locale,
+    string
+  >,
   htmlTemplate: { en: "h``", zh: "h``" } as Record<Locale, string>,
-  signalInterpolation: { en: "Signal Interpolation", zh: "信号插值" } as Record<Locale, string>,
+  signalInterpolation: { en: "Signal Interpolation", zh: "信号插值" } as Record<
+    Locale,
+    string
+  >,
   cssTemplate: { en: "css``", zh: "css``" } as Record<Locale, string>,
-  inlineStyle: { en: "inlineStyle``", zh: "inlineStyle``" } as Record<Locale, string>,
+  inlineStyle: { en: "inlineStyle``", zh: "inlineStyle``" } as Record<
+    Locale,
+    string
+  >,
 
   // 12 — defineElement
-  defineElement: { en: "defineElement", zh: "defineElement" } as Record<Locale, string>,
+  defineElement: { en: "defineElement", zh: "defineElement" } as Record<
+    Locale,
+    string
+  >,
   shadowDom: { en: "Shadow DOM", zh: "Shadow DOM" } as Record<Locale, string>,
   adoptStyle: { en: "adoptStyle", zh: "adoptStyle" } as Record<Locale, string>,
   attribute: { en: "attribute", zh: "attribute" } as Record<Locale, string>,
   event: { en: "event", zh: "event" } as Record<Locale, string>,
-  attachTemplate: { en: "attachTemplate", zh: "attachTemplate" } as Record<Locale, string>,
+  attachTemplate: { en: "attachTemplate", zh: "attachTemplate" } as Record<
+    Locale,
+    string
+  >,
 
   // API reference
-  apiReference: { en: "API Reference", zh: "API 参考" } as Record<Locale, string>,
+  apiReference: { en: "API Reference", zh: "API 参考" } as Record<
+    Locale,
+    string
+  >,
 
   // UI
-  drawerTitle: { en: "Table of Contents", zh: "目录" } as Record<Locale, string>,
+  drawerTitle: { en: "Table of Contents", zh: "目录" } as Record<
+    Locale,
+    string
+  >,
 };
 
 /**
@@ -57,7 +81,10 @@ const gettingStartedContent = {
     en: "Or use via CDN (no build step required):",
     zh: "或通过 CDN 使用（无需构建步骤）：",
   } as Record<Locale, string>,
-  coreConcepts: { en: "Core Concepts", zh: "核心概念" } as Record<Locale, string>,
+  coreConcepts: { en: "Core Concepts", zh: "核心概念" } as Record<
+    Locale,
+    string
+  >,
   coreConceptsDesc: {
     en: "Rikka provides three core reactive primitives:",
     zh: "Rikka 提供三个核心响应式原语：",
@@ -74,7 +101,10 @@ const gettingStartedContent = {
     en: " — runs side effects when signals change.",
     zh: " — 信号变化时运行副作用。",
   } as Record<Locale, string>,
-  quickExample: { en: "Quick Example", zh: "快速示例" } as Record<Locale, string>,
+  quickExample: { en: "Quick Example", zh: "快速示例" } as Record<
+    Locale,
+    string
+  >,
   quickExampleDesc: {
     en: "The example below uses pure signals — no custom elements required. This code works in any JavaScript environment.",
     zh: "下面的示例使用纯信号 — 不需要自定义元素。这段代码可以在任何 JavaScript 环境中运行。",
@@ -89,7 +119,10 @@ const signalContent = {
     en: "Signals are the foundation of reactivity in Rikka.",
     zh: "信号是 Rikka 响应式的基础。",
   } as Record<Locale, string>,
-  creating: { en: "Creating a Signal", zh: "创建信号" } as Record<Locale, string>,
+  creating: { en: "Creating a Signal", zh: "创建信号" } as Record<
+    Locale,
+    string
+  >,
   creatingDesc: {
     en: "Use ",
     zh: "使用 ",
@@ -114,8 +147,14 @@ const signalContent = {
     en: "Signals can be passed directly to DOM helpers. The DOM updates automatically when the signal changes.",
     zh: "信号可以直接传递给 DOM 助手。信号变化时 DOM 会自动更新。",
   } as Record<Locale, string>,
-  prevGettingStarted: { en: "← Getting Started", zh: "← 快速开始" } as Record<Locale, string>,
-  nextComputed: { en: "computed() →", zh: "computed() →" } as Record<Locale, string>,
+  prevGettingStarted: { en: "← Getting Started", zh: "← 快速开始" } as Record<
+    Locale,
+    string
+  >,
+  nextComputed: { en: "computed() →", zh: "computed() →" } as Record<
+    Locale,
+    string
+  >,
 };
 
 /**
@@ -126,13 +165,19 @@ const computedContent = {
     en: "Computed signals derive their value from other signals.",
     zh: "computed 信号从其他信号派生其值。",
   } as Record<Locale, string>,
-  creating: { en: "Creating a Computed Signal", zh: "创建 computed 信号" } as Record<Locale, string>,
+  creating: {
+    en: "Creating a Computed Signal",
+    zh: "创建 computed 信号",
+  } as Record<Locale, string>,
   creatingDesc1: { en: "Use ", zh: "使用 " } as Record<Locale, string>,
   creatingDesc2: {
     en: " to create a signal that derives its value from other signals. The function re-runs whenever a dependency changes.",
     zh: " 创建一个从其他信号派生值的信号。每当依赖变化时，函数会重新运行。",
   } as Record<Locale, string>,
-  autoTracking: { en: "Auto-Tracking", zh: "自动追踪" } as Record<Locale, string>,
+  autoTracking: { en: "Auto-Tracking", zh: "自动追踪" } as Record<
+    Locale,
+    string
+  >,
   autoTrackingDesc1: {
     en: "Dependencies are tracked automatically. Any ",
     zh: "依赖会被自动追踪。在 computed 函数内调用 ",
@@ -145,7 +190,10 @@ const computedContent = {
     en: "No explicit dependency arrays or watchers needed — just read signals and the rest is handled for you.",
     zh: "无需显式声明依赖数组或监听器 — 只需读取信号，其他都为你自动处理。",
   } as Record<Locale, string>,
-  lazyEvaluation: { en: "Lazy Evaluation", zh: "惰性求值" } as Record<Locale, string>,
+  lazyEvaluation: { en: "Lazy Evaluation", zh: "惰性求值" } as Record<
+    Locale,
+    string
+  >,
   lazyEvaluationDesc: {
     en: "Computed signals are lazy. The derivation function only runs when ",
     zh: "computed 信号是惰性的。派生函数仅在调用 ",
@@ -190,7 +238,10 @@ const effectContent = {
     en: "Effects run side effects when signals change.",
     zh: "effect 在信号变化时运行副作用。",
   } as Record<Locale, string>,
-  creating: { en: "Creating an Effect", zh: "创建 effect" } as Record<Locale, string>,
+  creating: { en: "Creating an Effect", zh: "创建 effect" } as Record<
+    Locale,
+    string
+  >,
   creatingDesc1: { en: "Use ", zh: "使用 " } as Record<Locale, string>,
   creatingDesc2: {
     en: " to run a function whenever its signal dependencies change. Effects are the primary way to perform side effects in Rikka.",
@@ -217,12 +268,18 @@ const effectContent = {
     en: "The cleanup always runs before the new effect body. This is useful for removing event listeners, clearing timers, or aborting fetch requests.",
     zh: "清理函数总是在新的 effect 函数体之前运行。这对于移除事件监听器、清除定时器或中止 fetch 请求非常有用。",
   } as Record<Locale, string>,
-  disposing: { en: "Disposing Effects", zh: "释放 effect" } as Record<Locale, string>,
+  disposing: { en: "Disposing Effects", zh: "释放 effect" } as Record<
+    Locale,
+    string
+  >,
   disposingDesc1: {
     en: " returns a dispose function. Call it to permanently stop the effect and run its cleanup.",
     zh: " 返回一个 dispose 函数。调用它可以永久停止该 effect 并运行其清理函数。",
   } as Record<Locale, string>,
-  prevComputed: { en: "← computed()", zh: "← computed()" } as Record<Locale, string>,
+  prevComputed: { en: "← computed()", zh: "← computed()" } as Record<
+    Locale,
+    string
+  >,
   nextH: { en: "h() →", zh: "h() →" } as Record<Locale, string>,
 };
 
@@ -263,9 +320,15 @@ const hContent = {
     en: " naming.",
     zh: " 命名。",
   } as Record<Locale, string>,
-  apiSignature: { en: "API Signature", zh: "API 签名" } as Record<Locale, string>,
+  apiSignature: { en: "API Signature", zh: "API 签名" } as Record<
+    Locale,
+    string
+  >,
   prevEffect: { en: "← effect()", zh: "← effect()" } as Record<Locale, string>,
-  nextTagHelpers: { en: "Tag Helpers →", zh: "标签助手 →" } as Record<Locale, string>,
+  nextTagHelpers: { en: "Tag Helpers →", zh: "标签助手 →" } as Record<
+    Locale,
+    string
+  >,
 };
 
 /**
@@ -325,18 +388,27 @@ const tagHelpersContent = {
     en: "Available Tag Helpers",
     zh: "可用的标签助手",
   } as Record<Locale, string>,
-  svgHelpers: { en: "SVG Tag Helpers", zh: "SVG 标签助手" } as Record<Locale, string>,
+  svgHelpers: { en: "SVG Tag Helpers", zh: "SVG 标签助手" } as Record<
+    Locale,
+    string
+  >,
   svgHelpersDesc: {
     en: "SVG elements automatically use the SVG namespace:",
     zh: "SVG 元素自动使用 SVG 命名空间：",
   } as Record<Locale, string>,
   example: { en: "Example:", zh: "示例：" } as Record<Locale, string>,
-  mathmlHelpers: { en: "MathML Tag Helpers", zh: "MathML 标签助手" } as Record<Locale, string>,
+  mathmlHelpers: { en: "MathML Tag Helpers", zh: "MathML 标签助手" } as Record<
+    Locale,
+    string
+  >,
   mathmlHelpersDesc: {
     en: "MathML elements automatically use the MathML namespace:",
     zh: "MathML 元素自动使用 MathML 命名空间：",
   } as Record<Locale, string>,
-  namespace: { en: "Namespace Behavior", zh: "命名空间行为" } as Record<Locale, string>,
+  namespace: { en: "Namespace Behavior", zh: "命名空间行为" } as Record<
+    Locale,
+    string
+  >,
   namespaceDesc: {
     en: "Each tag helper resolves its namespace based on the tag name itself (not parent context):",
     zh: "每个标签助手根据标签名本身（而非父级上下文）解析其命名空间：",
@@ -409,7 +481,10 @@ const tagHelpersContent = {
     en: " — import with rename if you prefer the bare name.",
     zh: " 形式导出 —— 如果你更喜欢裸名，可以用 import 时的 rename。",
   } as Record<Locale, string>,
-  usageExample: { en: "Usage Example", zh: "使用示例" } as Record<Locale, string>,
+  usageExample: { en: "Usage Example", zh: "使用示例" } as Record<
+    Locale,
+    string
+  >,
   prevH: { en: "← h()", zh: "← h()" } as Record<Locale, string>,
   nextFor: { en: "For →", zh: "For →" } as Record<Locale, string>,
 };
@@ -443,9 +518,18 @@ const forContent = {
     en: " that auto-updates.",
     zh: "，会自动更新。",
   } as Record<Locale, string>,
-  apiSignature: { en: "API Signature", zh: "API 签名" } as Record<Locale, string>,
-  prevTagHelpers: { en: "← Tag Helpers", zh: "← 标签助手" } as Record<Locale, string>,
-  nextConditionals: { en: "Conditionals →", zh: "条件渲染 →" } as Record<Locale, string>,
+  apiSignature: { en: "API Signature", zh: "API 签名" } as Record<
+    Locale,
+    string
+  >,
+  prevTagHelpers: { en: "← Tag Helpers", zh: "← 标签助手" } as Record<
+    Locale,
+    string
+  >,
+  nextConditionals: { en: "Conditionals →", zh: "条件渲染 →" } as Record<
+    Locale,
+    string
+  >,
 };
 
 /**
@@ -473,7 +557,10 @@ const conditionalsContent = {
     en: " — Pattern matching within Switch cases.",
     zh: " — 在 Switch 分支中进行模式匹配。",
   } as Record<Locale, string>,
-  apiSignatures: { en: "API Signatures", zh: "API 签名" } as Record<Locale, string>,
+  apiSignatures: { en: "API Signatures", zh: "API 签名" } as Record<
+    Locale,
+    string
+  >,
   prevFor: { en: "← For", zh: "← For" } as Record<Locale, string>,
   nextHtmlTemplate: { en: "h`` →", zh: "h`` →" } as Record<Locale, string>,
 };
@@ -539,8 +626,14 @@ const htmlTemplateContent = {
     en: " resolves immediately.",
     zh: " 立即求值。",
   } as Record<Locale, string>,
-  apiSignature: { en: "API Signature", zh: "API 签名" } as Record<Locale, string>,
-  prevConditionals: { en: "← Conditionals", zh: "← 条件渲染" } as Record<Locale, string>,
+  apiSignature: { en: "API Signature", zh: "API 签名" } as Record<
+    Locale,
+    string
+  >,
+  prevConditionals: { en: "← Conditionals", zh: "← 条件渲染" } as Record<
+    Locale,
+    string
+  >,
   nextSignalInterpolation: {
     en: "Signal Interpolation →",
     zh: "信号插值 →",
@@ -572,7 +665,10 @@ const signalInterpolationContent = {
     en: " — Coarse-grained: signal.get() inside computed creates a dependency. When the signal changes, computed re-executes and rebuilds the entire DOM subtree.",
     zh: " — 粗粒度：computed 内调用 signal.get() 创建依赖。当信号变化时，computed 重新执行并重建整个 DOM 子树。",
   } as Record<Locale, string>,
-  liveComparison: { en: "Live Comparison", zh: "实时对比" } as Record<Locale, string>,
+  liveComparison: { en: "Live Comparison", zh: "实时对比" } as Record<
+    Locale,
+    string
+  >,
   prevHtmlTemplate: { en: "← h``", zh: "← h``" } as Record<Locale, string>,
   nextCssTemplate: { en: "css`` →", zh: "css`` →" } as Record<Locale, string>,
 };
@@ -626,12 +722,18 @@ const defineElementContent = {
     en: " when you need component reuse across different parts of your app, or when you want style encapsulation via shadow DOM.",
     zh: "。",
   } as Record<Locale, string>,
-  elementConfig: { en: "ElementConfig Interface", zh: "ElementConfig 接口" } as Record<Locale, string>,
+  elementConfig: {
+    en: "ElementConfig Interface",
+    zh: "ElementConfig 接口",
+  } as Record<Locale, string>,
   elementConfigDesc: {
     en: "The configuration object declares all features of the element:",
     zh: "配置对象声明该元素的所有特性：",
   } as Record<Locale, string>,
-  renderFunction: { en: "Render Function", zh: "Render 函数" } as Record<Locale, string>,
+  renderFunction: { en: "Render Function", zh: "Render 函数" } as Record<
+    Locale,
+    string
+  >,
   renderDesc1: {
     en: "The ",
     zh: "",
@@ -656,8 +758,14 @@ const defineElementContent = {
     en: ".",
     zh: "。",
   } as Record<Locale, string>,
-  prevInlineStyle: { en: "← inlineStyle``", zh: "← inlineStyle``" } as Record<Locale, string>,
-  nextShadow: { en: "Shadow DOM →", zh: "Shadow DOM →" } as Record<Locale, string>,
+  prevInlineStyle: { en: "← inlineStyle``", zh: "← inlineStyle``" } as Record<
+    Locale,
+    string
+  >,
+  nextShadow: { en: "Shadow DOM →", zh: "Shadow DOM →" } as Record<
+    Locale,
+    string
+  >,
 };
 
 /**
@@ -672,7 +780,10 @@ const shadowContent = {
     en: "Style encapsulation with Shadow DOM for custom elements.",
     zh: "为自定义元素提供基于 Shadow DOM 的样式封装。",
   } as Record<Locale, string>,
-  defaultBehavior: { en: "Default Behavior", zh: "默认行为" } as Record<Locale, string>,
+  defaultBehavior: { en: "Default Behavior", zh: "默认行为" } as Record<
+    Locale,
+    string
+  >,
   defaultBehaviorDesc1: {
     en: " creates an open shadow root by default. Access it via ",
     zh: " 默认创建 open shadow root。通过 ",
@@ -681,7 +792,10 @@ const shadowContent = {
     en: " in the setup function.",
     zh: " 在 setup 函数中访问它。",
   } as Record<Locale, string>,
-  shadowOptions: { en: "Shadow Options", zh: "Shadow 选项" } as Record<Locale, string>,
+  shadowOptions: { en: "Shadow Options", zh: "Shadow 选项" } as Record<
+    Locale,
+    string
+  >,
   shadowOptionsDesc1: {
     en: "Configure or disable shadow DOM with the ",
     zh: "使用 ",
@@ -695,8 +809,14 @@ const shadowContent = {
     en: "Styles defined inside Shadow DOM do not leak out, and external styles do not penetrate in. This provides true component isolation.",
     zh: "Shadow DOM 内定义的样式不会泄漏出去，外部样式也无法渗透进来。这提供了真正的组件隔离。",
   } as Record<Locale, string>,
-  prevDefineElement: { en: "← defineElement", zh: "← defineElement" } as Record<Locale, string>,
-  nextAdoptStyle: { en: "adoptStyle →", zh: "adoptStyle →" } as Record<Locale, string>,
+  prevDefineElement: { en: "← defineElement", zh: "← defineElement" } as Record<
+    Locale,
+    string
+  >,
+  nextAdoptStyle: { en: "adoptStyle →", zh: "adoptStyle →" } as Record<
+    Locale,
+    string
+  >,
 };
 
 /**
@@ -728,7 +848,10 @@ const adoptStyleContent = {
     en: " API when the element connects.",
     zh: " API 注入到 shadow root 中。",
   } as Record<Locale, string>,
-  cssTagTemplate: { en: "css Tag Template", zh: "css 标签模板" } as Record<Locale, string>,
+  cssTagTemplate: { en: "css Tag Template", zh: "css 标签模板" } as Record<
+    Locale,
+    string
+  >,
   cssTagTemplateDesc1: {
     en: "Use the ",
     zh: "使用 ",
@@ -765,8 +888,14 @@ const adoptStyleContent = {
     en: " for performant, deduplicated style application.",
     zh: " 中，以实现高效、去重的样式应用。",
   } as Record<Locale, string>,
-  prevShadow: { en: "← Shadow DOM", zh: "← Shadow DOM" } as Record<Locale, string>,
-  nextAttribute: { en: "attribute →", zh: "attribute →" } as Record<Locale, string>,
+  prevShadow: { en: "← Shadow DOM", zh: "← Shadow DOM" } as Record<
+    Locale,
+    string
+  >,
+  nextAttribute: { en: "attribute →", zh: "attribute →" } as Record<
+    Locale,
+    string
+  >,
 };
 
 /**
@@ -798,16 +927,16 @@ const attributeContent = {
     zh: "值与信号访问",
   } as Record<Locale, string>,
   valueAndSignalDesc1: {
-    en: "Access the raw value via ",
+    en: "Access the value via ",
     zh: "通过 ",
   } as Record<Locale, string>,
   valueAndSignalDesc1Mid: {
-    en: " and the backing Signal via ",
-    zh: " 访问原始值，通过 ",
+    en: " (coarse-grained — render re-runs on change) or the backing Signal via ",
+    zh: " 访问值（粗粒度 — 属性变化时 render 重跑），通过 ",
   } as Record<Locale, string>,
   valueAndSignalDesc1End: {
-    en: ":",
-    zh: " 访问底层信号：",
+    en: " (fine-grained — only the bound node updates):",
+    zh: " 访问底层信号（细粒度 — 只更新绑定的节点）：",
   } as Record<Locale, string>,
   builtInTransforms: {
     en: "Built-in Transforms",
@@ -825,7 +954,10 @@ const attributeContent = {
     en: "Pass a function to implement custom parsing logic:",
     zh: "传入函数以实现自定义解析逻辑：",
   } as Record<Locale, string>,
-  prevAdoptStyle: { en: "← adoptStyle", zh: "← adoptStyle" } as Record<Locale, string>,
+  prevAdoptStyle: { en: "← adoptStyle", zh: "← adoptStyle" } as Record<
+    Locale,
+    string
+  >,
   nextEvent: { en: "event →", zh: "event →" } as Record<Locale, string>,
 };
 
@@ -841,7 +973,10 @@ const eventContent = {
     en: "Custom events with type-safe dispatching and listening.",
     zh: "具有类型安全派发与监听的自定义事件。",
   } as Record<Locale, string>,
-  eventDeclaration: { en: "Event Declaration", zh: "事件声明" } as Record<Locale, string>,
+  eventDeclaration: { en: "Event Declaration", zh: "事件声明" } as Record<
+    Locale,
+    string
+  >,
   eventDeclarationDesc1: {
     en: "Declare events in the ",
     zh: "在 ",
@@ -854,12 +989,18 @@ const eventContent = {
     en: " for events with no detail.",
     zh: " 表示无 detail。",
   } as Record<Locale, string>,
-  generatedMethods: { en: "Generated Methods", zh: "生成的方法" } as Record<Locale, string>,
+  generatedMethods: { en: "Generated Methods", zh: "生成的方法" } as Record<
+    Locale,
+    string
+  >,
   generatedMethodsDesc: {
     en: "A dispatch method is generated for each event:",
     zh: "每个事件都会生成一个 dispatch 方法：",
   } as Record<Locale, string>,
-  handlerProperty: { en: "Handler Property", zh: "Handler 属性" } as Record<Locale, string>,
+  handlerProperty: { en: "Handler Property", zh: "Handler 属性" } as Record<
+    Locale,
+    string
+  >,
   handlerPropertyDesc1: {
     en: "An ",
     zh: "同时会生成一个 ",
@@ -868,7 +1009,10 @@ const eventContent = {
     en: " property is also generated as a handler that can be set directly:",
     zh: " 属性作为可直接设置的处理器：",
   } as Record<Locale, string>,
-  eventTypeHelper: { en: "event<T>() Type Helper", zh: "event<T>() 类型助手" } as Record<Locale, string>,
+  eventTypeHelper: {
+    en: "event<T>() Type Helper",
+    zh: "event<T>() 类型助手",
+  } as Record<Locale, string>,
   eventTypeHelperDesc1: {
     en: "Use the ",
     zh: "使用 ",
@@ -877,8 +1021,14 @@ const eventContent = {
     en: " helper for custom detail types:",
     zh: " 助手用于自定义 detail 类型：",
   } as Record<Locale, string>,
-  prevAttribute: { en: "← attribute", zh: "← attribute" } as Record<Locale, string>,
-  nextAttachTemplate: { en: "attachTemplate →", zh: "attachTemplate →" } as Record<Locale, string>,
+  prevAttribute: { en: "← attribute", zh: "← attribute" } as Record<
+    Locale,
+    string
+  >,
+  nextAttachTemplate: {
+    en: "attachTemplate →",
+    zh: "attachTemplate →",
+  } as Record<Locale, string>,
 };
 
 /**
@@ -893,7 +1043,10 @@ const attachTemplateContent = {
     en: "Declarative templates with {{slot}} bindings.",
     zh: "带有 {{slot}} 绑定的声明式模板。",
   } as Record<Locale, string>,
-  templateOption: { en: "Template Option", zh: "Template 选项" } as Record<Locale, string>,
+  templateOption: { en: "Template Option", zh: "Template 选项" } as Record<
+    Locale,
+    string
+  >,
   templateOptionDesc1: {
     en: "Use the ",
     zh: "使用 ",
@@ -906,18 +1059,27 @@ const attachTemplateContent = {
     en: " slots auto-bind to instance properties.",
     zh: " 插槽会自动绑定到实例属性。",
   } as Record<Locale, string>,
-  bindingTypes: { en: "Binding Types", zh: "绑定类型" } as Record<Locale, string>,
+  bindingTypes: { en: "Binding Types", zh: "绑定类型" } as Record<
+    Locale,
+    string
+  >,
   bindingTypesDesc: {
     en: "Three types of bindings are supported:",
     zh: "支持三种绑定类型：",
   } as Record<Locale, string>,
-  signalSupport: { en: "Signal Support", zh: "Signal 支持" } as Record<Locale, string>,
+  signalSupport: { en: "Signal Support", zh: "Signal 支持" } as Record<
+    Locale,
+    string
+  >,
   signalSupportDesc: {
     en: "Properties can be Signals for reactive updates. When a Signal changes, the bound text node updates automatically without re-rendering the entire template.",
     zh: "属性可以是 Signal 以实现响应式更新。当 Signal 变化时，绑定的文本节点会自动更新，无需重新渲染整个模板。",
   } as Record<Locale, string>,
   prevEvent: { en: "← event", zh: "← event" } as Record<Locale, string>,
-  nextApiReference: { en: "API Reference →", zh: "API 参考 →" } as Record<Locale, string>,
+  nextApiReference: { en: "API Reference →", zh: "API 参考 →" } as Record<
+    Locale,
+    string
+  >,
 };
 
 /**
@@ -982,7 +1144,10 @@ const cssTemplateContent = {
     en: "← Signal Interpolation",
     zh: "← 信号插值",
   } as Record<Locale, string>,
-  nextInlineStyle: { en: "inlineStyle`` →", zh: "inlineStyle`` →" } as Record<Locale, string>,
+  nextInlineStyle: { en: "inlineStyle`` →", zh: "inlineStyle`` →" } as Record<
+    Locale,
+    string
+  >,
 };
 
 /**
@@ -994,7 +1159,10 @@ const apiReferenceContent = {
     en: "Complete API reference for all Rikka packages.",
     zh: "所有 Rikka 包的完整 API 参考。",
   } as Record<Locale, string>,
-  signalPackage: { en: "@takanashi/rikka-signal", zh: "@takanashi/rikka-signal" } as Record<Locale, string>,
+  signalPackage: {
+    en: "@takanashi/rikka-signal",
+    zh: "@takanashi/rikka-signal",
+  } as Record<Locale, string>,
   signalPackageDesc: {
     en: "Reactive primitives built on the TC39 Signals proposal.",
     zh: "基于 TC39 Signals 提案构建的响应式原语。",
@@ -1011,12 +1179,18 @@ const apiReferenceContent = {
     en: ".",
     zh: "。",
   } as Record<Locale, string>,
-  signalFn: { en: "signal<T>(initialValue)", zh: "signal<T>(initialValue)" } as Record<Locale, string>,
+  signalFn: {
+    en: "signal<T>(initialValue)",
+    zh: "signal<T>(initialValue)",
+  } as Record<Locale, string>,
   signalFnDesc: {
     en: "Creates a reactive state container.",
     zh: "创建一个响应式状态容器。",
   } as Record<Locale, string>,
-  computedFn: { en: "computed<T>(fn)", zh: "computed<T>(fn)" } as Record<Locale, string>,
+  computedFn: { en: "computed<T>(fn)", zh: "computed<T>(fn)" } as Record<
+    Locale,
+    string
+  >,
   computedFnDesc: {
     en: "Creates a derived signal that auto-tracks dependencies. Lazy and cached.",
     zh: "创建一个自动追踪依赖的派生信号。惰性且带缓存。",
@@ -1026,22 +1200,34 @@ const apiReferenceContent = {
     en: "Runs a function reactively. Re-runs when tracked signals change. Returns a dispose function.",
     zh: "以响应式方式运行一个函数。当被追踪的信号变化时重新运行。返回一个 dispose 函数。",
   } as Record<Locale, string>,
-  signalNamespace: { en: "Signal (re-export)", zh: "Signal（重新导出）" } as Record<Locale, string>,
+  signalNamespace: {
+    en: "Signal (re-export)",
+    zh: "Signal（重新导出）",
+  } as Record<Locale, string>,
   signalNamespaceDesc: {
     en: "The full Signal namespace from signal-polyfill, including:",
     zh: "来自 signal-polyfill 的完整 Signal 命名空间，包括：",
   } as Record<Locale, string>,
-  domPackage: { en: "@takanashi/rikka-dom", zh: "@takanashi/rikka-dom" } as Record<Locale, string>,
+  domPackage: {
+    en: "@takanashi/rikka-dom",
+    zh: "@takanashi/rikka-dom",
+  } as Record<Locale, string>,
   domPackageDesc: {
     en: "DOM creation utilities: h(), tag helpers, control flow, templates.",
     zh: "DOM 创建工具：h()、标签助手、控制流、模板。",
   } as Record<Locale, string>,
-  hFn: { en: "h(tag, attrs?, ...children)", zh: "h(tag, attrs?, ...children)" } as Record<Locale, string>,
+  hFn: {
+    en: "h(tag, attrs?, ...children)",
+    zh: "h(tag, attrs?, ...children)",
+  } as Record<Locale, string>,
   hFnDesc: {
     en: "Creates a DOM element directly.",
     zh: "直接创建一个 DOM 元素。",
   } as Record<Locale, string>,
-  hTemplateFn: { en: "h`...` (tagged template)", zh: "h`...`（标签模板）" } as Record<Locale, string>,
+  hTemplateFn: {
+    en: "h`...` (tagged template)",
+    zh: "h`...`（标签模板）",
+  } as Record<Locale, string>,
   hTemplateFnAdvanced: {
     en: "is an alternative to h() / tag helpers. Reach for it when you have static HTML-like structures with signal interpolation.",
     zh: " 是 h() / 标签助手的替代方案。当你拥有带信号插值的、类 HTML 的静态结构时，可以使用它。",
@@ -1058,7 +1244,10 @@ const apiReferenceContent = {
     en: " for template elements.",
     zh: " 获取 template 元素。",
   } as Record<Locale, string>,
-  tagHelpersHeading: { en: "Tag Helpers", zh: "标签助手" } as Record<Locale, string>,
+  tagHelpersHeading: { en: "Tag Helpers", zh: "标签助手" } as Record<
+    Locale,
+    string
+  >,
   tagHelpersDesc1: {
     en: "40 pre-bound helpers with the same signature as ",
     zh: "40 个预绑定的助手，签名与 ",
@@ -1067,22 +1256,34 @@ const apiReferenceContent = {
     en: ":",
     zh: " 相同：",
   } as Record<Locale, string>,
-  forFn: { en: "For(source, render, keyFn?)", zh: "For(source, render, keyFn?)" } as Record<Locale, string>,
+  forFn: {
+    en: "For(source, render, keyFn?)",
+    zh: "For(source, render, keyFn?)",
+  } as Record<Locale, string>,
   forFnDesc: {
     en: "Reactive list rendering. Only adds/removes changed items when keyFn is provided.",
     zh: "响应式列表渲染。当提供 keyFn 时，仅添加/移除变化的项。",
   } as Record<Locale, string>,
-  showFn: { en: "Show(condition, render)", zh: "Show(condition, render)" } as Record<Locale, string>,
+  showFn: {
+    en: "Show(condition, render)",
+    zh: "Show(condition, render)",
+  } as Record<Locale, string>,
   showFnDesc: {
     en: "Conditionally show/hide an element.",
     zh: "根据条件显示/隐藏一个元素。",
   } as Record<Locale, string>,
-  whenFn: { en: "When(condition, trueRender, falseRender)", zh: "When(condition, trueRender, falseRender)" } as Record<Locale, string>,
+  whenFn: {
+    en: "When(condition, trueRender, falseRender)",
+    zh: "When(condition, trueRender, falseRender)",
+  } as Record<Locale, string>,
   whenFnDesc: {
     en: "Conditional branching — renders one of two branches.",
     zh: "条件分支 —— 渲染两个分支之一。",
   } as Record<Locale, string>,
-  switchFn: { en: "Switch(value, ...cases, fallback?)", zh: "Switch(value, ...cases, fallback?)" } as Record<Locale, string>,
+  switchFn: {
+    en: "Switch(value, ...cases, fallback?)",
+    zh: "Switch(value, ...cases, fallback?)",
+  } as Record<Locale, string>,
   switchFnAdvanced: {
     en: "is for multi-way branching (3+ branches). For single/binary conditions, Show() / When() is simpler.",
     zh: " 用于多路分支（3+ 个分支）。对于单/二分支条件，Show() / When() 更简单。",
@@ -1091,7 +1292,10 @@ const apiReferenceContent = {
     en: "Multi-way conditional branching.",
     zh: "多路条件分支。",
   } as Record<Locale, string>,
-  matchFn: { en: "Match(match, render)", zh: "Match(match, render)" } as Record<Locale, string>,
+  matchFn: { en: "Match(match, render)", zh: "Match(match, render)" } as Record<
+    Locale,
+    string
+  >,
   matchFnAdvanced: {
     en: "is the companion to Switch() for defining each branch.",
     zh: " 是 Switch() 的搭档，用于定义每个分支。",
@@ -1109,7 +1313,10 @@ const apiReferenceContent = {
     en: "Creates a CSSStyleSheet from tagged template literal.",
     zh: "从标签模板字面量创建一个 CSSStyleSheet。",
   } as Record<Locale, string>,
-  inlineStyleFn: { en: "inlineStyle`...`", zh: "inlineStyle`...`" } as Record<Locale, string>,
+  inlineStyleFn: { en: "inlineStyle`...`", zh: "inlineStyle`...`" } as Record<
+    Locale,
+    string
+  >,
   inlineStyleFnAdvanced: {
     en: "is a niche helper that returns a camelCase style object. Most code uses style strings or external CSS.",
     zh: " 是一个小众助手，返回一个 camelCase 风格对象。大多数代码使用 style 字符串或外部 CSS。",
@@ -1118,7 +1325,10 @@ const apiReferenceContent = {
     en: "Parses CSS into a style record object for inline styles.",
     zh: "将 CSS 解析为内联样式的 style 记录对象。",
   } as Record<Locale, string>,
-  elementsPackage: { en: "@takanashi/rikka-elements", zh: "@takanashi/rikka-elements" } as Record<Locale, string>,
+  elementsPackage: {
+    en: "@takanashi/rikka-elements",
+    zh: "@takanashi/rikka-elements",
+  } as Record<Locale, string>,
   elementsPackageAdvanced: {
     en: "is an advanced feature. You can build complete apps using only h() and tag helpers — reach for defineElement only when you need reusable, encapsulated components with reactive attributes, custom events, Shadow DOM, and declarative lifecycle.",
     zh: " 是一个进阶特性。仅使用 h() 和标签助手就能构建完整的应用 —— 只有当你需要带响应式属性、自定义事件、Shadow DOM 和声明式生命周期的可复用、封装组件时，才使用 defineElement。",
@@ -1127,18 +1337,30 @@ const apiReferenceContent = {
     en: "Declarative custom elements with reactive attributes, events, shadow DOM, styles, and render function.",
     zh: "声明式自定义元素，具有响应式属性、事件、shadow DOM、样式和 render 函数。",
   } as Record<Locale, string>,
-  defineElementFn: { en: "defineElement(tagName, config?)", zh: "defineElement(tagName, config?)" } as Record<Locale, string>,
+  defineElementFn: {
+    en: "defineElement(tagName, config?)",
+    zh: "defineElement(tagName, config?)",
+  } as Record<Locale, string>,
   defineElementFnDesc: {
     en: "Defines a Web Component with typed attributes, events, shadow DOM, and render function.",
     zh: "定义一个带类型化属性、事件、shadow DOM 和 render 函数的 Web Component。",
   } as Record<Locale, string>,
-  eventTypeHelper: { en: "event<T>()", zh: "event<T>()" } as Record<Locale, string>,
+  eventTypeHelper: { en: "event<T>()", zh: "event<T>()" } as Record<
+    Locale,
+    string
+  >,
   eventTypeHelperDesc: {
     en: "Type marker for events that carry a detail payload via a transform function.",
     zh: "用于通过 transform 函数携带 detail 负载的事件类型标记。",
   } as Record<Locale, string>,
-  elementConfig: { en: "ElementConfig", zh: "ElementConfig" } as Record<Locale, string>,
-  attributeSpec: { en: "AttributeSpec<T>", zh: "AttributeSpec<T>" } as Record<Locale, string>,
+  elementConfig: { en: "ElementConfig", zh: "ElementConfig" } as Record<
+    Locale,
+    string
+  >,
+  attributeSpec: { en: "AttributeSpec<T>", zh: "AttributeSpec<T>" } as Record<
+    Locale,
+    string
+  >,
   eventSpec: { en: "EventSpec", zh: "EventSpec" } as Record<Locale, string>,
   generatedMembers: {
     en: "Generated Instance Members",
@@ -1191,7 +1413,10 @@ const apiReferenceContent = {
   thDescription: { en: "Description", zh: "说明" } as Record<Locale, string>,
   thCondition: { en: "Condition", zh: "条件" } as Record<Locale, string>,
   thSyntax: { en: "Syntax", zh: "语法" } as Record<Locale, string>,
-  thBindingType: { en: "Binding Type", zh: "绑定类型" } as Record<Locale, string>,
+  thBindingType: { en: "Binding Type", zh: "绑定类型" } as Record<
+    Locale,
+    string
+  >,
   thBehavior: { en: "Behavior", zh: "行为" } as Record<Locale, string>,
   thPackage: { en: "Package", zh: "包" } as Record<Locale, string>,
   tdGetSetValue: {
@@ -1210,7 +1435,10 @@ const apiReferenceContent = {
     en: "Get/set event handler. Auto-wrapped to prevent infinite loops.",
     zh: "获取/设置事件处理器。自动包装以防止无限循环。",
   } as Record<Locale, string>,
-  tdShadowRoot: { en: "ShadowRoot", zh: "ShadowRoot" } as Record<Locale, string>,
+  tdShadowRoot: { en: "ShadowRoot", zh: "ShadowRoot" } as Record<
+    Locale,
+    string
+  >,
   tdShadowRootCondition: {
     en: "When shadow !== false",
     zh: "当 shadow !== false 时",
@@ -1242,24 +1470,42 @@ const apiReferenceContent = {
     zh: "DOM 事件 → transform(el.dispatchAction(detail))",
   } as Record<Locale, string>,
   // Type table descriptions
-  typeSignalState: { en: "Writable reactive state container", zh: "可写的响应式状态容器" } as Record<Locale, string>,
-  typeSignalComputed: { en: "Read-only derived signal with caching", zh: "带缓存的只读派生信号" } as Record<Locale, string>,
+  typeSignalState: {
+    en: "Writable reactive state container",
+    zh: "可写的响应式状态容器",
+  } as Record<Locale, string>,
+  typeSignalComputed: {
+    en: "Read-only derived signal with caching",
+    zh: "带缓存的只读派生信号",
+  } as Record<Locale, string>,
   typeChild: {
     en: "string | number | Node | Signal | ReactiveRange | null | false",
     zh: "string | number | Node | Signal | ReactiveRange | null | false",
   } as Record<Locale, string>,
-  typeAttributes: { en: "Typed attribute map for element K", zh: "元素 K 的类型化属性映射" } as Record<Locale, string>,
+  typeAttributes: {
+    en: "Typed attribute map for element K",
+    zh: "元素 K 的类型化属性映射",
+  } as Record<Locale, string>,
   typeReactiveRange: {
     en: "For/Show/When/Switch output — managed node range",
     zh: "For/Show/When/Switch 的输出 —— 托管的节点范围",
   } as Record<Locale, string>,
-  typeCase: { en: "Single case definition for Switch", zh: "Switch 的单个 case 定义" } as Record<Locale, string>,
-  typeAttributeSpec: { en: "Attribute parser/serializer spec", zh: "属性的解析/序列化 spec" } as Record<Locale, string>,
+  typeCase: {
+    en: "Single case definition for Switch",
+    zh: "Switch 的单个 case 定义",
+  } as Record<Locale, string>,
+  typeAttributeSpec: {
+    en: "Attribute parser/serializer spec",
+    zh: "属性的解析/序列化 spec",
+  } as Record<Locale, string>,
   typeEventSpec: {
     en: "(DOM Event → detail) transform | undefined",
     zh: "(DOM Event → detail) 转换函数 | undefined",
   } as Record<Locale, string>,
-  typeElementConfig: { en: "Full configuration for defineElement", zh: "defineElement 的完整配置" } as Record<Locale, string>,
+  typeElementConfig: {
+    en: "Full configuration for defineElement",
+    zh: "defineElement 的完整配置",
+  } as Record<Locale, string>,
   typeElementInstance: {
     en: "HTMLElement & props & signals & events & shadow & methods",
     zh: "HTMLElement & props & signals & events & shadow & methods",
@@ -1295,7 +1541,10 @@ const inlineStyleContent = {
     en: " tagged template creates a JavaScript style object from CSS-like syntax:",
     zh: " 标签模板从类 CSS 语法创建一个 JavaScript style 对象：",
   } as Record<Locale, string>,
-  cssToCamelCase: { en: "CSS to camelCase", zh: "CSS 转 camelCase" } as Record<Locale, string>,
+  cssToCamelCase: { en: "CSS to camelCase", zh: "CSS 转 camelCase" } as Record<
+    Locale,
+    string
+  >,
   cssToCamelCaseDesc: {
     en: "CSS property names are automatically converted to camelCase for JavaScript compatibility:",
     zh: "CSS 属性名会自动转换为 camelCase 以兼容 JavaScript：",
@@ -1327,7 +1576,10 @@ const inlineStyleContent = {
     zh: "可以插值字符串和数值：",
   } as Record<Locale, string>,
   prevCssTemplate: { en: "← css``", zh: "← css``" } as Record<Locale, string>,
-  nextDefineElement: { en: "defineElement →", zh: "defineElement →" } as Record<Locale, string>,
+  nextDefineElement: { en: "defineElement →", zh: "defineElement →" } as Record<
+    Locale,
+    string
+  >,
 };
 
 /**
@@ -1339,17 +1591,26 @@ const siteOverviewContent = {
     zh: "基于 Schema、Repr 和内容协商的资源导向服务器框架。",
   } as Record<Locale, string>,
   installation: { en: "Installation", zh: "安装" } as Record<Locale, string>,
-  quickExample: { en: "Quick Example", zh: "快速示例" } as Record<Locale, string>,
+  quickExample: { en: "Quick Example", zh: "快速示例" } as Record<
+    Locale,
+    string
+  >,
   quickExampleDesc: {
     en: "Define resources with Kinds, wire them into a site tree, and deploy to any JS runtime:",
     zh: "使用 Kind 定义资源，将它们连接到 site 树中，然后部署到任何 JS 运行时：",
   } as Record<Locale, string>,
-  coreConcepts: { en: "Core Concepts", zh: "核心概念" } as Record<Locale, string>,
+  coreConcepts: { en: "Core Concepts", zh: "核心概念" } as Record<
+    Locale,
+    string
+  >,
   coreConceptsDesc: {
     en: "rikka-site models your server as a tree of Resources. Each Resource has a Kind that determines its HTTP method mapping, a Schema for validation, and a TransformerRegistry for content negotiation.",
     zh: "rikka-site 将服务器建模为资源树。每个资源有一个 Kind 决定其 HTTP 方法映射、一个 Schema 用于验证、以及一个 TransformerRegistry 用于内容协商。",
   } as Record<Locale, string>,
-  prevApiReference: { en: "← API Reference", zh: "← API 参考" } as Record<Locale, string>,
+  prevApiReference: { en: "← API Reference", zh: "← API 参考" } as Record<
+    Locale,
+    string
+  >,
   nextKinds: { en: "Kinds →", zh: "资源类型 →" } as Record<Locale, string>,
 };
 
@@ -1361,15 +1622,21 @@ const siteKindsContent = {
     en: "Kinds define the HTTP method mapping and behavior of each resource.",
     zh: "Kind 定义每个资源的 HTTP 方法映射和行为。",
   } as Record<Locale, string>,
-  sixKinds: { en: "The Six Kinds", zh: "六种 Kind" } as Record<Locale, string>,
+  sixKinds: { en: "The Seven Kinds", zh: "七种 Kind" } as Record<
+    Locale,
+    string
+  >,
   sixKindsDesc: {
-    en: "rikka-site provides six built-in Kinds, each mapping to a specific set of HTTP methods:",
-    zh: "rikka-site 提供六种内置 Kind，每种映射到一组特定的 HTTP 方法：",
+    en: "rikka-site provides seven built-in Kinds (CollectionKind, ItemKind, SingletonKind, ReadOnlyKind, ActionKind, ProxyKind, StaticKind), each mapping to a specific set of HTTP methods:",
+    zh: "rikka-site 提供七种内置 Kind（CollectionKind、ItemKind、SingletonKind、ReadOnlyKind、ActionKind、ProxyKind、StaticKind），每种映射到一组特定的 HTTP 方法：",
   } as Record<Locale, string>,
-  kindDetails: { en: "Kind Details", zh: "Kind 详情" } as Record<Locale, string>,
+  kindDetails: { en: "Kind Details", zh: "Kind 详情" } as Record<
+    Locale,
+    string
+  >,
   kindDetailsDesc: {
-    en: "Each Kind is a ResourceFactory — a function from config to a Resource constructor. The resource class implements handlers for its HTTP methods, and you can override or extend them as needed.",
-    zh: "每个 Kind 是一个 ResourceFactory — 一个从配置到 Resource 构造函数的工厂。Resource 类实现了其 HTTP 方法的处理器，你可以按需覆盖或扩展。",
+    en: "Each Kind is an abstract class. Extend it to implement handlers for its HTTP methods, then mount an instance in the site tree. StaticKind is a concrete class — pass config to its constructor directly.",
+    zh: "每个 Kind 是一个抽象类。扩展它以实现其 HTTP 方法的处理器，然后在 site 树中挂载一个实例。StaticKind 是具体类——直接将配置传给其构造函数。",
   } as Record<Locale, string>,
   prevOverview: { en: "← Overview", zh: "← 概述" } as Record<Locale, string>,
   nextSchema: { en: "Schema →", zh: "Schema →" } as Record<Locale, string>,
@@ -1383,18 +1650,27 @@ const siteSchemaContent = {
     en: "Schema provides runtime type validation for request and response bodies.",
     zh: "Schema 为请求和响应体提供运行时类型验证。",
   } as Record<Locale, string>,
-  schemaTypes: { en: "Schema Types", zh: "Schema 类型" } as Record<Locale, string>,
+  schemaTypes: { en: "Schema Types", zh: "Schema 类型" } as Record<
+    Locale,
+    string
+  >,
   schemaTypesDesc: {
     en: "rikka-site includes 7 built-in schema types for validating data at resource boundaries:",
     zh: "rikka-site 包含 7 种内置 Schema 类型，用于在资源边界验证数据：",
   } as Record<Locale, string>,
-  schemaMatches: { en: "schemaMatches", zh: "schemaMatches" } as Record<Locale, string>,
+  schemaMatches: { en: "schemaMatches", zh: "schemaMatches" } as Record<
+    Locale,
+    string
+  >,
   schemaMatchesDesc: {
     en: "The schemaMatches function validates a value against a Schema at runtime, returning a typed result. It is used internally by Kinds to validate request bodies before handlers run.",
     zh: "schemaMatches 函数在运行时根据 Schema 验证值，返回类型化结果。它被 Kind 内部用于在处理器运行前验证请求体。",
   } as Record<Locale, string>,
   prevKinds: { en: "← Kinds", zh: "← 资源类型" } as Record<Locale, string>,
-  nextTransformers: { en: "Transformers →", zh: "转换器 →" } as Record<Locale, string>,
+  nextTransformers: { en: "Transformers →", zh: "转换器 →" } as Record<
+    Locale,
+    string
+  >,
 };
 
 /**
@@ -1405,10 +1681,34 @@ const siteTransformersContent = {
     en: "Transformers handle content negotiation and I/O transformation in the request/response pipeline.",
     zh: "Transformer 在请求/响应管道中处理内容协商和 I/O 转换。",
   } as Record<Locale, string>,
-  transformerInterface: { en: "Transformer Interface", zh: "Transformer 接口" } as Record<Locale, string>,
+  transformerInterface: {
+    en: "Transformer Interface",
+    zh: "Transformer 接口",
+  } as Record<Locale, string>,
   transformerInterfaceDesc: {
     en: "A Transformer converts one Repr into another. The input and output fields declare what the transformer accepts and produces (Schema for structured data, MIME string for raw content). The transform method receives a Repr and returns a new one.",
     zh: "Transformer 将一个 Repr 转换为另一个。input 和 output 字段声明了 transformer 接受和产出的内容（Schema 用于结构化数据，MIME 字符串用于原始内容）。transform 方法接收一个 Repr 并返回一个新的 Repr。",
+  } as Record<Locale, string>,
+  builtIn: { en: "Built-in Transformers", zh: "内置 Transformer" } as Record<
+    Locale,
+    string
+  >,
+  builtInDesc: {
+    en: "The Site constructor registers these automatically: json (application/json), jsonld (application/ld+json), csv (text/csv, RFC 4180), text (text/plain), cbor (application/cbor, RFC 8949 — binary), and html (text/html).",
+    zh: "Site 构造函数会自动注册这些 transformer：json（application/json）、jsonld（application/ld+json）、csv（text/csv，RFC 4180）、text（text/plain）、cbor（application/cbor，RFC 8949 — 二进制）和 html（text/html）。",
+  } as Record<Locale, string>,
+  binary: { en: "Binary Formats", zh: "二进制格式" } as Record<Locale, string>,
+  binaryDesc: {
+    en: "CBOR and protobuf produce Uint8Array content that flows through the pipeline as raw bytes — never decoded via TextDecoder, so arbitrary byte sequences survive. TransformResult.body is string | Uint8Array; the HTTP adapters accept both.",
+    zh: "CBOR 和 protobuf 产出 Uint8Array 内容，作为原始字节流过管道——绝不经过 TextDecoder 解码，因此任意字节序列都能完整保留。TransformResult.body 为 string | Uint8Array；HTTP 适配器两者都接受。",
+  } as Record<Locale, string>,
+  protobufFactory: {
+    en: "Schema-based Factory: protobuf(schema)",
+    zh: "基于 schema 的工厂：protobuf(schema)",
+  } as Record<Locale, string>,
+  protobufFactoryDesc: {
+    en: "Protobuf is schema-based, so protobuf is a factory function, not a constant. protobuf(schema) returns a Transformer bound to one message type. The schema is duck-typed ({ encode(message): Uint8Array }) — rikka-site has no protobufjs dependency; you bring your own encoder.",
+    zh: "Protobuf 基于 schema，因此 protobuf 是工厂函数而非常量。protobuf(schema) 返回绑定到某个消息类型的 Transformer。schema 采用鸭子类型（{ encode(message): Uint8Array }）——rikka-site 不依赖 protobufjs，你自带编码器。",
   } as Record<Locale, string>,
   pipeline: { en: "Pipeline", zh: "管道" } as Record<Locale, string>,
   pipelineDesc: {
@@ -1437,8 +1737,14 @@ const siteAuthContent = {
     en: "Path matching uses glob-style patterns. Wildcards (*) match single path segments, double wildcards (**) match any number of segments. Rules are evaluated in order; the first match wins.",
     zh: "路径匹配使用 glob 风格的模式。通配符 (*) 匹配单个路径段，双通配符 (**) 匹配任意数量的段。规则按顺序评估，第一个匹配生效。",
   } as Record<Locale, string>,
-  prevTransformers: { en: "← Transformers", zh: "← 转换器" } as Record<Locale, string>,
-  nextApiReference: { en: "API Reference →", zh: "API 参考 →" } as Record<Locale, string>,
+  prevTransformers: { en: "← Transformers", zh: "← 转换器" } as Record<
+    Locale,
+    string
+  >,
+  nextApiReference: { en: "API Reference →", zh: "API 参考 →" } as Record<
+    Locale,
+    string
+  >,
 };
 
 export const docContent = {

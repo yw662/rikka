@@ -145,7 +145,9 @@ if (container) applyChild(container, app);
 
 ## Children
 
-The `Child` type accepts: `null | string | number | Element | DocumentFragment | ReactiveRange | Signal.State<Child> | Signal.Computed<Child> | Child[] | Signal.State<Child[]> | Signal.Computed<Child[]> | (() => Child)`.
+The `Child` type accepts: `null | string | number | boolean | Element | DocumentFragment | ReactiveRange | Signal.State<Child> | Signal.Computed<Child> | Child[] | Signal.State<Child[]> | Signal.Computed<Child[]> | (() => Child)`.
+
+Booleans (`true`/`false`) render nothing — useful for `&&` conditional patterns like `div({}, show && p({}, "visible"))`.
 
 The interesting case is the function — it's auto-wrapped as `computed` so any `.get()` inside is tracked. See [../signal-binding/#function-children](../signal-binding/SKILL.md#function-children) for details.
 

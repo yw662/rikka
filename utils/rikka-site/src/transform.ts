@@ -27,7 +27,7 @@
  * // Value(array-of-objects) → Raw("text/csv")
  * const csvTransformer: Transformer = {
  *   input: { type: "array", items: { type: "object" } },
- *   output: "text/csv",
+ *   output: { type: "raw", mime: "text/csv" },
  *   transform(repr, ctx) {
  *     if (!Array.isArray(repr.content)) return { content: "", meta: { type: "text/csv" } };
  *     const rows = repr.content.map(row => Object.values(row as Record<string, unknown>).join(","));
@@ -40,8 +40,13 @@
  * ```
  */
 
-import type { Schema } from "./schema.js";
-import { isSchema, schemaMatches, anySchema } from "./schema.js";
+import type { Schema, SchemaRaw } from "./schema.js";
+import {
+  isRawSchema,
+  schemaMatches,
+  anySchema,
+  matchesMIME,
+} from "./schema.js";
 import type { Resource } from "./resource.js";
 import type { Repr, ReprMeta } from "./representation.js";
 import { isBytes } from "./representation.js";
@@ -57,8 +62,14 @@ import type { SiteAsset } from "./site.js";
  * Context provided to transformer functions.
  */
 export interface TransformContext {
-  /** The resource being transformed */
-  resource: Resource;
+  /** The per-request mount path of the resource (e.g. `/articles/42`) */
+  path: string;
+  /** Custom element tag name for HTML representation (from resource.element) */
+  element?: unknown;
+  /** JSON-LD @context URI (from resource.context) */
+  context?: string;
+  /** JSON-LD @type (from resource.jsonldType) */
+  jsonldType?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,22 +79,21 @@ export interface TransformContext {
 /**
  * A transformer converts one Repr into another.
  *
- * - `input` is a Schema (matches structured/value content) or a MIME string (matches raw content)
- * - `output` is a Schema (produces structured/value content) or a MIME string (produces raw content)
+ * - `input` is a Schema: value schemas (e.g. `{ type: "array" }`) match
+ *   structured content; `{ type: "raw", mime }` matches pre-serialized content
+ * - `output` is a Schema: value schemas produce structured content;
+ *   `{ type: "raw", mime }` produces pre-serialized content
  * - `transform` receives a Repr and context, returns a new Repr
  */
 export interface Transformer {
-  /** Input specification: Schema for value, MIME string for raw */
-  input: Schema | string;
-  /** Output specification: Schema for value, MIME string for raw */
-  output: Schema | string;
+  /** Input specification: value Schema or `{ type: "raw", mime }` */
+  input: Schema;
+  /** Output specification: value Schema or `{ type: "raw", mime }` */
+  output: Schema;
   /** Priority for negotiation (higher = preferred, default 0) */
   priority?: number;
   /** Transform a Repr into another Repr */
-  transform(
-    repr: Repr,
-    ctx: TransformContext,
-  ): Repr | Promise<Repr>;
+  transform(repr: Repr, ctx: TransformContext): Repr | Promise<Repr>;
 }
 
 // ---------------------------------------------------------------------------
@@ -92,8 +102,8 @@ export interface Transformer {
 
 interface TransformerEntry {
   transformer: Transformer;
-  input: Schema | string;
-  output: Schema | string;
+  input: Schema;
+  output: Schema;
   priority: number;
 }
 
@@ -102,23 +112,6 @@ interface TransformerEntry {
  */
 function isRawRepr(repr: Repr): boolean {
   return isBytes(repr.content);
-}
-
-/**
- * Get the MIME type of a Repr's content.
- * For raw content, uses meta.type. For value content, returns undefined.
- */
-function reprMimeType(repr: Repr): string | undefined {
-  if (isRawRepr(repr)) return repr.meta.type;
-  return undefined;
-}
-
-/**
- * Convert a raw Repr's content to string.
- */
-function rawContentToString(content: string | Uint8Array): string {
-  if (typeof content === "string") return content;
-  return new TextDecoder().decode(content);
 }
 
 /**
@@ -168,7 +161,10 @@ export class TransformerRegistry {
   findTransformer(requestedType: string): Transformer | null {
     const norm = requestedType.toLowerCase().trim();
     const entry = this.entries
-      .filter((e) => !isSchema(e.output) && (e.output as string).toLowerCase().trim() === norm)
+      .filter(
+        (e) =>
+          isRawSchema(e.output) && e.output.mime.toLowerCase().trim() === norm,
+      )
       .sort((a, b) => b.priority - a.priority)[0];
     return entry?.transformer ?? null;
   }
@@ -180,7 +176,7 @@ export class TransformerRegistry {
    */
   findValueTransformers(schema: Schema): Transformer[] {
     return this.entries
-      .filter((e) => isSchema(e.input) && schemaMatches(schema, e.input as Schema))
+      .filter((e) => !isRawSchema(e.input) && schemaMatches(schema, e.input))
       .sort((a, b) => b.priority - a.priority)
       .map((e) => e.transformer);
   }
@@ -193,8 +189,8 @@ export class TransformerRegistry {
     const norm = mimeType.toLowerCase().trim();
     return this.entries
       .filter((e) => {
-        if (isSchema(e.input)) return false;
-        return matchesMIME(e.input as string, norm);
+        if (!isRawSchema(e.input)) return false;
+        return matchesMIME(e.input.mime, norm);
       })
       .sort((a, b) => b.priority - a.priority)
       .map((e) => e.transformer);
@@ -211,11 +207,11 @@ export class TransformerRegistry {
     const norm = targetMime.toLowerCase().trim();
     const matches = this.entries
       .filter((e) => {
-        if (!isSchema(e.input)) return false;
-        if (isSchema(e.output)) return false;
+        if (isRawSchema(e.input)) return false;
+        if (!isRawSchema(e.output)) return false;
         return (
-          schemaMatches(schema, e.input as Schema) &&
-          (e.output as string).toLowerCase().trim() === norm
+          schemaMatches(schema, e.input) &&
+          e.output.mime.toLowerCase().trim() === norm
         );
       })
       .sort((a, b) => b.priority - a.priority);
@@ -231,10 +227,10 @@ export class TransformerRegistry {
     const targetNorm = targetMime.toLowerCase().trim();
     const matches = this.entries
       .filter((e) => {
-        if (isSchema(e.input) || isSchema(e.output)) return false;
+        if (!isRawSchema(e.input) || !isRawSchema(e.output)) return false;
         return (
-          matchesMIME(e.input as string, inputNorm) &&
-          (e.output as string).toLowerCase().trim() === targetNorm
+          matchesMIME(e.input.mime, inputNorm) &&
+          e.output.mime.toLowerCase().trim() === targetNorm
         );
       })
       .sort((a, b) => b.priority - a.priority);
@@ -244,16 +240,18 @@ export class TransformerRegistry {
   /** Get all registered output MIME types (from transformers that produce raw). */
   registeredOutputTypes(): string[] {
     return this.entries
-      .filter((e) => !isSchema(e.output))
-      .map((e) => e.output as string);
+      .filter((e): e is TransformerEntry & { output: SchemaRaw } =>
+        isRawSchema(e.output),
+      )
+      .map((e) => e.output.mime);
   }
 
   /** Check if a transformer exists that can produce the target type. */
   canProduce(targetType: string): boolean {
     const norm = targetType.toLowerCase().trim();
     return this.entries.some((e) => {
-      if (isSchema(e.output)) return false;
-      return (e.output as string).toLowerCase().trim() === norm;
+      if (!isRawSchema(e.output)) return false;
+      return e.output.mime.toLowerCase().trim() === norm;
     });
   }
 
@@ -270,18 +268,24 @@ export class TransformerRegistry {
    */
   async transformPipeline(
     resource: Resource,
+    path: string,
     repr: Repr,
     targetContentType: string,
   ): Promise<TransformResult> {
     const targetNorm = targetContentType.toLowerCase().trim();
-    const ctx: TransformContext = { resource };
+    const ctx: TransformContext = {
+      path,
+      element: resource.element,
+      context: resource.context,
+      jsonldType: resource.jsonldType,
+    };
     const schema = resource.schema ?? anySchema;
 
     // Step 1: If value content, apply Value→Value transformers
     if (!isRawRepr(repr)) {
       const valueToValue = this.entries
-        .filter((e) => isSchema(e.input) && isSchema(e.output))
-        .filter((e) => schemaMatches(schema, e.input as Schema))
+        .filter((e) => !isRawSchema(e.input) && !isRawSchema(e.output))
+        .filter((e) => schemaMatches(schema, e.input))
         .sort((a, b) => b.priority - a.priority);
 
       for (const entry of valueToValue) {
@@ -295,7 +299,13 @@ export class TransformerRegistry {
     if (isRawRepr(repr)) {
       const currentMime = repr.meta.type?.toLowerCase().trim() ?? "";
       if (currentMime === targetNorm) {
-        return { body: rawContentToString(repr.content as string | Uint8Array), contentType: repr.meta.type! };
+        return {
+          body: repr.content as
+            | string
+            | Uint8Array
+            | ReadableStream<Uint8Array>,
+          contentType: repr.meta.type!,
+        };
       }
     }
 
@@ -305,7 +315,13 @@ export class TransformerRegistry {
       if (direct) {
         const result = await direct.transform(repr, ctx);
         if (isRawRepr(result)) {
-          return { body: rawContentToString(result.content as string | Uint8Array), contentType: result.meta.type! };
+          return {
+            body: result.content as
+              | string
+              | Uint8Array
+              | ReadableStream<Uint8Array>,
+            contentType: result.meta.type!,
+          };
         }
         // Transformer returned value instead of raw — stringify as JSON
         return {
@@ -316,19 +332,31 @@ export class TransformerRegistry {
 
       // Step 4: Try Value→Raw(intermediate)→Raw→Raw(target) chain
       const valueToRawEntries = this.entries
-        .filter((e) => isSchema(e.input) && !isSchema(e.output))
-        .filter((e) => schemaMatches(schema, e.input as Schema))
+        .filter(
+          (e): e is TransformerEntry & { output: SchemaRaw } =>
+            !isRawSchema(e.input) && isRawSchema(e.output),
+        )
+        .filter((e) => schemaMatches(schema, e.input))
         .sort((a, b) => b.priority - a.priority);
 
       for (const v2rEntry of valueToRawEntries) {
-        const intermediateMime = (v2rEntry.output as string).toLowerCase().trim();
-        const r2rTransformer = this.findRawToRawTransformer(intermediateMime, targetNorm);
+        const intermediateMime = v2rEntry.output.mime.toLowerCase().trim();
+        const r2rTransformer = this.findRawToRawTransformer(
+          intermediateMime,
+          targetNorm,
+        );
         if (r2rTransformer) {
           const intermediate = await v2rEntry.transformer.transform(repr, ctx);
           if (isRawRepr(intermediate)) {
             const final = await r2rTransformer.transform(intermediate, ctx);
             if (isRawRepr(final)) {
-              return { body: rawContentToString(final.content as string | Uint8Array), contentType: final.meta.type! };
+              return {
+                body: final.content as
+                  | string
+                  | Uint8Array
+                  | ReadableStream<Uint8Array>,
+                contentType: final.meta.type!,
+              };
             }
           }
         }
@@ -342,11 +370,20 @@ export class TransformerRegistry {
       if (r2r) {
         const result = await r2r.transform(repr, ctx);
         if (isRawRepr(result)) {
-          return { body: rawContentToString(result.content as string | Uint8Array), contentType: result.meta.type! };
+          return {
+            body: result.content as
+              | string
+              | Uint8Array
+              | ReadableStream<Uint8Array>,
+            contentType: result.meta.type!,
+          };
         }
       }
       // No transformer — return as-is
-      return { body: rawContentToString(repr.content as string | Uint8Array), contentType: repr.meta.type ?? "application/octet-stream" };
+      return {
+        body: repr.content as string | Uint8Array | ReadableStream<Uint8Array>,
+        contentType: repr.meta.type ?? "application/octet-stream",
+      };
     }
 
     // Step 6: Fallback to JSON
@@ -362,20 +399,22 @@ export class TransformerRegistry {
    */
   async transform(
     resource: Resource,
+    path: string,
     repr: Repr,
     contentType: string,
   ): Promise<TransformResult> {
-    return this.transformPipeline(resource, repr, contentType);
+    return this.transformPipeline(resource, path, repr, contentType);
   }
 
   /** Convenience: transform raw data into a target content type. */
   async transformData(
     resource: Resource,
+    path: string,
     data: unknown,
     targetContentType: string,
   ): Promise<TransformResult> {
     const repr: Repr = { content: data, meta: {} };
-    return this.transformPipeline(resource, repr, targetContentType);
+    return this.transformPipeline(resource, path, repr, targetContentType);
   }
 }
 
@@ -385,26 +424,19 @@ export class TransformerRegistry {
 
 /**
  * Result of the transformation pipeline.
+ *
+ * `body` is:
+ * - `string` for text formats (JSON, HTML, CSV, …)
+ * - `Uint8Array` for binary formats (CBOR, protobuf, …)
+ * - `ReadableStream<Uint8Array>` for streamed/proxied content
+ *
+ * Binary transformers produce `Uint8Array` content which flows through the
+ * pipeline unchanged — it is never decoded via TextDecoder, so arbitrary
+ * byte sequences are preserved. Streamed content is passed through as-is.
  */
 export interface TransformResult {
-  body: string;
+  body: string | Uint8Array | ReadableStream<Uint8Array>;
   contentType: string;
-}
-
-// ---------------------------------------------------------------------------
-// MIME matching helper
-// ---------------------------------------------------------------------------
-
-/**
- * Check if a MIME type pattern matches a concrete MIME type.
- */
-function matchesMIME(pattern: string, concrete: string): boolean {
-  if (pattern === concrete) return true;
-  if (pattern.endsWith("/*")) {
-    const prefix = pattern.slice(0, -2);
-    return concrete.startsWith(prefix + "/");
-  }
-  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -414,25 +446,33 @@ function matchesMIME(pattern: string, concrete: string): boolean {
 /**
  * JSON-LD helper — shared by jsonldTransformer and htmlTransformer.
  */
-function toJsonLd(resource: Resource, data: unknown): Record<string, unknown> {
-  const { path } = resource;
-  const context = resource.context ?? "https://rikka.dev/context";
-  const type = resource.jsonldType ?? resource.kind;
+function toJsonLd(
+  ctx: TransformContext,
+  data: unknown,
+): Record<string, unknown> {
+  const context = ctx.context ?? "https://rikka.dev/context";
+  const type = ctx.jsonldType;
+  const path = ctx.path;
 
   if (Array.isArray(data)) {
-    return { "@context": context, "@id": path, "@type": type, "@graph": data };
+    const node: Record<string, unknown> = { "@context": context, "@id": path, "@graph": data };
+    if (type) node["@type"] = type;
+    return node;
   }
 
   if (typeof data === "object" && data !== null) {
-    return {
+    const node: Record<string, unknown> = {
       "@context": context,
       "@id": path,
-      "@type": type,
       ...(data as Record<string, unknown>),
     };
+    if (type) node["@type"] = type;
+    return node;
   }
 
-  return { "@context": context, "@id": path, "@type": type, value: data };
+  const node: Record<string, unknown> = { "@context": context, "@id": path, value: data };
+  if (type) node["@type"] = type;
+  return node;
 }
 
 /**
@@ -440,10 +480,13 @@ function toJsonLd(resource: Resource, data: unknown): Record<string, unknown> {
  */
 export const jsonTransformer: Transformer = {
   input: anySchema,
-  output: "application/json",
+  output: { type: "raw", mime: "application/json" },
   priority: 0,
   transform(repr: Repr): Repr {
-    return { content: JSON.stringify(repr.content, null, 2), meta: { type: "application/json" } };
+    return {
+      content: JSON.stringify(repr.content, null, 2),
+      meta: { type: "application/json" },
+    };
   },
 };
 
@@ -452,15 +495,346 @@ export const jsonTransformer: Transformer = {
  */
 export const jsonldTransformer: Transformer = {
   input: anySchema,
-  output: "application/ld+json",
+  output: { type: "raw", mime: "application/ld+json" },
   priority: 0,
   transform(repr: Repr, ctx: TransformContext): Repr {
     return {
-      content: JSON.stringify(toJsonLd(ctx.resource, repr.content), null, 2),
+      content: JSON.stringify(
+        toJsonLd(ctx, repr.content),
+        null,
+        2,
+      ),
       meta: { type: "application/ld+json" },
     };
   },
 };
+
+// ---------------------------------------------------------------------------
+// Built-in CSV transformer — array-of-objects → text/csv (RFC 4180)
+// ---------------------------------------------------------------------------
+
+/**
+ * Quote a CSV field per RFC 4180: wrap in double quotes if it contains
+ * comma, quote, newline, or carriage return; escape inner quotes by doubling.
+ */
+function csvField(value: unknown): string {
+  const s = value === null || value === undefined ? "" : String(value);
+  if (/[",\r\n]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+/**
+ * Built-in: Value(array-of-objects) → Raw("text/csv")
+ *
+ * Serializes an array of plain objects as CSV following RFC 4180:
+ * - First row is the header (object keys, in insertion order)
+ * - Each subsequent row is one object's values
+ * - Fields containing comma, quote, or newline are quoted and escaped
+ * - Empty arrays produce an empty body
+ */
+export const csvTransformer: Transformer = {
+  input: { type: "array", items: { type: "object" } },
+  output: { type: "raw", mime: "text/csv" },
+  priority: 0,
+  transform(repr: Repr): Repr {
+    const data = repr.content;
+    if (!Array.isArray(data) || data.length === 0) {
+      return { content: "", meta: { type: "text/csv" } };
+    }
+    // Collect header keys from the first row (insertion order)
+    const first = data[0] as Record<string, unknown>;
+    const keys = Object.keys(first);
+    const header = keys.map(csvField).join(",");
+    const rows = data.map((row) => {
+      const obj = row as Record<string, unknown>;
+      return keys.map((k) => csvField(obj[k])).join(",");
+    });
+    return {
+      content: [header, ...rows].join("\r\n"),
+      meta: { type: "text/csv" },
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Built-in plain-text transformer — any → text/plain
+// ---------------------------------------------------------------------------
+
+/**
+ * Built-in: Value(any) → Raw("text/plain")
+ *
+ * Renders a human-readable plain-text view of the resource:
+ * - Arrays: one item per line, objects as `key: value` pairs
+ * - Objects: `key: value` pairs, one per line
+ * - Primitives: their string representation
+ *
+ * Useful for debugging, curl output, and accessibility fallbacks.
+ */
+export const textTransformer: Transformer = {
+  input: anySchema,
+  output: { type: "raw", mime: "text/plain" },
+  priority: 0,
+  transform(repr: Repr, ctx: TransformContext): Repr {
+    const data = repr.content;
+    const lines: string[] = [];
+    lines.push(`Resource: ${ctx.path}`);
+    lines.push("---");
+
+    if (Array.isArray(data)) {
+      for (const item of data) {
+        if (typeof item === "object" && item !== null) {
+          lines.push(
+            Object.entries(item as Record<string, unknown>)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(", "),
+          );
+        } else {
+          lines.push(String(item));
+        }
+      }
+    } else if (typeof data === "object" && data !== null) {
+      for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
+        lines.push(`${k}: ${v}`);
+      }
+    } else {
+      lines.push(String(data));
+    }
+
+    return { content: lines.join("\n"), meta: { type: "text/plain" } };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Built-in CBOR transformer — any → application/cbor (RFC 8949)
+// ---------------------------------------------------------------------------
+
+/**
+ * Encode a value as CBOR (Concise Binary Object Representation, RFC 8949).
+ *
+ * Self-contained encoder — no external dependency. Supports the JSON data
+ * model plus `Uint8Array` (encoded as CBOR major type 2, byte string):
+ * - `null` / `undefined` → simple values (0xf6 / 0xf7)
+ * - `boolean`            → true (0xf5) / false (0xf4)
+ * - integers             → unsigned (major 0) or negative (major 1), smallest
+ *                          width among 1B / 2B / 4B / 8B
+ * - non-integer numbers  → float64 (0xfb), big-endian
+ * - `string`             → text string (major 3), UTF-8
+ * - `Uint8Array`         → byte string (major 2)
+ * - `Array`              → array (major 4)
+ * - plain objects        → map (major 5), keys encoded as text strings
+ *
+ * Output is a `Uint8Array` that flows through the pipeline as raw bytes —
+ * it is never decoded via TextDecoder, so arbitrary byte sequences survive.
+ */
+function cborEncode(value: unknown): Uint8Array {
+  const out: number[] = [];
+  cborWrite(value, out);
+  return new Uint8Array(out);
+}
+
+/** Write the CBOR "head" (initial byte + length argument) for a major type. */
+function cborHead(major: number, len: number, out: number[]): void {
+  const mt = major << 5;
+  if (len < 24) {
+    out.push(mt | len);
+  } else if (len < 0x100) {
+    out.push(mt | 24, len);
+  } else if (len < 0x10000) {
+    out.push(mt | 25, (len >> 8) & 0xff, len & 0xff);
+  } else if (len < 0x100000000) {
+    out.push(
+      mt | 26,
+      (len >>> 24) & 0xff,
+      (len >> 16) & 0xff,
+      (len >> 8) & 0xff,
+      len & 0xff,
+    );
+  } else {
+    // 8-byte length — needs BigInt for the high bits.
+    out.push(mt | 27);
+    const hi = Math.floor(len / 0x100000000);
+    const lo = len >>> 0;
+    out.push(
+      (hi >>> 24) & 0xff,
+      (hi >> 16) & 0xff,
+      (hi >> 8) & 0xff,
+      hi & 0xff,
+      (lo >>> 24) & 0xff,
+      (lo >> 16) & 0xff,
+      (lo >> 8) & 0xff,
+      lo & 0xff,
+    );
+  }
+}
+
+function cborWrite(value: unknown, out: number[]): void {
+  if (value === null) {
+    out.push(0xf6);
+    return;
+  }
+  if (value === undefined) {
+    out.push(0xf7);
+    return;
+  }
+  if (value === true) {
+    out.push(0xf5);
+    return;
+  }
+  if (value === false) {
+    out.push(0xf4);
+    return;
+  }
+  if (typeof value === "number") {
+    cborWriteNumber(value, out);
+    return;
+  }
+  if (typeof value === "string") {
+    const utf8 = new TextEncoder().encode(value);
+    cborHead(3, utf8.length, out);
+    for (const b of utf8) out.push(b);
+    return;
+  }
+  if (value instanceof Uint8Array) {
+    cborHead(2, value.length, out);
+    for (const b of value) out.push(b);
+    return;
+  }
+  if (Array.isArray(value)) {
+    cborHead(4, value.length, out);
+    for (const item of value) cborWrite(item, out);
+    return;
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj);
+    cborHead(5, keys.length, out);
+    for (const k of keys) {
+      const utf8 = new TextEncoder().encode(k);
+      cborHead(3, utf8.length, out);
+      for (const b of utf8) out.push(b);
+      cborWrite(obj[k], out);
+    }
+    return;
+  }
+  // Unknown type (function, symbol, bigint without dedicated branch) → null.
+  out.push(0xf6);
+}
+
+function cborWriteNumber(n: number, out: number[]): void {
+  if (Number.isInteger(n) && n >= 0 && n <= 0x1fffffffffffff) {
+    cborHead(0, n, out);
+    return;
+  }
+  if (Number.isInteger(n) && n < 0 && n >= -0x1fffffffffffff) {
+    cborHead(1, -1 - n, out);
+    return;
+  }
+  // Float64 (0xfb), big-endian.
+  out.push(0xfb);
+  const buf = new ArrayBuffer(8);
+  new Float64Array(buf)[0] = n;
+  const view = new Uint8Array(buf);
+  for (let i = 7; i >= 0; i--) out.push(view[i]!);
+}
+
+/**
+ * Built-in: Value(any) → Raw("application/cbor")
+ *
+ * Serializes structured data as CBOR (RFC 8949). CBOR is a binary superset
+ * of the JSON data model — more compact, faster to parse, and preserves
+ * `Uint8Array` as byte strings. The output is a `Uint8Array` that travels
+ * through the pipeline as raw bytes without any string conversion.
+ */
+export const cborTransformer: Transformer = {
+  input: anySchema,
+  output: { type: "raw", mime: "application/cbor" },
+  priority: 0,
+  transform(repr: Repr): Repr {
+    return {
+      content: cborEncode(repr.content),
+      meta: { type: "application/cbor" },
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Protobuf transformer factory — protobuf(schema) returns a Transformer
+// ---------------------------------------------------------------------------
+
+/**
+ * Duck-typed interface for a Protocol Buffers message type.
+ *
+ * Any object with an `encode(message): Uint8Array` method qualifies. This
+ * matches [protobufjs](https://github.com/protobufjs/protobuf.js) `Type`
+ * instances (`Type.encode(message).finish()`) when wrapped, as well as
+ * hand-rolled encoders. rikka-site does **not** depend on protobufjs —
+ * you bring your own schema/encoder.
+ *
+ * @example
+ * ```ts
+ * import protobufjs from "protobufjs";
+ * import { protobuf, Site } from "@takanashi/rikka-site";
+ *
+ * const Root = await protobufjs.load("user.proto");
+ * const User = Root.lookupType("app.User");
+ *
+ * // Wrap protobufjs Type to satisfy ProtobufMessage:
+ * const userSchema = {
+ *   encode: (msg: unknown) => User.encode(msg).finish(),
+ * };
+ *
+ * const app = new Site(
+ *   { users: Users() },
+ *   { transformers: [protobuf(userSchema)] },
+ * );
+ * // GET /users?accept=protobuf → application/x-protobuf bytes
+ * ```
+ */
+export interface ProtobufMessage {
+  /** Serialize a message object into protobuf bytes. */
+  encode(message: unknown): Uint8Array;
+}
+
+/**
+ * Create a Protocol Buffers transformer bound to a message schema.
+ *
+ * Protobuf is schema-based — unlike JSON or CBOR it cannot serialize
+ * arbitrary objects without a pre-defined message type. Therefore
+ * `protobuf` is a **factory**: `protobuf(schema)` returns a `Transformer`
+ * specialized to one message type.
+ *
+ * The `schema` is duck-typed (see {@link ProtobufMessage}), so rikka-site
+ * stays free of a protobufjs dependency. Pass a protobufjs `Type` (wrapped
+ * to call `.finish()`), a generated class, or any object with an
+ * `encode(message): Uint8Array` method.
+ *
+ * The resulting transformer produces `application/x-protobuf` bytes
+ * (`Uint8Array`) that flow through the pipeline as raw bytes.
+ *
+ * @example
+ * ```ts
+ * import { protobuf } from "@takanashi/rikka-site";
+ *
+ * const xform = protobuf({
+ *   encode: (msg) => myEncoder(msg),
+ * });
+ * ```
+ */
+export function protobuf(schema: ProtobufMessage): Transformer {
+  return {
+    input: anySchema,
+    output: { type: "raw", mime: "application/x-protobuf" },
+    priority: 0,
+    transform(repr: Repr): Repr {
+      return {
+        content: schema.encode(repr.content),
+        meta: { type: "application/x-protobuf" },
+      };
+    },
+  };
+}
 
 // ---------------------------------------------------------------------------
 // HTML transformer — configurable, with custom element and DSDOM support
@@ -493,7 +867,12 @@ export const jsonldTransformer: Transformer = {
  *                    the CE reads it from cache or fetches on demand.
  *                    Good for large payloads where inline bloat is a concern.
  */
-export type HydrationStrategy = "none" | "data-attr" | "dsdom" | "jsonld" | "early-hint";
+export type HydrationStrategy =
+  | "none"
+  | "data-attr"
+  | "dsdom"
+  | "jsonld"
+  | "early-hint";
 
 /**
  * Serialization strategy for embedding resource data in server-rendered HTML.
@@ -505,16 +884,8 @@ export type SerializationStrategy = "data-attr" | "jsonld" | "both";
  */
 export interface HtmlTransformerConfig {
   /**
-   * Map from resource kind to custom element tag name.
-   * If a resource has no `element` field, this map is consulted.
-   *
-   * @example { Collection: "blog-article-list", Item: "blog-article" }
-   */
-  elementMap?: Partial<Record<string, string>>;
-
-  /**
-   * Default custom element tag name when no resource-specific or kind-specific
-   * element is found. Defaults to "rikka-resource".
+   * Default custom element tag name when no resource-specific element is found.
+   * Defaults to "rikka-resource".
    */
   defaultElement?: string;
 
@@ -541,17 +912,17 @@ export interface HtmlTransformerConfig {
 
   /**
    * Custom page title generator.
-   * Receives the resource's path, kind, and data; returns a title string.
-   * Defaults to `"Kind: /path"`.
+   * Receives the resource's path and data; returns a title string.
+   * Defaults to the path.
    */
-  title?: string | ((path: string, kind: string, data: unknown) => string);
+  title?: string | ((path: string, data: unknown) => string);
 
   /**
    * Layout wrapper element tag name.
    * When set, the body content is wrapped inside this element,
    * which typically provides shared chrome (header, nav, footer).
    *
-   * The layout element receives attributes: `data-path`, `data-kind`.
+   * The layout element receives attribute: `data-path`.
    */
   layoutElement?: string;
 
@@ -615,11 +986,10 @@ export interface HtmlTransformerConfig {
 
   /**
    * Custom `<meta name="...">` generator.
-   * Receives path, kind, data, and repr meta; returns a map of name → content.
+   * Receives path, data, and repr meta; returns a map of name → content.
    */
   meta?: (
     path: string,
-    kind: string,
     data: unknown,
     meta: ReprMeta,
   ) => Record<string, string>;
@@ -633,7 +1003,6 @@ export interface HtmlTransformerConfig {
     | boolean
     | ((
         path: string,
-        kind: string,
         data: unknown,
         meta: ReprMeta,
       ) => Record<string, string>);
@@ -643,13 +1012,13 @@ export interface HtmlTransformerConfig {
  * Create an HTML transformer with optional configuration.
  *
  * Element resolution order:
- * 1. `resource.element` — resource-specific custom element
- * 2. `config.elementMap[resource.kind]` — kind-specific element
- * 3. `config.defaultElement` — fallback element
- * 4. `"rikka-resource"` — built-in default
+ * 1. `resource.element` — resource-specific custom element (via ctx.element)
+ * 2. `config.defaultElement` — fallback element
+ * 3. `"rikka-resource"` — built-in default
  */
-export function createHtmlTransformer(config?: HtmlTransformerConfig): Transformer {
-  const elementMap = config?.elementMap ?? {};
+export function createHtmlTransformer(
+  config?: HtmlTransformerConfig,
+): Transformer {
   const defaultElement = config?.defaultElement ?? "rikka-resource";
   const strategy: HydrationStrategy = config?.hydration ?? "data-attr";
   const serialization: SerializationStrategy =
@@ -671,47 +1040,44 @@ export function createHtmlTransformer(config?: HtmlTransformerConfig): Transform
 
   return {
     input: anySchema,
-    output: "text/html",
+    output: { type: "raw", mime: "text/html" },
     priority: 10,
     transform(repr: Repr, ctx: TransformContext): Repr {
-      const { path } = ctx.resource;
-      const kind = ctx.resource.kind;
+      const { path } = ctx;
       const data = repr.content;
 
       // Resolve custom element tag
       const tag =
-        (ctx.resource.element as string | undefined) ??
-        elementMap[kind] ??
+        (ctx.element as string | undefined) ??
         defaultElement;
 
       // Resolve page title
       let pageTitle: string;
       if (typeof titleConfig === "function") {
-        pageTitle = titleConfig(path, kind, data);
+        pageTitle = titleConfig(path, data);
       } else if (typeof titleConfig === "string") {
         pageTitle = titleConfig;
       } else {
-        pageTitle = `${kind}: ${path}`;
+        pageTitle = path;
       }
 
       // Build custom element attributes (base)
-      const baseAttrs = `path="${escapeHtml(path)}" kind="${escapeHtml(kind)}"`;
+      const baseAttrs = `path="${escapeHtml(path)}"`;
 
       // Build body content based on hydration strategy
       const bodyContent = buildElementHtml(
         tag,
         baseAttrs,
-        path,
+        ctx,
         data,
         strategy,
-        ctx.resource,
         serialization,
       );
 
       // Wrap in layout element if configured
       let finalBodyContent = bodyContent;
       if (layoutTag) {
-        const layoutAttrs = `data-path="${escapeHtml(path)}" data-kind="${escapeHtml(kind)}"`;
+        const layoutAttrs = `data-path="${escapeHtml(path)}"`;
         finalBodyContent = `<${layoutTag} ${layoutAttrs}>\n  ${bodyContent}\n</${layoutTag}>`;
       }
 
@@ -721,19 +1087,21 @@ export function createHtmlTransformer(config?: HtmlTransformerConfig): Transform
         extraHeadLinks = `\n  <link rel="preload" href="${escapeHtml(path)}?accept=json" as="fetch" crossorigin>`;
       }
 
-      const scriptTags = scripts.map((s) => {
-        if (typeof s === "string") {
-          return `  <script src="${escapeHtml(s)}"><\/script>`;
-        }
-        const attrs: string[] = [`src="${escapeHtml(s.src)}"`];
-        if (s.module) attrs.push("type=\"module\"");
-        if (s.async) attrs.push("async");
-        return `  <script ${attrs.join(" ")}><\/script>`;
-      }).join("\n");
+      const scriptTags = scripts
+        .map((s) => {
+          if (typeof s === "string") {
+            return `  <script src="${escapeHtml(s)}"><\/script>`;
+          }
+          const attrs: string[] = [`src="${escapeHtml(s.src)}"`];
+          if (s.module) attrs.push('type="module"');
+          if (s.async) attrs.push("async");
+          return `  <script ${attrs.join(" ")}><\/script>`;
+        })
+        .join("\n");
 
-      const stylesheetTags = stylesheets.map((s) =>
-        `  <link rel="stylesheet" href="${escapeHtml(s)}">`,
-      ).join("\n");
+      const stylesheetTags = stylesheets
+        .map((s) => `  <link rel="stylesheet" href="${escapeHtml(s)}">`)
+        .join("\n");
 
       // SDK script tag — path-independent relative URL
       const sdkTag = sdkEnabled
@@ -758,7 +1126,11 @@ export function createHtmlTransformer(config?: HtmlTransformerConfig): Transform
         : "";
 
       // JSON-LD data tag
-      const jsonldData = JSON.stringify(toJsonLd(ctx.resource, data), null, 2);
+      const jsonldData = JSON.stringify(
+        toJsonLd(ctx, data),
+        null,
+        2,
+      );
       const jsonldTag =
         serialization === "jsonld" || serialization === "both"
           ? `\n  <script type="application/ld+json">${jsonldData}</script>`
@@ -774,10 +1146,11 @@ export function createHtmlTransformer(config?: HtmlTransformerConfig): Transform
       const langAttr = pageLang ? ` lang="${escapeHtml(pageLang)}"` : "";
 
       // Dynamic <meta name="..."> tags
-      const metaMap = metaFn ? metaFn(path, kind, data, repr.meta) : {};
+      const metaMap = metaFn ? metaFn(path, data, repr.meta) : {};
       const metaTags = Object.entries(metaMap)
-        .map(([name, content]) =>
-          `\n  <meta name="${escapeHtml(name)}" content="${escapeHtml(content)}">`
+        .map(
+          ([name, content]) =>
+            `\n  <meta name="${escapeHtml(name)}" content="${escapeHtml(content)}">`,
         )
         .join("");
 
@@ -787,11 +1160,12 @@ export function createHtmlTransformer(config?: HtmlTransformerConfig): Transform
         ogMap = { "og:title": pageTitle };
         if (metaMap.description) ogMap["og:description"] = metaMap.description;
       } else if (typeof openGraphFn === "function") {
-        ogMap = openGraphFn(path, kind, data, repr.meta);
+        ogMap = openGraphFn(path, data, repr.meta);
       }
       const ogTags = Object.entries(ogMap)
-        .map(([property, content]) =>
-          `\n  <meta property="${escapeHtml(property)}" content="${escapeHtml(content)}">`
+        .map(
+          ([property, content]) =>
+            `\n  <meta property="${escapeHtml(property)}" content="${escapeHtml(content)}">`,
         )
         .join("");
 
@@ -827,10 +1201,9 @@ export function createHtmlTransformer(config?: HtmlTransformerConfig): Transform
 function buildElementHtml(
   tag: string,
   baseAttrs: string,
-  path: string,
+  ctx: TransformContext,
   data: unknown,
   strategy: HydrationStrategy,
-  resource: Resource,
   serialization: SerializationStrategy,
 ): string {
   switch (strategy) {
@@ -857,14 +1230,18 @@ function buildElementHtml(
     }
 
     case "jsonld": {
-      const jsonld = JSON.stringify(toJsonLd(resource, data), null, 2);
+      const jsonld = JSON.stringify(
+        toJsonLd(ctx, data),
+        null,
+        2,
+      );
       return `<${tag} ${baseAttrs}>
   <script type="application/ld+json">${jsonld}</script>
 </${tag}>`;
     }
 
     case "early-hint": {
-      const dataHref = `${path}?accept=json`;
+      const dataHref = `${ctx.path}?accept=json`;
       return `<${tag} ${baseAttrs} data-href="${escapeHtml(dataHref)}">\n</${tag}>`;
     }
   }

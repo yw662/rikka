@@ -62,6 +62,8 @@ function parseAcceptQuery(registry: TransformerRegistry, value: string): string 
   if (normalized === "jsonld" || normalized === "json-ld") return "application/ld+json";
   if (normalized === "csv") return "text/csv";
   if (normalized === "text") return "text/plain";
+  if (normalized === "cbor") return "application/cbor";
+  if (normalized === "protobuf" || normalized === "proto") return "application/x-protobuf";
   if (normalized === "xml") return "text/xml";
 
   // Try as a MIME subtype: "csv" → "text/csv", "plain" → "text/plain"

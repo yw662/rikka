@@ -32,6 +32,10 @@ import type { HttpRequest } from "./server.js";
  *
  * This is the universal adapter — works on any runtime that provides
  * the Fetch API (Request, Response, Headers, URL).
+ *
+ * The request body is passed through as a `ReadableStream<Uint8Array>`
+ * — it is **not** pre-parsed. Resource methods use `ctx.json()`,
+ * `ctx.text()`, or `ctx.bytes()` to lazily read and parse it.
  */
 export async function handleWebRequest(
   site: Site,
@@ -54,19 +58,13 @@ export async function handleWebRequest(
     headers[key.toLowerCase()] = value;
   }
 
-  let body: unknown;
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    const contentType = request.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json")) {
-      try {
-        body = await request.json();
-      } catch {
-        body = undefined;
-      }
-    } else {
-      body = await request.text();
-    }
-  }
+  // Pass the body stream through untouched — no eager parsing.
+  // GET/HEAD have no body; other methods pass `request.body` (a
+  // ReadableStream<Uint8Array> | null) through as-is.
+  const body =
+    request.method !== "GET" && request.method !== "HEAD"
+      ? (request.body as ReadableStream<Uint8Array> | null) ?? undefined
+      : undefined;
 
   const httpRequest: HttpRequest = {
     method: request.method,
@@ -87,22 +85,31 @@ export async function handleWebRequest(
 
   const status = httpResponse.status;
   // 204/205/304 MUST NOT include a body per HTTP spec.
-  // The Web Response constructor enforces this at runtime, so we skip
-  // the Blob when these status codes are in effect.
   const noBody = status === 204 || status === 205 || status === 304;
 
   if (noBody) {
     return new Response(null, { status, headers: responseHeaders });
   }
 
-  const blob = new Blob([httpResponse.body as BlobPart], {
+  const responseBody = httpResponse.body;
+
+  // Streams pass through untouched; strings and Uint8Arrays are wrapped
+  // in a Blob with the negotiated Content-Type.
+  if (responseBody instanceof ReadableStream) {
+    const resp = new Response(responseBody, { status, headers: responseHeaders });
+    // Some runtimes (e.g. Node.js/undici) drop Content-Type when the body
+    // is a ReadableStream — re-apply it from the original headers.
+    const ct = httpResponse.headers["Content-Type"];
+    if (ct && !resp.headers.has("Content-Type")) {
+      resp.headers.set("Content-Type", ct);
+    }
+    return resp;
+  }
+
+  const blob = new Blob([responseBody as BlobPart], {
     type: httpResponse.headers["Content-Type"],
   });
-
-  return new Response(blob, {
-    status,
-    headers: responseHeaders,
-  });
+  return new Response(blob, { status, headers: responseHeaders });
 }
 
 /**

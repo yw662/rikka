@@ -27,7 +27,7 @@ There are 14 task-oriented skills, one folder each: `rikka/`, `overview/`, `reac
 
 1. Load `skills/rikka/SKILL.md` once for orientation, then load only the task-specific skill(s) for the current work.
 2. Do not load all 14 files at once — context budget matters.
-3. Before generating code, also load `skills/common-pitfalls/SKILL.md` to internalize the #1 LLM-specific mistakes (passing `.get()` to DOM, plain function vs `computed`, `this.xxx` vs `this.$xxx`, etc.).
+3. Before generating code, also load `skills/common-pitfalls/SKILL.md` to internalize the #1 LLM-specific mistakes (passing `.get()` to DOM, plain function vs `computed`, `this.count` vs `this.$count` granularity, etc.).
 
 ### The four rikka-specific footguns
 
@@ -35,7 +35,7 @@ These are the most common LLM errors. Internalize them before writing rikka code
 
 1. **Pass the signal, not `.get()`** to DOM children/attributes. `p({}, count)` is reactive; `p({}, count.get())` is static.
 2. **Plain function vs `computed`** — function _children_ are auto-wrapped, but function _values_ (e.g. `inlineStyle` arguments) are not. Use `computed()` explicitly for value-position reactivity.
-3. **`this.xxx` vs `this.$xxx`** in `defineElement.render()` — `this.count` is the raw number, `this.$count` is the signal. Use `$` for DOM bindings.
+3. **`this.count` (coarse-grained) vs `this.$count` (fine-grained)** in `defineElement.render()` — `render` is wrapped in `computed`, so both are reactive. `this.count` re-runs the whole render (coarse-grained); `this.$count` updates only the bound DOM node (fine-grained, preferred). The old "static snapshot" footgun is gone.
 4. **`events` values are transform functions** — `(e) => detail`, not `MouseEvent` type markers.
 
 Full list with examples: <https://yw662.github.io/rikka/skills/common-pitfalls/SKILL.md>
@@ -44,12 +44,12 @@ Full list with examples: <https://yw662.github.io/rikka/skills/common-pitfalls/S
 
 This is the rikka monorepo. Four published packages live under `utils/`:
 
-| Package                     | Path                    | Description                                                                              |
-| --------------------------- | ----------------------- | ---------------------------------------------------------------------------------------- |
-| `@takanashi/rikka-signal`   | `utils/rikka-signal/`   | Reactive primitives: `signal`, `computed`, `effect`                                      |
-| `@takanashi/rikka-dom`      | `utils/rikka-dom/`      | DOM creation: `h`, tag helpers, `For`/`Show`/`Switch`, `css`                             |
-| `@takanashi/rikka-elements` | `utils/rikka-elements/` | Custom Elements: `defineElement`, `event`, attribute specs                               |
-| `@takanashi/rikka-site`     | `utils/rikka-site/`     | Resource-oriented server: Kind system, Schema, Representation, content negotiation, auth |
+| Package                     | Path                    | Description                                                                                                                            |
+| --------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `@takanashi/rikka-signal`   | `utils/rikka-signal/`   | Reactive primitives: `signal`, `computed`, `effect`                                                                                    |
+| `@takanashi/rikka-dom`      | `utils/rikka-dom/`      | DOM creation: `h`, tag helpers, `For`/`Show`/`Switch`, `css`                                                                           |
+| `@takanashi/rikka-elements` | `utils/rikka-elements/` | Custom Elements: `defineElement`, `event`, attribute specs                                                                             |
+| `@takanashi/rikka-site`     | `utils/rikka-site/`     | Resource-oriented server: `ResourceKind` abstract class hierarchy, streaming bodies, Schema, Representation, content negotiation, auth |
 
 Plus `components/rikka-live-playground/` (a web-component code playground), `docs/rikka-homepage/` (the marketing site), and `examples/blog-site/` (a rikka-site example).
 

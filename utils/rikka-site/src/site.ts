@@ -2,8 +2,10 @@
  * @module site
  * Site — the declarative resource tree with request handling.
  *
- * The tree stores ResourceConstructor (classes), not instances.
- * site.resolve() instantiates via `new` for each request.
+ * The tree stores ResourceKind instances. Instances are shared across
+ * requests — they are kinds (type descriptors), not per-request state.
+ * site.resolve() returns a {@link Resource} carrying the resource
+ * alongside its per-request params and path.
  *
  * Also contains the full request-handling pipeline (handleRequest)
  * and all supporting helpers (auth verification, proxy handling,
@@ -13,23 +15,24 @@
 import {
   resolveResource,
   tryResolveTrailingSlash,
-  Resource,
-  ActionResource,
+  ResourceKind,
+  isResourceKind,
 } from "./resource.js";
-import type { ResourceConstructor, Handler } from "./resource.js";
+import type { Resource } from "./resource.js";
 import type { AuthConfig, CorsConfig } from "./auth.js";
 import { matchAuthRule, corsHeaders } from "./auth.js";
 import {
   TransformerRegistry,
   jsonTransformer,
   jsonldTransformer,
+  csvTransformer,
+  textTransformer,
+  cborTransformer,
   createHtmlTransformer,
 } from "./transform.js";
 import type { Transformer } from "./transform.js";
 import { negotiate } from "./negotiate.js";
-import { kindAllowsMethod, type Kind } from "./kind.js";
 import {
-  isRepr,
   isPartial,
   isBytes,
   isHttpError,
@@ -37,7 +40,7 @@ import {
   type PartialContent,
 } from "./representation.js";
 import type { RequestContext, Identity, RangeSpec, Range } from "./context.js";
-import { getHeader } from "./context.js";
+import { getHeader, createRequestContext } from "./context.js";
 import type { HttpRequest, HttpResponse } from "./server.js";
 import type { SitemapEntry } from "./sitemap.js";
 import { generateSitemap } from "./sitemap.js";
@@ -53,14 +56,14 @@ import {
 // ---------------------------------------------------------------------------
 
 /**
- * A site node is either a ResourceConstructor (a mounted resource type)
+ * A site node is either a ResourceKind instance (a mounted resource)
  * or a nested record (a route group).
  */
-export type SiteNode = ResourceConstructor | { [key: string]: SiteNode };
+export type SiteNode = ResourceKind | { [key: string]: SiteNode };
 
 /**
  * A site definition — the root of the declarative resource tree.
- * Keys become URL path segments, values become constructors or sub-trees.
+ * Keys become URL path segments, values become instances or sub-trees.
  */
 export type SiteDefinition = { [key: string]: SiteNode };
 
@@ -168,7 +171,9 @@ async function resolveAssetPath(source: string | URL): Promise<string> {
   const nodeUrl = await import("node:url");
   if (source instanceof URL) {
     if (source.protocol !== "file:") {
-      throw new Error(`Asset source URL must use file: protocol, got ${source.protocol}`);
+      throw new Error(
+        `Asset source URL must use file: protocol, got ${source.protocol}`,
+      );
     }
     return nodeUrl.fileURLToPath(source);
   }
@@ -220,89 +225,14 @@ function relativeToRoot(path: string, target: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Method → operation mapping
+// Result wrapping — handlers return Repr directly (P3: no auto-wrapping)
 // ---------------------------------------------------------------------------
 
-function methodToOperation(method: string, kind: Kind): string | null {
-  switch (kind) {
-    case "Collection":
-      if (method === "GET") return "list";
-      if (method === "POST") return "create";
-      return null;
-    case "Item":
-    case "Singleton":
-    case "ReadOnly":
-      if (method === "GET") return "content";
-      if (method === "PUT") return "replace";
-      if (method === "PATCH") return "patch";
-      if (method === "DELETE") return "delete";
-      return null;
-    case "Action":
-      if (method === "POST") return "invoke";
-      return null;
-    case "Proxy":
-      if (method === "GET") return "get";
-      if (method === "POST") return "post";
-      if (method === "PUT") return "put";
-      if (method === "PATCH") return "patch";
-      if (method === "DELETE") return "delete";
-      return null;
-  }
-}
-
-function allowedMethods(kind: Kind): string[] {
-  switch (kind) {
-    case "Collection":
-      return ["GET", "POST"];
-    case "Item":
-      return ["GET", "PUT", "PATCH", "DELETE"];
-    case "Singleton":
-      return ["GET", "PUT", "PATCH"];
-    case "ReadOnly":
-      return ["GET"];
-    case "Action":
-      return ["POST"];
-    case "Proxy":
-      return ["GET", "POST", "PUT", "PATCH", "DELETE"];
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Result wrapping
-// ---------------------------------------------------------------------------
-
-function wrapResult(result: unknown): Repr {
+function wrapResult(result: Repr | undefined | null): Repr {
   if (result === undefined || result === null) {
     return { content: null, meta: {} };
   }
-  if (isRepr(result)) {
-    return result;
-  }
-  return { content: result, meta: {} };
-}
-
-// ---------------------------------------------------------------------------
-// Status code inference
-// ---------------------------------------------------------------------------
-
-function inferStatus(
-  repr: Repr,
-  method: string,
-  kind: Kind,
-  hasRange: boolean,
-): number {
-  if (repr.content === null) {
-    if (repr.meta.location) return 302;
-    return 204;
-  }
-  if (isPartial(repr.content)) {
-    return hasRange ? 206 : 200;
-  }
-  if (method === "POST" && kind === "Collection" && repr.meta.location) {
-    return 201;
-  }
-  if (method === "DELETE") return 204;
-  return 200;
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -434,9 +364,12 @@ function buildPartialBody(
 ): { body: string; contentType: string } {
   if (content.data.length === 1) {
     const seg = content.data[0][1];
-    if (isBytes(seg)) {
+    if (typeof seg === "string") {
+      return { body: seg, contentType: negotiatedContentType };
+    }
+    if (seg instanceof Uint8Array) {
       return {
-        body: typeof seg === "string" ? seg : bytesToBinaryString(seg),
+        body: bytesToBinaryString(seg),
         contentType: negotiatedContentType,
       };
     }
@@ -522,6 +455,7 @@ async function buildResponse(
   cors: CorsConfig | undefined,
   requestHeaders: Record<string, string>,
 ): Promise<HttpResponse> {
+  const resourcePath = resource.path;
   const baseHeaders = (): Record<string, string> => {
     const h: Record<string, string> = {};
     if (cors) Object.assign(h, corsHeaders(cors, requestHeaders["origin"]));
@@ -529,7 +463,7 @@ async function buildResponse(
   };
 
   const hasRange = range !== null;
-  const status = inferStatus(repr, method, resource.kind, hasRange);
+  const status = resource.inferStatus(repr, method, hasRange);
 
   // --- Case 1: content === null → redirect or no-content ---
   if (repr.content === null) {
@@ -537,7 +471,7 @@ async function buildResponse(
     if (repr.meta.location) {
       headers["Location"] = buildLocationHeader(
         repr.meta.location,
-        resource.path,
+        resourcePath,
       );
     }
     return { status, headers, body: "" };
@@ -565,7 +499,7 @@ async function buildResponse(
     return { status, headers, body };
   }
 
-  // --- Case 3: bytes (Uint8Array / string) → raw bytes ---
+  // --- Case 3: raw content (Uint8Array / string / ReadableStream) → pass through ---
   if (isBytes(repr.content)) {
     const headers = baseHeaders();
     if (repr.meta.type) {
@@ -574,30 +508,26 @@ async function buildResponse(
     if (repr.meta.location) {
       headers["Location"] = buildLocationHeader(
         repr.meta.location,
-        resource.path,
+        resourcePath,
       );
     }
-    const body =
-      typeof repr.content === "string"
-        ? repr.content
-        : bytesToBinaryString(repr.content);
-    return { status, headers, body };
+    // Raw content passes through untouched — streams stay as streams,
+    // Uint8Array stays as Uint8Array, strings stay as strings.
+    return { status, headers, body: repr.content };
   }
 
   // --- Case 4: value → content negotiation + transformer pipeline ---
   const headers = baseHeaders();
   if (repr.meta.location) {
-    headers["Location"] = buildLocationHeader(
-      repr.meta.location,
-      resource.path,
-    );
+    headers["Location"] = buildLocationHeader(repr.meta.location, resourcePath);
   }
   if (repr.meta.type) {
     headers["Content-Type"] = repr.meta.type;
-    let body = "";
+    let body: string | Uint8Array | ReadableStream<Uint8Array> = "";
     if (repr.content !== undefined) {
       const r = await registry.transformData(
         resource,
+        resourcePath,
         repr.content,
         repr.meta.type,
       );
@@ -610,6 +540,7 @@ async function buildResponse(
   const negotiation = negotiate(registry, request.accept, request.acceptQuery);
   const body = await registry.transformData(
     resource,
+    resourcePath,
     repr.content,
     negotiation.contentType,
   );
@@ -621,25 +552,22 @@ async function buildResponse(
 // Site construction helpers
 // ---------------------------------------------------------------------------
 
-function isConstructor(value: unknown): value is ResourceConstructor {
-  if (typeof value !== "function") return false;
-  return value.prototype instanceof Resource;
-}
-
-function instantiateWithTrailingSlash(
-  Constructor: ResourceConstructor,
-  params: Record<string, string>,
-  path: string,
+/**
+ * Apply trailing-slash resolution to a {@link Resource}.
+ * If `hasTrailingSlash` is true and the resource has a "/" child, return
+ * a new Resource pointing at that child (same params/path).
+ */
+function applyTrailingSlash(
+  resolved: Resource,
   hasTrailingSlash: boolean,
 ): Resource {
-  const instance = new Constructor(params, path);
-
-  if (hasTrailingSlash) {
-    const slashResult = tryResolveTrailingSlash(instance);
-    if (slashResult) return slashResult;
-  }
-
-  return instance;
+  if (!hasTrailingSlash) return resolved;
+  const slashResult = tryResolveTrailingSlash(
+    resolved.kind,
+    resolved.params,
+    resolved.path,
+  );
+  return slashResult ?? resolved;
 }
 
 function walkSiteTree(
@@ -649,14 +577,11 @@ function walkSiteTree(
   pathSoFar: string,
   hasTrailingSlash: boolean,
 ): Resource | null {
-  if (isConstructor(node)) {
+  if (isResourceKind(node)) {
     if (remaining.length === 0) {
-      return instantiateWithTrailingSlash(
-        node,
-        params,
-        pathSoFar,
-        hasTrailingSlash,
-      );
+      const path = pathSoFar.endsWith("/") ? pathSoFar.slice(0, -1) : pathSoFar;
+      const resolved = node.createResource(params, path);
+      return applyTrailingSlash(resolved, hasTrailingSlash);
     }
     return resolveResource(
       node,
@@ -736,7 +661,8 @@ export class Site {
   /** Registered static assets */
   readonly assets: Record<string, SiteAsset>;
   /** Lazy cache for the bundled custom element entry */
-  private _customElementBundle: Promise<{ code: string; type: string }> | null = null;
+  private _customElementBundle: Promise<{ code: string; type: string }> | null =
+    null;
 
   constructor(definition: SiteDefinition, options?: SiteOptions) {
     this.definition = definition;
@@ -744,7 +670,9 @@ export class Site {
 
     // Build the custom element registry from options. Classes must expose a
     // static `tagName` (true for all defineElement() results).
-    this.customElements = buildCustomElementRegistry(this.options.customElements);
+    this.customElements = buildCustomElementRegistry(
+      this.options.customElements,
+    );
     this.assets = this.options.assets ?? {};
 
     // Auto-generate sitemap if not explicitly provided
@@ -753,6 +681,9 @@ export class Site {
     this.registry = new TransformerRegistry([
       jsonTransformer,
       jsonldTransformer,
+      csvTransformer,
+      textTransformer,
+      cborTransformer,
       // Use configured HTML transformer with SDK, sitemap, custom elements,
       // and static asset support. Only advertise custom elements to the
       // browser when an entry module is available to bundle.
@@ -775,7 +706,9 @@ export class Site {
   }
 
   /**
-   * Resolve a URL path to a resource (creates a fresh instance).
+   * Resolve a URL path to a {@link Resource}.
+   * The returned `kind` is the shared instance; `params` and `path`
+   * are the per-request state for this resolution.
    */
   resolve(path: string): Resource | null {
     const hasTrailingSlash = path.endsWith("/") && path.length > 1;
@@ -784,11 +717,9 @@ export class Site {
     // Root path "/" — check for "" key in definition
     if (segments.length === 0) {
       const rootNode = this.definition[""];
-      if (rootNode && isConstructor(rootNode)) {
-        return instantiateWithTrailingSlash(
-          rootNode,
-          {},
-          "/",
+      if (rootNode && isResourceKind(rootNode)) {
+        return applyTrailingSlash(
+          rootNode.createResource({}, "/"),
           hasTrailingSlash,
         );
       }
@@ -802,12 +733,10 @@ export class Site {
       return null;
     }
 
-    if (isConstructor(node)) {
+    if (isResourceKind(node)) {
       if (rest.length === 0) {
-        return instantiateWithTrailingSlash(
-          node,
-          {},
-          `/${first}`,
+        return applyTrailingSlash(
+          node.createResource({}, `/${first}`),
           hasTrailingSlash,
         );
       }
@@ -847,7 +776,8 @@ export class Site {
     const wellKnown = matchWellKnown(request.path);
     if (wellKnown) {
       if (wellKnown.prefixDepth > 0) {
-        const location = "../".repeat(wellKnown.prefixDepth) +
+        const location =
+          "../".repeat(wellKnown.prefixDepth) +
           canonicalWellKnownPath(wellKnown);
         const headers: Record<string, string> = { Location: location };
         if (cors)
@@ -928,45 +858,35 @@ export class Site {
     }
 
     // 1. Resolve the resource
-    const resource = this.resolve(request.path);
-    if (!resource) {
+    const resolved = this.resolve(request.path);
+    if (!resolved) {
       const h: Record<string, string> = { "Content-Type": "text/plain" };
       if (cors) Object.assign(h, corsHeaders(cors, requestHeaders["origin"]));
       return { status: 404, headers: h, body: "Not Found" };
     }
 
-    // 2. Check method is allowed for this kind
-    if (!kindAllowsMethod(resource.kind, method)) {
-      const h: Record<string, string> = {
-        "Content-Type": "text/plain",
-        Allow: allowedMethods(resource.kind).join(", "),
-      };
-      if (cors) Object.assign(h, corsHeaders(cors, requestHeaders["origin"]));
-      return { status: 405, headers: h, body: "Method Not Allowed" };
-    }
-
-    // 3. Map method to operation
-    const operation = methodToOperation(method, resource.kind);
-    if (!operation) {
-      return {
-        status: 501,
-        headers: { "Content-Type": "text/plain" },
-        body: "Not Implemented",
-      };
-    }
-
-    // 4. Auth verification
+    // 2. Auth verification (before method check — auth may apply to all methods)
     const authResult = await this.verifyAuth(request.path, requestHeaders);
     if (authResult && "status" in authResult) {
       return authResult as HttpResponse;
     }
 
-    // 5. Proxy fast path
-    if (resource.kind === "Proxy") {
-      return this.handleProxy(resource, request, cors, requestHeaders);
+    // 3. Proxy fast path — duck typing, no instanceof
+    if (resolved.proxy) {
+      return this.handleProxy(resolved, request, cors, requestHeaders);
     }
 
-    // 6. Execute the operation
+    // 4. Check method is allowed
+    if (!resolved.allowedMethods().includes(method.toUpperCase())) {
+      const h: Record<string, string> = {
+        "Content-Type": "text/plain",
+        Allow: resolved.allowedMethods().join(", "),
+      };
+      if (cors) Object.assign(h, corsHeaders(cors, requestHeaders["origin"]));
+      return { status: 405, headers: h, body: "Method Not Allowed" };
+    }
+
+    // 5. Execute the operation — polymorphic dispatch via HTTP method
     try {
       const query: Record<string, string> = {};
       if (request.query) {
@@ -982,40 +902,33 @@ export class Site {
         if (parsed) range = parsed;
       }
 
-      const ctx: RequestContext = {
+      const ctx = createRequestContext({
         method,
         path: request.path,
-        resourcePath: resource.path,
-        params: resource.params,
+        resourcePath: resolved.path,
+        params: resolved.params,
         query,
         headers: requestHeaders,
         body: request.body,
         identity: authResult as Identity | undefined,
         range,
-      };
+      });
 
-      const methodFn = (resource as unknown as Record<string, unknown>)[
-        operation
-      ];
-      if (typeof methodFn !== "function") {
-        return {
-          status: 405,
-          headers: {
-            "Content-Type": "text/plain",
-            Allow: allowedMethods(resource.kind).join(", "),
-          },
-          body: "Method Not Allowed",
-        };
-      }
-      const result = await (methodFn as Handler)(ctx);
+      const methodLower = method.toLowerCase() as
+        | "get"
+        | "post"
+        | "put"
+        | "patch"
+        | "delete";
+      const result = await resolved[methodLower](ctx);
 
-      // 7. Wrap result into a Repr
+      // 6. Result is already a Repr
       const repr = wrapResult(result);
 
-      // 8. Build HTTP response
+      // 7. Build HTTP response
       return buildResponse(
         this.registry,
-        resource,
+        resolved,
         repr,
         method,
         request,
@@ -1027,6 +940,7 @@ export class Site {
       if (isHttpError(error)) {
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
+          ...error.headers,
         };
         if (cors)
           Object.assign(headers, corsHeaders(cors, requestHeaders["origin"]));
@@ -1080,7 +994,8 @@ export class Site {
 
     const verifierName = authResource || authConfig.verifier;
     const authResolved = this.resolve(`/${verifierName}`);
-    if (!authResolved || !(authResolved instanceof ActionResource)) {
+    // Duck typing — Action resources expose invoke()
+    if (!authResolved || !authResolved.invoke) {
       return {
         status: 500,
         headers: { "Content-Type": "text/plain" },
@@ -1088,14 +1003,11 @@ export class Site {
       };
     }
 
-    const authCtx: RequestContext = {
+    const authCtx = createRequestContext({
       method: "POST",
       path: `/${verifierName}`,
-      params: {},
-      query: {},
       headers: requestHeaders,
-      body: undefined,
-    };
+    });
 
     try {
       const result = await authResolved.invoke(authCtx);
@@ -1130,13 +1042,12 @@ export class Site {
   }
 
   private async handleProxy(
-    resource: { kind: string; target?: (path: string) => URL | Promise<URL> },
+    resource: Resource,
     request: HttpRequest,
     cors: CorsConfig | undefined,
     requestHeaders: Record<string, string>,
   ): Promise<HttpResponse> {
-    const targetFn = (resource as Record<string, unknown>).target;
-    if (typeof targetFn !== "function") {
+    if (typeof resource.proxy !== "function") {
       return {
         status: 501,
         headers: { "Content-Type": "text/plain" },
@@ -1146,7 +1057,7 @@ export class Site {
 
     let targetUrl: string;
     try {
-      const result = await targetFn(request.path);
+      const result = await resource.proxy(request.path);
       targetUrl = result.toString();
     } catch {
       return {
@@ -1156,12 +1067,15 @@ export class Site {
       };
     }
 
+    // Pass the request body stream through to the upstream untouched.
+    // The Web Fetch API accepts ReadableStream<Uint8Array> as a body.
+    // `duplex: "half"` is required for streaming bodies in Node 18+.
     const upstream = await fetch(targetUrl, {
       method: request.method,
       headers: requestHeaders,
-      body:
-        request.body !== undefined ? JSON.stringify(request.body) : undefined,
-    });
+      body: request.body,
+      duplex: "half",
+    } as RequestInit);
 
     const responseHeaders: Record<string, string> = {};
     for (const [key, value] of upstream.headers) {
@@ -1177,10 +1091,11 @@ export class Site {
       );
     }
 
+    // Stream the upstream response body through untouched.
     return {
       status: upstream.status,
       headers: responseHeaders,
-      body: await upstream.text(),
+      body: upstream.body ?? "",
     };
   }
 }

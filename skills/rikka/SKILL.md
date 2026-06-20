@@ -62,17 +62,19 @@ div({ style: { color: () => count.get() % 2 ? "red" : "blue" } });
 div({ style: { color: computed(() => count.get() % 2 ? "red" : "blue") } });
 ```
 
-### 3. `this.xxx` (raw value) vs `this.$xxx` (signal) in `defineElement.render()`
+### 3. `this.count` (coarse-grained) vs `this.$count` (fine-grained) in `defineElement.render()`
 
 ```ts
 defineElement("my-el", {
   attributes: { count: NumberAttr },
   render() {
-    p({}, this.count);   // ❌ static — a snapshot
-    p({}, this.$count);  // ✅ reactive — the signal
+    p({}, this.count);   // ✅ coarse-grained — re-runs render (correct, less efficient)
+    p({}, this.$count);  // ✅ fine-grained — only text node updates (preferred)
   },
 });
 ```
+
+`render` is wrapped in `computed`, so `this.count` (which calls `.get()`) is tracked. The old "static snapshot" footgun is gone — both work, they just differ in granularity.
 
 ### 4. `events` values are transform functions
 

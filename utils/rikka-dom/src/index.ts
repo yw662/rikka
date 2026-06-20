@@ -4,7 +4,9 @@ export {
   ReactiveRange,
   createElement,
   registerDisposable,
+  bindAttr,
   bindAttrs,
+  unbindAttr,
   attachRange,
 } from "./h.js";
 export type {
