@@ -3729,6 +3729,29 @@ describe("bindAttr()", () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(el.style.color).toBe("red");
   });
+
+  it("repeated rebind does not accumulate active effects", async () => {
+    const el = document.createElement("div");
+    const sigs = Array.from({ length: 10 }, (_, i) => signal(`v${i}`));
+
+    for (const s of sigs) {
+      bindAttr(el, "class", s);
+      await new Promise((r) => setTimeout(r, 5));
+    }
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.className).toBe("v9");
+
+    for (let i = 0; i < 9; i++) {
+      sigs[i].set("changed");
+      await new Promise((r) => setTimeout(r, 10));
+      expect(el.className).toBe("v9");
+    }
+
+    sigs[9].set("v9-updated");
+    await new Promise((r) => setTimeout(r, 10));
+    expect(el.className).toBe("v9-updated");
+  });
 });
 
 describe("attachRange()", () => {

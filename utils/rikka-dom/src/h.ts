@@ -369,6 +369,8 @@ export function unbindAttr(el: Element, key: string): void {
   if (!dispose) return;
   dispose();
   keyMap.delete(key);
+  const set = elementDisposables.get(el);
+  if (set) set.delete(dispose);
 }
 
 export function bindAttr(el: Element, key: string, value: unknown): void {
