@@ -1627,16 +1627,16 @@ const siteKindsContent = {
     string
   >,
   sixKindsDesc: {
-    en: "rikka-site provides seven built-in Kinds (CollectionKind, ItemKind, SingletonKind, ReadOnlyKind, ActionKind, ProxyKind, StaticKind), each mapping to a specific set of HTTP methods:",
-    zh: "rikka-site 提供七种内置 Kind（CollectionKind、ItemKind、SingletonKind、ReadOnlyKind、ActionKind、ProxyKind、StaticKind），每种映射到一组特定的 HTTP 方法：",
+    en: "rikka-site provides five abstract Kinds (CollectionKind, ItemKind, SingletonKind, ReadOnlyKind, ActionKind), each mapping to a specific set of HTTP methods. Concrete resource adapters (FileSystemKind, DatabaseKind) are in separate packages:",
+    zh: "rikka-site 提供五种抽象 Kind（CollectionKind、ItemKind、SingletonKind、ReadOnlyKind、ActionKind），每种映射到一组特定的 HTTP 方法。具体的资源适配器（FileSystemKind、DatabaseKind）在独立的包中：",
   } as Record<Locale, string>,
   kindDetails: { en: "Kind Details", zh: "Kind 详情" } as Record<
     Locale,
     string
   >,
   kindDetailsDesc: {
-    en: "Each Kind is an abstract class. Extend it to implement handlers for its HTTP methods, then mount an instance in the site tree. StaticKind is a concrete class — pass config to its constructor directly.",
-    zh: "每个 Kind 是一个抽象类。扩展它以实现其 HTTP 方法的处理器，然后在 site 树中挂载一个实例。StaticKind 是具体类——直接将配置传给其构造函数。",
+    en: "Each Kind is an abstract class. Extend it to implement handlers for its HTTP methods, then mount an instance in the site tree. Concrete adapters (FileSystemKind, DatabaseKind) live in separate packages — pass config to their constructors directly.",
+    zh: "每个 Kind 是一个抽象类。扩展它以实现其 HTTP 方法的处理器，然后在 site 树中挂载一个实例。具体适配器（FileSystemKind、DatabaseKind）在独立的包中——直接将配置传给其构造函数。",
   } as Record<Locale, string>,
   prevOverview: { en: "← Overview", zh: "← 概述" } as Record<Locale, string>,
   nextSchema: { en: "Schema →", zh: "Schema →" } as Record<Locale, string>,

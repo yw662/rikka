@@ -2,23 +2,17 @@
  * @module site
  * Site — the declarative resource tree with request handling.
  *
- * The tree stores ResourceKind instances. Instances are shared across
- * requests — they are kinds (type descriptors), not per-request state.
- * site.resolve() returns a {@link Resource} carrying the resource
- * alongside its per-request params and path.
+ * The tree stores **ResourceKind** instances (templates). Per-request,
+ * `kind.resolve(params, path)` creates a {@link Resource} carrying
+ * `params` and `path` alongside the handler methods.
  *
  * Also contains the full request-handling pipeline (handleRequest)
- * and all supporting helpers (auth verification, proxy handling,
+ * and all supporting helpers (auth verification,
  * status inference, range parsing, response building, etc.).
  */
 
-import {
-  resolveResource,
-  tryResolveTrailingSlash,
-  ResourceKind,
-  isResourceKind,
-} from "./resource.js";
-import type { Resource } from "./resource.js";
+import { resolveResource, isResourceKind } from "./resource.js";
+import type { ResourceKind, Resource, ChildrenMap } from "./resource.js";
 import type { AuthConfig, CorsConfig } from "./auth.js";
 import { matchAuthRule, corsHeaders } from "./auth.js";
 import {
@@ -29,6 +23,9 @@ import {
   textTransformer,
   cborTransformer,
   createHtmlTransformer,
+  directoryListingHtmlTransformer,
+  webdavMultistatusTransformer,
+  webdavLockTransformer,
 } from "./transform.js";
 import type { Transformer } from "./transform.js";
 import { negotiate } from "./negotiate.js";
@@ -36,6 +33,8 @@ import {
   isPartial,
   isBytes,
   isHttpError,
+  HttpError,
+  guessMimeType,
   type Repr,
   type PartialContent,
 } from "./representation.js";
@@ -56,7 +55,7 @@ import {
 // ---------------------------------------------------------------------------
 
 /**
- * A site node is either a ResourceKind instance (a mounted resource)
+ * A site node is either a ResourceKind instance (a mounted resource template)
  * or a nested record (a route group).
  */
 export type SiteNode = ResourceKind | { [key: string]: SiteNode };
@@ -233,6 +232,28 @@ function wrapResult(result: Repr | undefined | null): Repr {
     return { content: null, meta: {} };
   }
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// CORS application — unified at the handleRequest exit
+// ---------------------------------------------------------------------------
+
+/**
+ * Merge CORS headers into an existing HttpResponse.
+ * Returns the response unchanged when CORS is disabled or no Origin header.
+ */
+function applyCorsToResponse(
+  response: HttpResponse,
+  cors: CorsConfig | undefined,
+  origin: string | undefined,
+): HttpResponse {
+  if (!cors) return response;
+  const corsH = corsHeaders(cors, origin);
+  if (Object.keys(corsH).length === 0) return response;
+  return {
+    ...response,
+    headers: { ...response.headers, ...corsH },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -452,22 +473,24 @@ async function buildResponse(
   method: string,
   request: HttpRequest,
   range: RangeSpec | null,
-  cors: CorsConfig | undefined,
-  requestHeaders: Record<string, string>,
 ): Promise<HttpResponse> {
   const resourcePath = resource.path;
-  const baseHeaders = (): Record<string, string> => {
-    const h: Record<string, string> = {};
-    if (cors) Object.assign(h, corsHeaders(cors, requestHeaders["origin"]));
-    return h;
-  };
 
   const hasRange = range !== null;
   const status = resource.inferStatus(repr, method, hasRange);
 
-  // --- Case 1: content === null → redirect or no-content ---
-  if (repr.content === null) {
-    const headers = baseHeaders();
+  // --- Empty-body responses ---
+  // redirect / no-content always have an empty body (their smart
+  // constructors enforce content === null). created has an empty body
+  // only when content is null. The bare `content === null` clause is
+  // the backward-compat shape inference for Reprs constructed without
+  // a kind — it subsumes `created + null` and the kindless null case.
+  if (
+    repr.meta.kind === "redirect" ||
+    repr.meta.kind === "no-content" ||
+    repr.content === null
+  ) {
+    const headers: Record<string, string> = {};
     if (repr.meta.location) {
       headers["Location"] = buildLocationHeader(
         repr.meta.location,
@@ -480,7 +503,7 @@ async function buildResponse(
   // --- Case 2: PartialContent → 206 with Content-Range ---
   if (isPartial(repr.content)) {
     const content = repr.content;
-    const headers = baseHeaders();
+    const headers: Record<string, string> = {};
     if (repr.meta.type) {
       headers["Content-Type"] = repr.meta.type;
     }
@@ -499,25 +522,35 @@ async function buildResponse(
     return { status, headers, body };
   }
 
-  // --- Case 3: raw content (Uint8Array / string / ReadableStream) → pass through ---
+  // --- Case 3: raw content → transform pipeline (Raw→Raw transformers) ---
   if (isBytes(repr.content)) {
-    const headers = baseHeaders();
-    if (repr.meta.type) {
-      headers["Content-Type"] = repr.meta.type;
-    }
+    const headers: Record<string, string> = {};
     if (repr.meta.location) {
       headers["Location"] = buildLocationHeader(
         repr.meta.location,
         resourcePath,
       );
     }
-    // Raw content passes through untouched — streams stay as streams,
-    // Uint8Array stays as Uint8Array, strings stay as strings.
-    return { status, headers, body: repr.content };
+    // Determine target content type: explicit > path-guessed
+    const targetContentType = repr.meta.type ?? guessMimeType(resourcePath);
+    // Run through the pipeline with meta.type set so Raw→Raw transformers
+    // can match on the source MIME type. Step 2 short-circuits when the
+    // current MIME already equals the target.
+    const result = await registry.transform(
+      resource,
+      resourcePath,
+      {
+        content: repr.content,
+        meta: { ...repr.meta, type: targetContentType },
+      },
+      targetContentType,
+    );
+    headers["Content-Type"] = result.contentType;
+    return { status, headers, body: result.body };
   }
 
   // --- Case 4: value → content negotiation + transformer pipeline ---
-  const headers = baseHeaders();
+  const headers: Record<string, string> = {};
   if (repr.meta.location) {
     headers["Location"] = buildLocationHeader(repr.meta.location, resourcePath);
   }
@@ -551,80 +584,6 @@ async function buildResponse(
 // ---------------------------------------------------------------------------
 // Site construction helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Apply trailing-slash resolution to a {@link Resource}.
- * If `hasTrailingSlash` is true and the resource has a "/" child, return
- * a new Resource pointing at that child (same params/path).
- */
-function applyTrailingSlash(
-  resolved: Resource,
-  hasTrailingSlash: boolean,
-): Resource {
-  if (!hasTrailingSlash) return resolved;
-  const slashResult = tryResolveTrailingSlash(
-    resolved.kind,
-    resolved.params,
-    resolved.path,
-  );
-  return slashResult ?? resolved;
-}
-
-function walkSiteTree(
-  node: SiteNode,
-  remaining: string[],
-  params: Record<string, string>,
-  pathSoFar: string,
-  hasTrailingSlash: boolean,
-): Resource | null {
-  if (isResourceKind(node)) {
-    if (remaining.length === 0) {
-      const path = pathSoFar.endsWith("/") ? pathSoFar.slice(0, -1) : pathSoFar;
-      const resolved = node.createResource(params, path);
-      return applyTrailingSlash(resolved, hasTrailingSlash);
-    }
-    return resolveResource(
-      node,
-      remaining.join("/"),
-      pathSoFar.endsWith("/") ? pathSoFar : `${pathSoFar}/`,
-      hasTrailingSlash,
-    );
-  }
-
-  const record = node as Record<string, SiteNode>;
-
-  if (remaining.length === 0) {
-    return null;
-  }
-
-  const [next, ...rest] = remaining;
-
-  if (next in record) {
-    return walkSiteTree(
-      record[next],
-      rest,
-      params,
-      `${pathSoFar}/${next}`,
-      hasTrailingSlash,
-    );
-  }
-
-  for (const [key, child] of Object.entries(record)) {
-    if (key.startsWith(":")) {
-      const paramName = key.slice(1);
-      const newParams = { ...params, [paramName]: next };
-      return walkSiteTree(
-        child,
-        rest,
-        newParams,
-        `${pathSoFar}/${next}`,
-        hasTrailingSlash,
-      );
-    }
-  }
-
-  return null;
-}
 
 // ---------------------------------------------------------------------------
 // Site class
@@ -684,6 +643,9 @@ export class Site {
       csvTransformer,
       textTransformer,
       cborTransformer,
+      directoryListingHtmlTransformer,
+      webdavMultistatusTransformer,
+      webdavLockTransformer,
       // Use configured HTML transformer with SDK, sitemap, custom elements,
       // and static asset support. Only advertise custom elements to the
       // browser when an entry module is available to bundle.
@@ -706,56 +668,54 @@ export class Site {
   }
 
   /**
-   * Resolve a URL path to a {@link Resource}.
-   * The returned `kind` is the shared instance; `params` and `path`
-   * are the per-request state for this resolution.
+   * Resolve a URL path to a per-request {@link Resource}.
+   *
+   * Trailing slash is encoded in `remaining` as a trailing `""`:
+   *   `/docs/` → `["docs", ""]`,  `/docs` → `["docs"]`
+   *
+   * `resource.path` is set to the request path (they are always equal).
    */
   resolve(path: string): Resource | null {
-    const hasTrailingSlash = path.endsWith("/") && path.length > 1;
-    const segments = path.split("/").filter(Boolean);
-
-    // Root path "/" — check for "" key in definition
-    if (segments.length === 0) {
+    // Root path — look up "" key in definition
+    if (path === "/" || path === "") {
       const rootNode = this.definition[""];
       if (rootNode && isResourceKind(rootNode)) {
-        return applyTrailingSlash(
-          rootNode.createResource({}, "/"),
-          hasTrailingSlash,
-        );
+        return resolveResource(rootNode, [], "/");
       }
       return null;
     }
 
-    const [first, ...rest] = segments;
-    const node = this.definition[first];
-
-    if (!node) {
-      return null;
-    }
-
-    if (isResourceKind(node)) {
-      if (rest.length === 0) {
-        return applyTrailingSlash(
-          node.createResource({}, `/${first}`),
-          hasTrailingSlash,
-        );
-      }
-      return resolveResource(
-        node,
-        rest.join("/"),
-        `/${first}/`,
-        hasTrailingSlash,
-      );
-    }
-
-    // It's a nested record — walk deeper
-    return walkSiteTree(node, rest, {}, `/${first}`, hasTrailingSlash);
+    // Non-root: split keeping trailing "" for trailing slash detection.
+    // "/docs".split("/").slice(1) → ["docs"]
+    // "/docs/".split("/").slice(1) → ["docs", ""]
+    // Filter out empty segments from double slashes (//), but preserve a
+    // trailing "" (which encodes a trailing slash).
+    const raw = path.split("/").slice(1);
+    const remaining = raw.filter((s, i) => s !== "" || i === raw.length - 1);
+    return resolveResource(
+      this.definition as unknown as ChildrenMap,
+      remaining,
+      path,
+    );
   }
 
   /**
    * Handle an HTTP request and return a response.
+   *
+   * CORS headers are applied uniformly to every response at the exit,
+   * so individual branches and helpers do not need to inject them.
    */
   async handleRequest(request: HttpRequest): Promise<HttpResponse> {
+    const response = await this.handleRequestInner(request);
+    const cors = this.options.cors;
+    if (!cors) return response;
+    const origin = (request.headers ?? {})["origin"];
+    return applyCorsToResponse(response, cors, origin);
+  }
+
+  private async handleRequestInner(
+    request: HttpRequest,
+  ): Promise<HttpResponse> {
     const method = request.method.toUpperCase();
     const requestHeaders = request.headers ?? {};
     const cors = this.options.cors;
@@ -764,7 +724,7 @@ export class Site {
     if (method === "OPTIONS" && cors) {
       return {
         status: 204,
-        headers: corsHeaders(cors, requestHeaders["origin"]),
+        headers: {},
         body: "",
       };
     }
@@ -779,26 +739,26 @@ export class Site {
         const location =
           "../".repeat(wellKnown.prefixDepth) +
           canonicalWellKnownPath(wellKnown);
-        const headers: Record<string, string> = { Location: location };
-        if (cors)
-          Object.assign(headers, corsHeaders(cors, requestHeaders["origin"]));
-        return { status: 301, headers, body: "" };
+        return { status: 301, headers: { Location: location }, body: "" };
       }
 
       if (wellKnown.type === "sdk") {
         const sdkSource = this.options.sdkScript;
         if (sdkSource) {
-          const headers: Record<string, string> = {
-            "Content-Type": "application/javascript",
-            "Cache-Control": "public, max-age=3600",
+          return {
+            status: 200,
+            headers: {
+              "Content-Type": "application/javascript",
+              "Cache-Control": "public, max-age=3600",
+            },
+            body: sdkSource,
           };
-          if (cors)
-            Object.assign(headers, corsHeaders(cors, requestHeaders["origin"]));
-          return { status: 200, headers, body: sdkSource };
         }
-        const h: Record<string, string> = { "Content-Type": "text/plain" };
-        if (cors) Object.assign(h, corsHeaders(cors, requestHeaders["origin"]));
-        return { status: 404, headers: h, body: "Not Found" };
+        return {
+          status: 404,
+          headers: { "Content-Type": "text/plain" },
+          body: "Not Found",
+        };
       }
 
       const name = wellKnown.name!;
@@ -810,21 +770,21 @@ export class Site {
             );
           }
           const { code, type } = await this._customElementBundle;
-          const headers: Record<string, string> = {
-            "Content-Type": type,
-            "Cache-Control": "public, max-age=0",
+          return {
+            status: 200,
+            headers: {
+              "Content-Type": type,
+              "Cache-Control": "public, max-age=0",
+            },
+            body: code,
           };
-          if (cors)
-            Object.assign(headers, corsHeaders(cors, requestHeaders["origin"]));
-          return { status: 200, headers, body: code };
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          const headers: Record<string, string> = {
-            "Content-Type": "text/plain",
+          return {
+            status: 500,
+            headers: { "Content-Type": "text/plain" },
+            body: message,
           };
-          if (cors)
-            Object.assign(headers, corsHeaders(cors, requestHeaders["origin"]));
-          return { status: 500, headers, body: message };
         }
       }
 
@@ -834,35 +794,39 @@ export class Site {
           const nodeFs = await import("node:fs/promises");
           const filePath = await resolveAssetPath(asset.source);
           const content = await nodeFs.readFile(filePath);
-          const headers: Record<string, string> = {
-            "Content-Type": asset.contentType ?? inferContentType(name),
-            "Cache-Control": "public, max-age=3600",
+          return {
+            status: 200,
+            headers: {
+              "Content-Type": asset.contentType ?? inferContentType(name),
+              "Cache-Control": "public, max-age=3600",
+            },
+            body: content,
           };
-          if (cors)
-            Object.assign(headers, corsHeaders(cors, requestHeaders["origin"]));
-          return { status: 200, headers, body: content };
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          const headers: Record<string, string> = {
-            "Content-Type": "text/plain",
+          return {
+            status: 500,
+            headers: { "Content-Type": "text/plain" },
+            body: message,
           };
-          if (cors)
-            Object.assign(headers, corsHeaders(cors, requestHeaders["origin"]));
-          return { status: 500, headers, body: message };
         }
       }
 
-      const h: Record<string, string> = { "Content-Type": "text/plain" };
-      if (cors) Object.assign(h, corsHeaders(cors, requestHeaders["origin"]));
-      return { status: 404, headers: h, body: "Not Found" };
+      return {
+        status: 404,
+        headers: { "Content-Type": "text/plain" },
+        body: "Not Found",
+      };
     }
 
     // 1. Resolve the resource
     const resolved = this.resolve(request.path);
     if (!resolved) {
-      const h: Record<string, string> = { "Content-Type": "text/plain" };
-      if (cors) Object.assign(h, corsHeaders(cors, requestHeaders["origin"]));
-      return { status: 404, headers: h, body: "Not Found" };
+      return {
+        status: 404,
+        headers: { "Content-Type": "text/plain" },
+        body: "Not Found",
+      };
     }
 
     // 2. Auth verification (before method check — auth may apply to all methods)
@@ -871,19 +835,16 @@ export class Site {
       return authResult as HttpResponse;
     }
 
-    // 3. Proxy fast path — duck typing, no instanceof
-    if (resolved.proxy) {
-      return this.handleProxy(resolved, request, cors, requestHeaders);
-    }
-
-    // 4. Check method is allowed
+    // 3. Check method is allowed
     if (!resolved.allowedMethods().includes(method.toUpperCase())) {
-      const h: Record<string, string> = {
-        "Content-Type": "text/plain",
-        Allow: resolved.allowedMethods().join(", "),
+      return {
+        status: 405,
+        headers: {
+          "Content-Type": "text/plain",
+          Allow: resolved.allowedMethods().join(", "),
+        },
+        body: "Method Not Allowed",
       };
-      if (cors) Object.assign(h, corsHeaders(cors, requestHeaders["origin"]));
-      return { status: 405, headers: h, body: "Method Not Allowed" };
     }
 
     // 5. Execute the operation — polymorphic dispatch via HTTP method
@@ -914,13 +875,23 @@ export class Site {
         range,
       });
 
-      const methodLower = method.toLowerCase() as
-        | "get"
-        | "post"
-        | "put"
-        | "patch"
-        | "delete";
-      const result = await resolved[methodLower](ctx);
+      // Dispatch to the named method on the Resource instance.
+      // All IANA HTTP methods exist as named methods on Resource.prototype;
+      // unsupported ones throw 405 automatically. Any method not found on the
+      // prototype chain (non-IANA or custom) also returns 405 with Allow.
+      const methodLower = method.toLowerCase();
+      const handler = (
+        resolved as unknown as Record<
+          string,
+          (ctx: RequestContext) => Repr | Promise<Repr>
+        >
+      )[methodLower];
+      if (typeof handler !== "function") {
+        throw new HttpError(405, "Method Not Allowed", undefined, {
+          Allow: resolved.allowedMethods().join(", "),
+        });
+      }
+      const result = await handler.call(resolved, ctx);
 
       // 6. Result is already a Repr
       const repr = wrapResult(result);
@@ -933,34 +904,24 @@ export class Site {
         method,
         request,
         range ?? null,
-        cors,
-        requestHeaders,
       );
     } catch (error) {
       if (isHttpError(error)) {
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-          ...error.headers,
-        };
-        if (cors)
-          Object.assign(headers, corsHeaders(cors, requestHeaders["origin"]));
         return {
           status: error.status,
-          headers,
+          headers: {
+            "Content-Type": "application/json",
+            ...error.headers,
+          },
           body: JSON.stringify({
             error: error.message,
             ...(error.detail !== undefined ? { detail: error.detail } : {}),
           }),
         };
       }
-      const errHeaders: Record<string, string> = {
-        "Content-Type": "text/plain",
-      };
-      if (cors)
-        Object.assign(errHeaders, corsHeaders(cors, requestHeaders["origin"]));
       return {
         status: 500,
-        headers: errHeaders,
+        headers: { "Content-Type": "text/plain" },
         body: error instanceof Error ? error.message : "Internal Server Error",
       };
     }
@@ -989,10 +950,14 @@ export class Site {
     const authConfig = this.options.auth;
     if (!authConfig) return null;
 
-    const authResource = matchAuthRule(requestPath, authConfig.rules);
-    if (authResource === null || authResource === undefined) return null;
-
-    const verifierName = authResource || authConfig.verifier;
+    const authMatch = matchAuthRule(requestPath, authConfig.rules);
+    // no-auth and no-match → no auth required; use-verifier → default verifier;
+    // named → the explicitly named auth resource.
+    if (authMatch.kind === "no-auth" || authMatch.kind === "no-match") {
+      return null;
+    }
+    const verifierName =
+      authMatch.kind === "named" ? authMatch.name : authConfig.verifier;
     const authResolved = this.resolve(`/${verifierName}`);
     // Duck typing — Action resources expose invoke()
     if (!authResolved || !authResolved.invoke) {
@@ -1039,63 +1004,5 @@ export class Site {
         body: JSON.stringify({ error: "Unauthorized" }),
       };
     }
-  }
-
-  private async handleProxy(
-    resource: Resource,
-    request: HttpRequest,
-    cors: CorsConfig | undefined,
-    requestHeaders: Record<string, string>,
-  ): Promise<HttpResponse> {
-    if (typeof resource.proxy !== "function") {
-      return {
-        status: 501,
-        headers: { "Content-Type": "text/plain" },
-        body: "Proxy target not configured",
-      };
-    }
-
-    let targetUrl: string;
-    try {
-      const result = await resource.proxy(request.path);
-      targetUrl = result.toString();
-    } catch {
-      return {
-        status: 502,
-        headers: { "Content-Type": "text/plain" },
-        body: "Upstream unreachable",
-      };
-    }
-
-    // Pass the request body stream through to the upstream untouched.
-    // The Web Fetch API accepts ReadableStream<Uint8Array> as a body.
-    // `duplex: "half"` is required for streaming bodies in Node 18+.
-    const upstream = await fetch(targetUrl, {
-      method: request.method,
-      headers: requestHeaders,
-      body: request.body,
-      duplex: "half",
-    } as RequestInit);
-
-    const responseHeaders: Record<string, string> = {};
-    for (const [key, value] of upstream.headers) {
-      if (!["transfer-encoding", "connection", "keep-alive"].includes(key)) {
-        responseHeaders[key] = value;
-      }
-    }
-
-    if (cors) {
-      Object.assign(
-        responseHeaders,
-        corsHeaders(cors, requestHeaders["origin"]),
-      );
-    }
-
-    // Stream the upstream response body through untouched.
-    return {
-      status: upstream.status,
-      headers: responseHeaders,
-      body: upstream.body ?? "",
-    };
   }
 }

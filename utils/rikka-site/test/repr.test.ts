@@ -3,8 +3,11 @@ import {
   buildLocationHeader,
   parseRangeHeader,
   CollectionKind,
+  CollectionResource,
   ItemKind,
+  ItemResource,
   ReadOnlyKind,
+  ReadOnlyResource,
   Site,
   jsonBody,
 } from "../src/index.js";
@@ -158,7 +161,14 @@ describe("parseRangeHeader", () => {
 // ---------------------------------------------------------------------------
 
 describe("206 Partial Content", () => {
-  class Articles extends CollectionKind {
+  class ArticlesKind extends CollectionKind {
+    resolve(params: Record<string, string>) {
+      const r = new ArticlesResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class ArticlesResource extends CollectionResource {
     async create(ctx: RequestContext): Promise<Repr> {
       return { content: {}, meta: {} };
     }
@@ -180,7 +190,14 @@ describe("206 Partial Content", () => {
     }
   }
 
-  class Bytes extends ReadOnlyKind {
+  class BytesKind extends ReadOnlyKind {
+    resolve(params: Record<string, string>) {
+      const r = new BytesResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class BytesResource extends ReadOnlyResource {
     async content(ctx: RequestContext): Promise<Repr> {
       const all = new Uint8Array(1024);
       for (let i = 0; i < 1024; i++) all[i] = i % 256;
@@ -200,8 +217,8 @@ describe("206 Partial Content", () => {
   }
 
   const app = new Site({
-    articles: new Articles(),
-    bytes: new Bytes(),
+    articles: new ArticlesKind(),
+    bytes: new BytesKind(),
   });
 
   it("returns 200 + full body when no Range header", async () => {
@@ -280,7 +297,14 @@ describe("206 Partial Content", () => {
 // ---------------------------------------------------------------------------
 
 describe("status code inference", () => {
-  class Articles extends CollectionKind {
+  class ArticlesKind extends CollectionKind {
+    resolve(params: Record<string, string>) {
+      const r = new ArticlesResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class ArticlesResource extends CollectionResource {
     async list(ctx: RequestContext): Promise<Repr> {
       return { content: [{ id: 1 }], meta: {} };
     }
@@ -292,15 +316,22 @@ describe("status code inference", () => {
     }
   }
 
-  class Settings extends ReadOnlyKind {
+  class SettingsKind extends ReadOnlyKind {
+    resolve(params: Record<string, string>) {
+      const r = new SettingsResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class SettingsResource extends ReadOnlyResource {
     async content(ctx: RequestContext): Promise<Repr> {
       return { content: { theme: "dark" }, meta: {} };
     }
   }
 
   const App = new Site({
-    articles: new Articles(),
-    settings: new Settings(),
+    articles: new ArticlesKind(),
+    settings: new SettingsKind(),
   });
 
   it("GET Collection.list → 200", async () => {
@@ -333,25 +364,38 @@ describe("status code inference", () => {
   });
 
   it("DELETE on Item returning undefined → 204", async () => {
-    class UsersCollection extends CollectionKind {
+    class UsersCollectionKind extends CollectionKind {
+      children = {
+        ":userId": new (class extends ItemKind {
+          resolve(params: Record<string, string>) {
+            const r = new (class extends ItemResource {
+              async content(ctx: RequestContext): Promise<Repr> {
+                return { content: { id: 1 }, meta: {} };
+              }
+              async delete(ctx: RequestContext): Promise<Repr> {
+                return { content: null, meta: {} };
+              }
+            })();
+            r.params = params;
+            return r;
+          }
+        })(),
+      };
+      resolve(params: Record<string, string>) {
+        const r = new UsersCollectionResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UsersCollectionResource extends CollectionResource {
       async create(ctx: RequestContext): Promise<Repr> {
         return { content: {}, meta: {} };
       }
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
-      children = {
-        ":userId": new (class extends ItemKind {
-          async content(ctx: RequestContext): Promise<Repr> {
-            return { content: { id: 1 }, meta: {} };
-          }
-          async delete(ctx: RequestContext): Promise<Repr> {
-            return { content: null, meta: {} };
-          }
-        })(),
-      };
     }
-    const app = new Site({ users: new UsersCollection() });
+    const app = new Site({ users: new UsersCollectionKind() });
     const response = await app.handleRequest({
       method: "DELETE",
       path: "/users/1",
@@ -360,7 +404,14 @@ describe("status code inference", () => {
   });
 
   it("null content + location → 302 (redirect)", async () => {
-    class Redirector extends ReadOnlyKind {
+    class RedirectorKind extends ReadOnlyKind {
+      resolve(params: Record<string, string>) {
+        const r = new RedirectorResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class RedirectorResource extends ReadOnlyResource {
       async content(ctx: RequestContext): Promise<Repr> {
         return {
           content: null,
@@ -368,7 +419,7 @@ describe("status code inference", () => {
         };
       }
     }
-    const app = new Site({ redirector: new Redirector() });
+    const app = new Site({ redirector: new RedirectorKind() });
     const response = await app.handleRequest({
       method: "GET",
       path: "/redirector",
@@ -378,12 +429,19 @@ describe("status code inference", () => {
   });
 
   it("null content without location → 204 (no-content)", async () => {
-    class NoContent extends ReadOnlyKind {
+    class NoContentKind extends ReadOnlyKind {
+      resolve(params: Record<string, string>) {
+        const r = new NoContentResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class NoContentResource extends ReadOnlyResource {
       async content(ctx: RequestContext): Promise<Repr> {
         return { content: null, meta: {} };
       }
     }
-    const app = new Site({ nc: new NoContent() });
+    const app = new Site({ nc: new NoContentKind() });
     const response = await app.handleRequest({
       method: "GET",
       path: "/nc",

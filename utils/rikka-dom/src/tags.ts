@@ -1,5 +1,4 @@
 import { h as hFn, createElement } from "./h.js";
-import { isPlainObject } from "./signal-utils.js";
 import type { Child, Attributes, ElementTagNameMap, TagFunction } from "./h.js";
 import type { CommonHTMLAttributes } from "./attributes.js";
 import { SVG_NS } from "./constants.js";
@@ -23,12 +22,7 @@ function makeTag(tag: string, forcedNS?: string): UntypedTagFactory {
   if (forcedNS) {
     return (...args: unknown[]) => createElement(tag, args, forcedNS);
   }
-  return (...args: unknown[]) => {
-    if (isPlainObject(args[0])) {
-      return createElement(tag, args);
-    }
-    return createElement(tag, args);
-  };
+  return (...args: unknown[]) => createElement(tag, args);
 }
 
 type SVGNamespacedTagFactory<T extends Element> = {

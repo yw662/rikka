@@ -33,16 +33,23 @@ const projects = [
   { name: '@takanashi/rikka-signal', config: 'utils/rikka-signal/tsconfig.json' },
   { name: '@takanashi/rikka-dom', config: 'utils/rikka-dom/tsconfig.json' },
   { name: '@takanashi/rikka-elements', config: 'utils/rikka-elements/tsconfig.json' },
+  { name: '@takanashi/rikka-site', config: 'utils/rikka-site/tsconfig.json' },
+  { name: '@takanashi/rikka-resource-filesystem', config: 'resources/rikka-resource-filesystem/tsconfig.json' },
+  { name: '@takanashi/rikka-resource-database', config: 'resources/rikka-resource-database/tsconfig.json' },
   { name: 'rikka-live-playground', config: 'components/rikka-live-playground/tsconfig.json' },
   { name: 'rikka-live-playground (test)', config: 'components/rikka-live-playground/tsconfig.test.json' },
   { name: 'rikka-web-agent', config: 'components/rikka-web-agent/tsconfig.json' },
   { name: 'rikka-homepage', config: 'docs/rikka-homepage/tsconfig.json' },
+  { name: 'blog-site', config: 'examples/blog-site/tsconfig.json' },
   { name: 'bookmark-manager', config: 'examples/bookmark-manager/tsconfig.json' },
   { name: 'code-editor', config: 'examples/code-editor/tsconfig.json' },
   { name: 'finance-tracker', config: 'examples/finance-tracker/tsconfig.json' },
   { name: 'rikka-signal (test)', config: 'utils/rikka-signal/tsconfig.test.json' },
   { name: 'rikka-dom (test)', config: 'utils/rikka-dom/tsconfig.test.json' },
   { name: 'rikka-elements (test)', config: 'utils/rikka-elements/tsconfig.test.json' },
+  { name: 'rikka-site (test)', config: 'utils/rikka-site/tsconfig.test.json' },
+  { name: 'rikka-resource-filesystem (test)', config: 'resources/rikka-resource-filesystem/tsconfig.test.json' },
+  { name: 'rikka-resource-database (test)', config: 'resources/rikka-resource-database/tsconfig.test.json' },
 ];
 
 function checkProject(project) {

@@ -95,21 +95,36 @@ function globWalk(
 // ---------------------------------------------------------------------------
 
 /**
- * Find the auth resource name for a given path, or null if no auth is required.
- * Returns undefined if no rule matches (no auth required).
+ * Discriminated result of matching a path against auth rules.
+ *
+ * - `no-auth` — a rule matched and explicitly disabled auth (`rule.auth === null`)
+ * - `use-verifier` — a rule matched but did not specify `auth`; the caller
+ *   should fall back to {@link AuthConfig.verifier}
+ * - `named` — a rule matched and named a specific auth resource
+ * - `no-match` — no rule matched; no auth is required
+ */
+export type AuthMatchResult =
+  | { kind: "no-auth" }
+  | { kind: "use-verifier" }
+  | { kind: "named"; name: string }
+  | { kind: "no-match" };
+
+/**
+ * Find the auth directive for a given path by matching against `rules`.
+ * The first matching rule wins; if no rule matches, `no-match` is returned.
  */
 export function matchAuthRule(
   path: string,
   rules: AuthRule[],
-): string | null | undefined {
+): AuthMatchResult {
   for (const rule of rules) {
     if (globMatch(rule.match, path)) {
-      if (rule.auth === null) return null; // explicitly no auth
-      if (rule.auth === undefined) return undefined; // use verifier (handled by caller)
-      return rule.auth;
+      if (rule.auth === null) return { kind: "no-auth" }; // explicitly no auth
+      if (rule.auth === undefined) return { kind: "use-verifier" }; // use default verifier
+      return { kind: "named", name: rule.auth };
     }
   }
-  return undefined; // no matching rule → no auth
+  return { kind: "no-match" }; // no matching rule → no auth
 }
 
 // ---------------------------------------------------------------------------

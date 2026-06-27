@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": false,
+    "sourceMap": false,
+    "outDir": "./dist-test",
+    "experimentalDecorators": false,
+    "useDefineForClassFields": false,
+    "verbatimModuleSyntax": true,
+    "incremental": false,
+    "noEmit": true
+  },
+  "include": ["src", "test"]
+}

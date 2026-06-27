@@ -2,6 +2,7 @@ import { effect, computed, Signal } from "@takanashi/rikka-signal";
 import { isSignal } from "./signal-utils.js";
 import { ReactiveRange } from "./h.js";
 import { registerDisposable } from "./h.js";
+import { setAttr } from "./h.js";
 import type { StyleRecord } from "./attributes.js";
 
 type SignalLike = Signal.State<any> | Signal.Computed<any>;
@@ -319,9 +320,22 @@ export function hTemplate(
         const dispose = effect(() => {
           const target = weakEl.deref();
           if (!target) return;
+          // Single-signal attribute: reuse setAttr so null/undefined/false
+          // remove the attribute and true sets it to "" — matching
+          // applyAttrStatic semantics instead of leaking "null"/"false".
+          if (
+            attrBindings.length === 1 &&
+            attrTemplate === attrBindings[0].marker
+          ) {
+            setAttr(target, attrName, attrBindings[0].signal.get());
+            return;
+          }
+          // Interpolated attribute: substitute each signal, treating
+          // null/undefined as empty so "null" never appears in the value.
           let value = attrTemplate;
           for (const { marker, signal } of attrBindings) {
-            value = value.replaceAll(marker, String(signal.get()));
+            const v = signal.get();
+            value = value.replaceAll(marker, v == null ? "" : String(v));
           }
           target.setAttribute(attrName, value);
         });

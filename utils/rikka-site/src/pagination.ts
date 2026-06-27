@@ -1,6 +1,6 @@
 /**
  * @module pagination
- * Pagination helper for CollectionKind resources.
+ * Pagination helper for CollectionResource resources.
  *
  * Slices an array of items based on `ctx.range` (unit: "items") and returns
  * a {@link Repr} whose content is a {@link PartialContent} shape, causing the
@@ -8,9 +8,9 @@
  *
  * @example
  * ```ts
- * import { paginate, CollectionKind } from "@takanashi/rikka-site";
+ * import { paginate, CollectionResource } from "@takanashi/rikka-site";
  *
- * class Articles extends CollectionKind {
+ * class Articles extends CollectionResource {
  *   list(ctx) {
  *     return paginate(allArticles, ctx.range);
  *   }

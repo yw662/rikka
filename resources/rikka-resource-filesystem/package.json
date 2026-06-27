@@ -1,0 +1,43 @@
+{
+  "name": "@takanashi/rikka-resource-filesystem",
+  "version": "0.0.1",
+  "description": "FileSystem and WebDAV resource adapter for rikka-site",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yw662/rikka.git",
+    "directory": "resources/rikka-resource-filesystem"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rslib build",
+    "dev": "rslib build --watch",
+    "test": "rstest",
+    "test:watch": "rstest -w",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {
+    "@takanashi/rikka-site": "workspace:*"
+  },
+  "devDependencies": {
+    "@rslib/core": "catalog:",
+    "@rstest/core": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

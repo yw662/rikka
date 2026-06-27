@@ -1,7 +1,9 @@
 import { describe, it, expect } from "@rstest/core";
 import {
   CollectionKind,
+  CollectionResource,
   ItemKind,
+  ItemResource,
   Site,
   jsonBody,
   textBody,
@@ -54,7 +56,14 @@ async function bodyText(
 
 describe("Streaming request body", () => {
   it("ctx.json() lazily parses a JSON body stream", async () => {
-    class Echo extends CollectionKind {
+    class EchoKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new EchoResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class EchoResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
@@ -64,7 +73,7 @@ describe("Streaming request body", () => {
       }
     }
 
-    const app = new Site({ users: new Echo() });
+    const app = new Site({ users: new EchoKind() });
     const response = await app.handleRequest({
       method: "POST",
       path: "/users",
@@ -78,7 +87,14 @@ describe("Streaming request body", () => {
   });
 
   it("ctx.text() lazily reads a text body stream", async () => {
-    class Echo extends CollectionKind {
+    class EchoKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new EchoResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class EchoResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
@@ -88,7 +104,7 @@ describe("Streaming request body", () => {
       }
     }
 
-    const app = new Site({ echo: new Echo() });
+    const app = new Site({ echo: new EchoKind() });
     const response = await app.handleRequest({
       method: "POST",
       path: "/echo",
@@ -103,7 +119,14 @@ describe("Streaming request body", () => {
 
   it("ctx.bytes() lazily reads raw bytes", async () => {
     const raw = new Uint8Array([0x00, 0x01, 0x02, 0xff]);
-    class Echo extends CollectionKind {
+    class EchoKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new EchoResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class EchoResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
@@ -113,7 +136,7 @@ describe("Streaming request body", () => {
       }
     }
 
-    const app = new Site({ echo: new Echo() });
+    const app = new Site({ echo: new EchoKind() });
     const response = await app.handleRequest({
       method: "POST",
       path: "/echo",
@@ -128,7 +151,14 @@ describe("Streaming request body", () => {
 
   it("ctx.json() caches the result — multiple calls return the same value", async () => {
     let callCount = 0;
-    class Echo extends CollectionKind {
+    class EchoKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new EchoResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class EchoResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
@@ -140,7 +170,7 @@ describe("Streaming request body", () => {
       }
     }
 
-    const app = new Site({ echo: new Echo() });
+    const app = new Site({ echo: new EchoKind() });
     const response = await app.handleRequest({
       method: "POST",
       path: "/echo",
@@ -156,7 +186,14 @@ describe("Streaming request body", () => {
   });
 
   it("ctx.json() returns undefined when there is no body", async () => {
-    class Echo extends CollectionKind {
+    class EchoKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new EchoResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class EchoResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
@@ -166,7 +203,7 @@ describe("Streaming request body", () => {
       }
     }
 
-    const app = new Site({ echo: new Echo() });
+    const app = new Site({ echo: new EchoKind() });
     const response = await app.handleRequest({
       method: "POST",
       path: "/echo",
@@ -180,7 +217,14 @@ describe("Streaming request body", () => {
   });
 
   it("GET requests don't read the body — handler that ignores body works fine", async () => {
-    class Users extends CollectionKind {
+    class UsersKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new UsersResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UsersResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [{ id: 1 }], meta: {} };
       }
@@ -189,7 +233,7 @@ describe("Streaming request body", () => {
       }
     }
 
-    const app = new Site({ users: new Users() });
+    const app = new Site({ users: new UsersKind() });
     const response = await app.handleRequest({
       method: "GET",
       path: "/users",
@@ -205,7 +249,14 @@ describe("Streaming request body", () => {
 describe("Streaming response body", () => {
   it("handler can return a ReadableStream as Repr content", async () => {
     const data = new TextEncoder().encode("streamed content");
-    class Stream extends ItemKind {
+    class StreamKind extends ItemKind {
+      resolve(params: Record<string, string>) {
+        const r = new StreamResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class StreamResource extends ItemResource {
       async content(ctx: RequestContext): Promise<Repr> {
         return {
           content: bytesBody(data),
@@ -214,7 +265,7 @@ describe("Streaming response body", () => {
       }
     }
 
-    const app = new Site({ stream: new Stream() });
+    const app = new Site({ stream: new StreamKind() });
     const response = await app.handleRequest({
       method: "GET",
       path: "/stream",
@@ -241,7 +292,14 @@ describe("Streaming response body", () => {
       },
     });
 
-    class Stream extends ItemKind {
+    class StreamKind extends ItemKind {
+      resolve(params: Record<string, string>) {
+        const r = new StreamResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class StreamResource extends ItemResource {
       async content(ctx: RequestContext): Promise<Repr> {
         return {
           content: stream,
@@ -250,7 +308,7 @@ describe("Streaming response body", () => {
       }
     }
 
-    const app = new Site({ big: new Stream() });
+    const app = new Site({ big: new StreamKind() });
     const response = await app.handleRequest({
       method: "GET",
       path: "/big",
@@ -329,7 +387,14 @@ describe("createRequestContext helper", () => {
 
 describe("handleWebRequest with streaming", () => {
   it("passes request body as a stream to the handler", async () => {
-    class Echo extends CollectionKind {
+    class EchoKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new EchoResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class EchoResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
@@ -339,7 +404,7 @@ describe("handleWebRequest with streaming", () => {
       }
     }
 
-    const app = new Site({ echo: new Echo() });
+    const app = new Site({ echo: new EchoKind() });
     const request = new Request("http://localhost/echo", {
       method: "POST",
       headers: {
@@ -357,7 +422,14 @@ describe("handleWebRequest with streaming", () => {
 
   it("streams response body through to the Web Response", async () => {
     const data = new TextEncoder().encode("web stream test");
-    class Stream extends ItemKind {
+    class StreamKind extends ItemKind {
+      resolve(params: Record<string, string>) {
+        const r = new StreamResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class StreamResource extends ItemResource {
       async content(ctx: RequestContext): Promise<Repr> {
         return {
           content: bytesBody(data),
@@ -366,7 +438,7 @@ describe("handleWebRequest with streaming", () => {
       }
     }
 
-    const app = new Site({ stream: new Stream() });
+    const app = new Site({ stream: new StreamKind() });
     const request = new Request("http://localhost/stream");
     const response = await handleWebRequest(app, request);
 

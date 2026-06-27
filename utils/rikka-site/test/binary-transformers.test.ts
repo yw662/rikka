@@ -2,6 +2,7 @@ import { describe, it, expect } from "@rstest/core";
 import {
   Site,
   CollectionKind,
+  CollectionResource,
   cborTransformer,
   protobuf,
   type ProtobufMessage,
@@ -175,7 +176,14 @@ describe("protobuf(schema)", () => {
   });
 
   it("is not registered by default (schema-based, opt-in)", () => {
-    class Items extends CollectionKind {
+    class ItemsKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new ItemsResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class ItemsResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
@@ -183,7 +191,7 @@ describe("protobuf(schema)", () => {
         return { content: {}, meta: {} };
       }
     }
-    const app = new Site({ items: new Items() });
+    const app = new Site({ items: new ItemsKind() });
     expect(app.registry.canProduce("application/x-protobuf")).toBe(false);
   });
 });
@@ -193,7 +201,14 @@ describe("protobuf(schema)", () => {
 // ---------------------------------------------------------------------------
 
 describe("binary pipeline", () => {
-  class Items extends CollectionKind {
+  class ItemsKind extends CollectionKind {
+    resolve(params: Record<string, string>) {
+      const r = new ItemsResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class ItemsResource extends CollectionResource {
     async list(ctx: RequestContext): Promise<Repr> {
       return {
         content: [{ id: 1, name: "alpha" }, { id: 2, name: "beta" }],
@@ -206,7 +221,7 @@ describe("binary pipeline", () => {
   }
 
   it("returns Uint8Array body for ?accept=cbor", async () => {
-    const app = new Site({ items: new Items() });
+    const app = new Site({ items: new ItemsKind() });
     const res = await app.handleRequest({
       method: "GET",
       path: "/items",
@@ -225,7 +240,7 @@ describe("binary pipeline", () => {
       encode: () => new Uint8Array([0x08, 0x01]),
     };
     const app = new Site(
-      { items: new Items() },
+      { items: new ItemsKind() },
       { transformers: [protobuf(schema)] },
     );
     const res = await app.handleRequest({
@@ -241,7 +256,7 @@ describe("binary pipeline", () => {
   });
 
   it("cbor short name resolves via negotiate", async () => {
-    const app = new Site({ items: new Items() });
+    const app = new Site({ items: new ItemsKind() });
     const res = await app.handleRequest({
       method: "GET",
       path: "/items",

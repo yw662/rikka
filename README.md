@@ -266,7 +266,7 @@ import {
   CollectionKind,
   ItemKind,
   site,
-  StaticKind,
+  FileSystemKind,
   type Schema,
 } from "@takanashi/rikka-site";
 import type { Repr } from "@takanashi/rikka-site";
@@ -293,11 +293,11 @@ class Article extends ItemKind<{ id: string }> {
   }
 }
 
-// Static files — StaticKind is a concrete class, pass config to the constructor
+// Static files — FileSystemKind is a concrete class, pass config to the constructor
 const app = site({
   articles: new Articles(),
   ":id": new Article(),
-  "assets/": new StaticKind({ root: "./public" }),
+  "assets/": new FileSystemKind({ root: "./public" }),
 });
 
 // Same URL serves multiple formats:
@@ -308,10 +308,13 @@ const app = site({
 ```
 
 **Abstract class hierarchy**: `ResourceKind` (abstract base) → `CollectionKind`,
-`ItemKind`, `SingletonKind`, `ReadOnlyKind`, `ActionKind`, `ProxyKind` (abstract — extend and
-instantiate), and `StaticKind` (concrete — use `new StaticKind({ root })` directly).
-Each kind constrains the HTTP semantics (allowed methods, status codes). The
-site tree stores `ResourceKind` instances, cloned per request via `Object.create`.
+`ItemKind`, `SingletonKind`, `ReadOnlyKind`, `ActionKind` (abstract — extend and
+instantiate). Each kind constrains the HTTP semantics (allowed methods, status codes).
+The site tree stores `ResourceKind` instances, cloned per request via `Object.create`.
+
+**Concrete resource adapters** live in separate packages:
+`@takanashi/rikka-resource-filesystem` (`FileSystemKind` — static files + WebDAV) and
+`@takanashi/rikka-resource-database` (`DatabaseKind` — schema-driven CRUD).
 
 **Streaming bodies**: Request and response bodies are
 `ReadableStream<Uint8Array>`. Use `await ctx.json()` to parse JSON,

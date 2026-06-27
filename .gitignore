@@ -41,9 +41,6 @@ pnpm-debug.log*
 # Output
 out/
 
-# Sisyphus local state
-/.sisyphus/
-
 # Marketing (placeholder)
 /marketing/
 

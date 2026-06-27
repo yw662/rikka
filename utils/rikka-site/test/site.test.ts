@@ -1,17 +1,15 @@
 import { describe, it, expect } from "@rstest/core";
 import {
   CollectionKind,
-  ItemKind,
-  SingletonKind,
-  ReadOnlyKind,
-  ActionKind,
-  ProxyKind,
   CollectionResource,
+  ItemKind,
   ItemResource,
+  SingletonKind,
   SingletonResource,
+  ReadOnlyKind,
   ReadOnlyResource,
+  ActionKind,
   ActionResource,
-  ProxyResource,
   Site,
   handleWebRequest,
   createFetchHandler,
@@ -65,11 +63,18 @@ async function bodyText(
 }
 
 // ---------------------------------------------------------------------------
-// Kind
+// Resource kinds
 // ---------------------------------------------------------------------------
 
-describe("Kind", () => {
-  class TestCollection extends CollectionKind {
+describe("Resource kinds", () => {
+  class TestCollectionKind extends CollectionKind {
+    resolve(params: Record<string, string>) {
+      const r = new TestCollectionResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class TestCollectionResource extends CollectionResource {
     async list(ctx: RequestContext): Promise<Repr> {
       return { content: [], meta: {} };
     }
@@ -77,7 +82,14 @@ describe("Kind", () => {
       return { content: null, meta: {} };
     }
   }
-  class TestItem extends ItemKind {
+  class TestItemKind extends ItemKind {
+    resolve(params: Record<string, string>) {
+      const r = new TestItemResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class TestItemResource extends ItemResource {
     async content(ctx: RequestContext): Promise<Repr> {
       return { content: null, meta: {} };
     }
@@ -91,7 +103,14 @@ describe("Kind", () => {
       return { content: null, meta: {} };
     }
   }
-  class TestSingleton extends SingletonKind {
+  class TestSingletonKind extends SingletonKind {
+    resolve(params: Record<string, string>) {
+      const r = new TestSingletonResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class TestSingletonResource extends SingletonResource {
     async content(ctx: RequestContext): Promise<Repr> {
       return { content: null, meta: {} };
     }
@@ -102,63 +121,65 @@ describe("Kind", () => {
       return { content: null, meta: {} };
     }
   }
-  class TestReadOnly extends ReadOnlyKind {
+  class TestReadOnlyKind extends ReadOnlyKind {
+    resolve(params: Record<string, string>) {
+      const r = new TestReadOnlyResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class TestReadOnlyResource extends ReadOnlyResource {
     async content(ctx: RequestContext): Promise<Repr> {
       return { content: null, meta: {} };
     }
   }
-  class TestAction extends ActionKind {
+  class TestActionKind extends ActionKind {
+    resolve(params: Record<string, string>) {
+      const r = new TestActionResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class TestActionResource extends ActionResource {
     async invoke(ctx: RequestContext): Promise<Repr> {
       return { content: null, meta: {} };
     }
   }
-  class TestProxy extends ProxyKind {
-    target(path: string): URL {
-      return new URL(path, "https://example.com");
-    }
-  }
 
-  const collection = new TestCollection();
-  const item = new TestItem();
-  const singleton = new TestSingleton();
-  const readOnly = new TestReadOnly();
-  const action = new TestAction();
-  const proxy = new TestProxy();
+  const collection = new TestCollectionKind();
+  const item = new TestItemKind();
+  const singleton = new TestSingletonKind();
+  const readOnly = new TestReadOnlyKind();
+  const action = new TestActionKind();
 
   it("Collection allows GET and POST", () => {
-    const resource = collection.createResource({}, "/test");
+    const resource = collection.resolve({});
     expect(resource).toBeInstanceOf(CollectionResource);
     expect(resource.allowedMethods()).toEqual(["GET", "POST"]);
   });
 
   it("Item allows GET, PUT, PATCH, DELETE", () => {
-    const resource = item.createResource({}, "/test");
+    const resource = item.resolve({});
     expect(resource).toBeInstanceOf(ItemResource);
     expect(resource.allowedMethods()).toEqual(["GET", "PUT", "PATCH", "DELETE"]);
   });
 
   it("Singleton allows GET, PUT, PATCH", () => {
-    const resource = singleton.createResource({}, "/test");
+    const resource = singleton.resolve({});
     expect(resource).toBeInstanceOf(SingletonResource);
     expect(resource.allowedMethods()).toEqual(["GET", "PUT", "PATCH"]);
   });
 
   it("ReadOnly allows only GET", () => {
-    const resource = readOnly.createResource({}, "/test");
+    const resource = readOnly.resolve({});
     expect(resource).toBeInstanceOf(ReadOnlyResource);
     expect(resource.allowedMethods()).toEqual(["GET"]);
   });
 
   it("Action allows only POST", () => {
-    const resource = action.createResource({}, "/test");
+    const resource = action.resolve({});
     expect(resource).toBeInstanceOf(ActionResource);
     expect(resource.allowedMethods()).toEqual(["POST"]);
-  });
-
-  it("Proxy exposes proxy() method", () => {
-    const resource = proxy.createResource({}, "/test");
-    expect(resource).toBeInstanceOf(ProxyResource);
-    expect(typeof resource.proxy).toBe("function");
   });
 });
 
@@ -282,7 +303,7 @@ describe("Schema matching", () => {
 
 describe("ResourceFactory factories", () => {
   it("Collection creates a CollectionDescriptor", () => {
-    class Users extends CollectionKind {
+    class Users extends CollectionResource {
       constructor(private table: string) {
         super();
       }
@@ -302,13 +323,13 @@ describe("ResourceFactory factories", () => {
     }
 
     const instance = new Users("users");
-    expect(instance).toBeInstanceOf(CollectionKind);
+    expect(instance).toBeInstanceOf(CollectionResource);
     expect(typeof instance.list).toBe("function");
     expect(typeof instance.create).toBe("function");
   });
 
   it("Item creates an ItemDescriptor", () => {
-    class UserItem extends ItemKind {
+    class UserItem extends ItemResource {
       constructor(private table: string) {
         super();
       }
@@ -324,12 +345,12 @@ describe("ResourceFactory factories", () => {
     }
 
     const instance = new UserItem("users");
-    expect(instance).toBeInstanceOf(ItemKind);
+    expect(instance).toBeInstanceOf(ItemResource);
     expect(typeof instance.content).toBe("function");
   });
 
   it("Singleton creates a SingletonDescriptor", () => {
-    class Settings extends SingletonKind {
+    class Settings extends SingletonResource {
       async content(ctx: RequestContext): Promise<Repr> {
         return { content: { theme: "dark" }, meta: {} };
       }
@@ -340,22 +361,22 @@ describe("ResourceFactory factories", () => {
     }
 
     const instance = new Settings();
-    expect(instance).toBeInstanceOf(SingletonKind);
+    expect(instance).toBeInstanceOf(SingletonResource);
   });
 
   it("ReadOnly creates a ReadOnlyDescriptor", () => {
-    class Dashboard extends ReadOnlyKind {
+    class Dashboard extends ReadOnlyResource {
       async content(ctx: RequestContext): Promise<Repr> {
         return { content: { count: 42 }, meta: {} };
       }
     }
 
     const instance = new Dashboard();
-    expect(instance).toBeInstanceOf(ReadOnlyKind);
+    expect(instance).toBeInstanceOf(ReadOnlyResource);
   });
 
   it("Action creates an ActionDescriptor", () => {
-    class SendEmail extends ActionKind {
+    class SendEmail extends ActionResource {
       async invoke(ctx: RequestContext): Promise<Repr> {
         return {
           content: {
@@ -368,22 +389,11 @@ describe("ResourceFactory factories", () => {
     }
 
     const instance = new SendEmail();
-    expect(instance).toBeInstanceOf(ActionKind);
-  });
-
-  it("Proxy creates a ProxyDescriptor", () => {
-    class ExternalAPI extends ProxyKind {
-      target(path: string): URL {
-        return new URL(path, "https://api.example.com");
-      }
-    }
-
-    const instance = new ExternalAPI();
-    expect(instance).toBeInstanceOf(ProxyKind);
+    expect(instance).toBeInstanceOf(ActionResource);
   });
 
   it("ResourceFactory captures config via closure", async () => {
-    class Table extends CollectionKind {
+    class Table extends CollectionResource {
       constructor(private tableName: string) {
         super();
       }
@@ -421,17 +431,33 @@ describe("ResourceFactory factories", () => {
   });
 
   it("Collection with children", () => {
-    class Users extends CollectionKind {
+    class UsersKind extends CollectionKind {
       constructor(private table: string) {
         super();
       }
       children = {
         ":userId": new (class extends ItemKind {
-          async content(ctx: RequestContext): Promise<Repr> {
-            return { content: { id: Number(ctx.params.userId) }, meta: {} };
+          resolve(params: Record<string, string>) {
+            const r = new (class extends ItemResource {
+              async content(ctx: RequestContext): Promise<Repr> {
+                return { content: { id: Number(ctx.params.userId) }, meta: {} };
+              }
+            })();
+            r.params = params;
+            return r;
           }
         })(),
       };
+      resolve(params: Record<string, string>) {
+        const r = new UsersResource(this.table);
+        r.params = params;
+        return r;
+      }
+    }
+    class UsersResource extends CollectionResource {
+      constructor(private table: string) {
+        super();
+      }
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [{ id: 1, table: this.table }], meta: {} };
       }
@@ -447,14 +473,14 @@ describe("ResourceFactory factories", () => {
       }
     }
 
-    const instance = new Users("users");
+    const instance = new UsersKind("users");
     expect(instance.children).toBeDefined();
     expect(":userId" in instance.children!).toBe(true);
   });
 
   it("Descriptor with element and context", () => {
     const FakeElement = class {};
-    class Users extends CollectionKind {
+    class Users extends CollectionResource {
       element = FakeElement;
       context = "https://rikka.dev/schemas/user";
       jsonldType = "UserCollection";
@@ -473,21 +499,22 @@ describe("ResourceFactory factories", () => {
   });
 
   it("Item with optional handlers", () => {
-    class UserItem extends ItemKind {
+    class UserItem extends ItemResource {
       async content(ctx: RequestContext): Promise<Repr> {
         return { content: { id: 1 }, meta: {} };
       }
     }
 
     const instance = new UserItem();
-    expect(instance).toBeInstanceOf(ItemKind);
+    expect(instance).toBeInstanceOf(ItemResource);
     expect(instance.replace).toBeUndefined();
-    expect(instance.patch).toBeUndefined();
-    expect(instance.delete).toBeUndefined();
+    // patch/delete are always defined on Resource (return 405), but not in allowedMethods
+    // unless overridden by the subclass.
+    expect(instance.allowedMethods()).toEqual(["GET"]);
   });
 
   it("Singleton with replace", () => {
-    class Settings extends SingletonKind {
+    class Settings extends SingletonResource {
       async content(ctx: RequestContext): Promise<Repr> {
         return { content: { theme: "dark" }, meta: {} };
       }
@@ -506,23 +533,39 @@ describe("ResourceFactory factories", () => {
 // ---------------------------------------------------------------------------
 
 describe("Resource tree", () => {
-  class Users extends CollectionKind {
+  class UsersKind extends CollectionKind {
     constructor(private table: string) {
       super();
     }
     children = {
       ":userId": new (class extends ItemKind {
-        async content(ctx: RequestContext): Promise<Repr> {
-          return {
-            content: { id: Number(ctx.params.userId), name: "Alice" },
-            meta: {},
-          };
-        }
-        async delete(ctx: RequestContext): Promise<Repr> {
-          return { content: null, meta: {} };
+        resolve(params: Record<string, string>) {
+          const r = new (class extends ItemResource {
+            async content(ctx: RequestContext): Promise<Repr> {
+              return {
+                content: { id: Number(ctx.params.userId), name: "Alice" },
+                meta: {},
+              };
+            }
+            async delete(ctx: RequestContext): Promise<Repr> {
+              return { content: null, meta: {} };
+            }
+          })();
+          r.params = params;
+          return r;
         }
       })(),
     };
+    resolve(params: Record<string, string>) {
+      const r = new UsersResource(this.table);
+      r.params = params;
+      return r;
+    }
+  }
+  class UsersResource extends CollectionResource {
+    constructor(private table: string) {
+      super();
+    }
     async list(ctx: RequestContext): Promise<Repr> {
       return {
         content: [{ id: 1, name: "Alice", table: this.table }],
@@ -541,7 +584,14 @@ describe("Resource tree", () => {
     }
   }
 
-  class Settings extends SingletonKind {
+  class SettingsKind extends SingletonKind {
+    resolve(params: Record<string, string>) {
+      const r = new SettingsResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class SettingsResource extends SingletonResource {
     async content(ctx: RequestContext): Promise<Repr> {
       return { content: { theme: "dark" }, meta: {} };
     }
@@ -552,10 +602,10 @@ describe("Resource tree", () => {
   }
 
   const app = new Site({
-    users: new Users("users"),
-    settings: new Settings(),
+    users: new UsersKind("users"),
+    settings: new SettingsKind(),
     admin: {
-      users: new Users("admin_users"),
+      users: new UsersKind("admin_users"),
     },
   });
 
@@ -623,29 +673,48 @@ describe("Resource tree", () => {
 
 describe("Deep resource trees", () => {
   it("supports 3+ levels of nesting", () => {
-    class Posts extends CollectionKind {
+    class PostsKind extends CollectionKind {
       children = {
         ":postId": new (class extends ItemKind {
           children = {
             comments: {
               ":commentId": new (class extends ItemKind {
-                async content(ctx: RequestContext): Promise<Repr> {
-                  return {
-                    content: { id: Number(ctx.params.commentId), text: "Nice" },
-                    meta: {},
-                  };
+                resolve(params: Record<string, string>) {
+                  const r = new (class extends ItemResource {
+                    async content(ctx: RequestContext): Promise<Repr> {
+                      return {
+                        content: { id: Number(ctx.params.commentId), text: "Nice" },
+                        meta: {},
+                      };
+                    }
+                  })();
+                  r.params = params;
+                  return r;
                 }
               })(),
             },
           };
-          async content(ctx: RequestContext): Promise<Repr> {
-            return {
-              content: { id: Number(ctx.params.postId), title: "Hello" },
-              meta: {},
-            };
+          resolve(params: Record<string, string>) {
+            const r = new (class extends ItemResource {
+              async content(ctx: RequestContext): Promise<Repr> {
+                return {
+                  content: { id: Number(ctx.params.postId), title: "Hello" },
+                  meta: {},
+                };
+              }
+            })();
+            r.params = params;
+            return r;
           }
         })(),
       };
+      resolve(params: Record<string, string>) {
+        const r = new PostsResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class PostsResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [{ id: 1, title: "Hello" }], meta: {} };
       }
@@ -657,7 +726,7 @@ describe("Deep resource trees", () => {
       }
     }
 
-    const app = new Site({ posts: new Posts() });
+    const app = new Site({ posts: new PostsKind() });
 
     // /posts
     const posts = app.resolve("/posts");
@@ -677,29 +746,48 @@ describe("Deep resource trees", () => {
   });
 
   it("supports multiple parameterized children at the same level", () => {
-    class Users extends CollectionKind {
+    class UsersKind extends CollectionKind {
       children = {
         ":userId": new (class extends ItemKind {
           children = {
             posts: {
               ":postId": new (class extends ItemKind {
-                async content(ctx: RequestContext): Promise<Repr> {
-                  return {
-                    content: {
-                      id: Number(ctx.params.postId),
-                      authorId: Number(ctx.params.userId),
-                    },
-                    meta: {},
-                  };
+                resolve(params: Record<string, string>) {
+                  const r = new (class extends ItemResource {
+                    async content(ctx: RequestContext): Promise<Repr> {
+                      return {
+                        content: {
+                          id: Number(ctx.params.postId),
+                          authorId: Number(ctx.params.userId),
+                        },
+                        meta: {},
+                      };
+                    }
+                  })();
+                  r.params = params;
+                  return r;
                 }
               })(),
             },
           };
-          async content(ctx: RequestContext): Promise<Repr> {
-            return { content: { id: Number(ctx.params.userId) }, meta: {} };
+          resolve(params: Record<string, string>) {
+            const r = new (class extends ItemResource {
+              async content(ctx: RequestContext): Promise<Repr> {
+                return { content: { id: Number(ctx.params.userId) }, meta: {} };
+              }
+            })();
+            r.params = params;
+            return r;
           }
         })(),
       };
+      resolve(params: Record<string, string>) {
+        const r = new UsersResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UsersResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
@@ -708,7 +796,7 @@ describe("Deep resource trees", () => {
       }
     }
 
-    const app = new Site({ users: new Users() });
+    const app = new Site({ users: new UsersKind() });
     const resource = app.resolve("/users/42/posts/7");
     expect(resource).not.toBeNull();
     expect(resource!.params.userId).toBe("42");
@@ -717,20 +805,39 @@ describe("Deep resource trees", () => {
 
   it("supports exact match before parameterized match", () => {
     const NewItem = new (class extends ReadOnlyKind {
-      async content(ctx: RequestContext): Promise<Repr> {
-        return { content: { form: "new-item" }, meta: {} };
+      resolve(params: Record<string, string>) {
+        const r = new (class extends ReadOnlyResource {
+          async content(ctx: RequestContext): Promise<Repr> {
+            return { content: { form: "new-item" }, meta: {} };
+          }
+        })();
+        r.params = params;
+        return r;
       }
     })();
-    class Items extends CollectionKind {
+    class ItemsKind extends CollectionKind {
       children = {
         // "new" is an exact match, ":id" is parameterized
         new: NewItem,
         ":id": new (class extends ItemKind {
-          async content(ctx: RequestContext): Promise<Repr> {
-            return { content: { id: Number(ctx.params.id) }, meta: {} };
+          resolve(params: Record<string, string>) {
+            const r = new (class extends ItemResource {
+              async content(ctx: RequestContext): Promise<Repr> {
+                return { content: { id: Number(ctx.params.id) }, meta: {} };
+              }
+            })();
+            r.params = params;
+            return r;
           }
         })(),
       };
+      resolve(params: Record<string, string>) {
+        const r = new ItemsResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class ItemsResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
@@ -739,7 +846,7 @@ describe("Deep resource trees", () => {
       }
     }
 
-    const app = new Site({ items: new Items() });
+    const app = new Site({ items: new ItemsKind() });
 
     // Exact match
     const newResource = app.resolve("/items/new");
@@ -758,27 +865,46 @@ describe("Deep resource trees", () => {
 
 describe("Trailing slash / child node", () => {
   it("resolves / child on trailing slash", () => {
-    class Files extends CollectionKind {
+    class FilesKind extends CollectionKind {
       children = {
         ":filename": new (class extends ItemKind {
           children = {
             "/": new (class extends CollectionKind {
-              async list(ctx: RequestContext): Promise<Repr> {
-                return { content: [{ name: "nested.txt" }], meta: {} };
-              }
-              async create(ctx: RequestContext): Promise<Repr> {
-                return { content: await ctx.json(), meta: {} };
+              resolve(params: Record<string, string>) {
+                const r = new (class extends CollectionResource {
+                  async list(ctx: RequestContext): Promise<Repr> {
+                    return { content: [{ name: "nested.txt" }], meta: {} };
+                  }
+                  async create(ctx: RequestContext): Promise<Repr> {
+                    return { content: await ctx.json(), meta: {} };
+                  }
+                })();
+                r.params = params;
+                return r;
               }
             })(),
           };
-          async content(ctx: RequestContext): Promise<Repr> {
-            return {
-              content: { name: ctx.params.filename, type: "file" },
-              meta: {},
-            };
+          resolve(params: Record<string, string>) {
+            const r = new (class extends ItemResource {
+              async content(ctx: RequestContext): Promise<Repr> {
+                return {
+                  content: { name: ctx.params.filename, type: "file" },
+                  meta: {},
+                };
+              }
+            })();
+            r.params = params;
+            return r;
           }
         })(),
       };
+      resolve(params: Record<string, string>) {
+        const r = new FilesResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class FilesResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [{ name: "readme.md" }], meta: {} };
       }
@@ -787,7 +913,7 @@ describe("Trailing slash / child node", () => {
       }
     }
 
-    const app = new Site({ files: new Files() });
+    const app = new Site({ files: new FilesKind() });
 
     // Without trailing slash → Item
     const file = app.resolve("/files/readme.md");
@@ -801,7 +927,14 @@ describe("Trailing slash / child node", () => {
   });
 
   it("falls back to same descriptor when no / child exists", () => {
-    class Users extends CollectionKind {
+    class UsersKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new UsersResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UsersResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [{ id: 1 }], meta: {} };
       }
@@ -810,7 +943,7 @@ describe("Trailing slash / child node", () => {
       }
     }
 
-    const app = new Site({ users: new Users() });
+    const app = new Site({ users: new UsersKind() });
 
     // With trailing slash but no "/" child → still resolves to Collection
     const resource = app.resolve("/users/");
@@ -923,7 +1056,14 @@ describe("Content negotiation", () => {
 
 describe("Operation invocation", () => {
   it("invokes list on a Collection", async () => {
-    class Users extends CollectionKind {
+    class UsersKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new UsersResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UsersResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [{ id: 1 }], meta: {} };
       }
@@ -935,7 +1075,7 @@ describe("Operation invocation", () => {
       }
     }
 
-    const app = new Site({ users: new Users() });
+    const app = new Site({ users: new UsersKind() });
     const resource = app.resolve("/users")!;
 
     expect(resource).toBeInstanceOf(CollectionResource);
@@ -949,7 +1089,14 @@ describe("Operation invocation", () => {
   });
 
   it("invokes create on a Collection", async () => {
-    class Users extends CollectionKind {
+    class UsersKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new UsersResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UsersResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
@@ -961,7 +1108,7 @@ describe("Operation invocation", () => {
       }
     }
 
-    const app = new Site({ users: new Users() });
+    const app = new Site({ users: new UsersKind() });
     const resource = app.resolve("/users")!;
 
     expect(resource).toBeInstanceOf(CollectionResource);
@@ -976,13 +1123,20 @@ describe("Operation invocation", () => {
   });
 
   it("invokes content on an Item", async () => {
-    class UserItem extends ItemKind {
+    class UserItemKind extends ItemKind {
+      resolve(params: Record<string, string>) {
+        const r = new UserItemResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UserItemResource extends ItemResource {
       async content(ctx: RequestContext): Promise<Repr> {
         return { content: { id: ctx.params.userId, name: "Alice" }, meta: {} };
       }
     }
 
-    const app = new Site({ user: new UserItem() });
+    const app = new Site({ user: new UserItemKind() });
     const resource = app.resolve("/user")!;
 
     expect(resource).toBeInstanceOf(ItemResource);
@@ -997,7 +1151,14 @@ describe("Operation invocation", () => {
   });
 
   it("invokes invoke on an Action", async () => {
-    class SendEmail extends ActionKind {
+    class SendEmailKind extends ActionKind {
+      resolve(params: Record<string, string>) {
+        const r = new SendEmailResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class SendEmailResource extends ActionResource {
       async invoke(ctx: RequestContext): Promise<Repr> {
         return {
           content: {
@@ -1009,7 +1170,7 @@ describe("Operation invocation", () => {
       }
     }
 
-    const app = new Site({ sendEmail: new SendEmail() });
+    const app = new Site({ sendEmail: new SendEmailKind() });
     const resource = app.resolve("/sendEmail")!;
 
     expect(resource).toBeInstanceOf(ActionResource);
@@ -1027,7 +1188,14 @@ describe("Operation invocation", () => {
   });
 
   it("disallowed operations are not present on the resource", () => {
-    class Users extends CollectionKind {
+    class UsersKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new UsersResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UsersResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
@@ -1036,7 +1204,7 @@ describe("Operation invocation", () => {
       }
     }
 
-    const app = new Site({ users: new Users() });
+    const app = new Site({ users: new UsersKind() });
     const resource = app.resolve("/users")!;
 
     // Collection does not have a "content" operation
@@ -1046,14 +1214,21 @@ describe("Operation invocation", () => {
   });
 
   it("unimplemented operations are undefined", () => {
-    class UserItem extends ItemKind {
+    class UserItemKind extends ItemKind {
+      resolve(params: Record<string, string>) {
+        const r = new UserItemResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UserItemResource extends ItemResource {
       async content(ctx: RequestContext): Promise<Repr> {
         return { content: { id: 1 }, meta: {} };
       }
       // no delete
     }
 
-    const app = new Site({ user: new UserItem() });
+    const app = new Site({ user: new UserItemKind() });
     const resource = app.resolve("/user")!;
 
     expect(resource).toBeInstanceOf(ItemResource);
@@ -1061,7 +1236,14 @@ describe("Operation invocation", () => {
   });
 
   it("supports async handlers", async () => {
-    class Users extends CollectionKind {
+    class UsersKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new UsersResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UsersResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         await new Promise((r) => setTimeout(r, 1));
         return { content: [{ id: 1 }], meta: {} };
@@ -1075,7 +1257,7 @@ describe("Operation invocation", () => {
       }
     }
 
-    const app = new Site({ users: new Users() });
+    const app = new Site({ users: new UsersKind() });
     const resource = app.resolve("/users")!;
 
     expect(resource).toBeInstanceOf(CollectionResource);
@@ -1095,13 +1277,20 @@ describe("Operation invocation", () => {
 
 describe("RequestContext", () => {
   it("handlers can access ctx.params", async () => {
-    class UserItem extends ItemKind {
+    class UserItemKind extends ItemKind {
+      resolve(params: Record<string, string>) {
+        const r = new UserItemResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UserItemResource extends ItemResource {
       async content(ctx: RequestContext): Promise<Repr> {
         return { content: { id: ctx.params.userId, name: "Alice" }, meta: {} };
       }
     }
 
-    const app = new Site({ user: new UserItem() });
+    const app = new Site({ user: new UserItemKind() });
     const resource = app.resolve("/user")!;
 
     expect(resource).toBeInstanceOf(ItemResource);
@@ -1116,7 +1305,14 @@ describe("RequestContext", () => {
   });
 
   it("handlers can access ctx.body", async () => {
-    class Users extends CollectionKind {
+    class UsersKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new UsersResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UsersResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
@@ -1128,7 +1324,7 @@ describe("RequestContext", () => {
       }
     }
 
-    const app = new Site({ users: new Users() });
+    const app = new Site({ users: new UsersKind() });
     const resource = app.resolve("/users")!;
 
     expect(resource).toBeInstanceOf(CollectionResource);
@@ -1143,7 +1339,14 @@ describe("RequestContext", () => {
   });
 
   it("handlers can access ctx.query", async () => {
-    class Users extends CollectionKind {
+    class UsersKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new UsersResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UsersResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [{ id: 1, page: ctx.query.page ?? "1" }], meta: {} };
       }
@@ -1152,7 +1355,7 @@ describe("RequestContext", () => {
       }
     }
 
-    const app = new Site({ users: new Users() });
+    const app = new Site({ users: new UsersKind() });
     const resource = app.resolve("/users")!;
 
     expect(resource).toBeInstanceOf(CollectionResource);
@@ -1167,7 +1370,14 @@ describe("RequestContext", () => {
   });
 
   it("handlers can access ctx.headers", async () => {
-    class Echo extends ActionKind {
+    class EchoKind extends ActionKind {
+      resolve(params: Record<string, string>) {
+        const r = new EchoResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class EchoResource extends ActionResource {
       async invoke(ctx: RequestContext): Promise<Repr> {
         return {
           content: { auth: ctx.headers["authorization"] ?? "none" },
@@ -1176,7 +1386,7 @@ describe("RequestContext", () => {
       }
     }
 
-    const app = new Site({ echo: new Echo() });
+    const app = new Site({ echo: new EchoKind() });
     const resource = app.resolve("/echo")!;
 
     expect(resource).toBeInstanceOf(ActionResource);
@@ -1196,7 +1406,51 @@ describe("RequestContext", () => {
 // ---------------------------------------------------------------------------
 
 describe("HTTP request handling", () => {
-  class Users extends CollectionKind {
+  class UsersKind extends CollectionKind {
+    children = {
+      ":userId": new (class extends ItemKind {
+        resolve(params: Record<string, string>) {
+          const r = new (class extends ItemResource {
+            async content(ctx: RequestContext): Promise<Repr> {
+              return {
+                content: { id: Number(ctx.params.userId), name: "Alice" },
+                meta: {},
+              };
+            }
+            async replace(ctx: RequestContext): Promise<Repr> {
+              return {
+                content: {
+                  id: Number(ctx.params.userId),
+                  ...(await ctx.json<Record<string, unknown>>()),
+                },
+                meta: {},
+              };
+            }
+            async patch(ctx: RequestContext): Promise<Repr> {
+              return {
+                content: {
+                  id: Number(ctx.params.userId),
+                  ...(await ctx.json<Record<string, unknown>>()),
+                },
+                meta: {},
+              };
+            }
+            async delete(ctx: RequestContext): Promise<Repr> {
+              return { content: null, meta: {} };
+            }
+          })();
+          r.params = params;
+          return r;
+        }
+      })(),
+    };
+    resolve(params: Record<string, string>) {
+      const r = new UsersResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class UsersResource extends CollectionResource {
     async list(ctx: RequestContext): Promise<Repr> {
       return { content: [{ id: 1, name: "Alice" }], meta: {} };
     }
@@ -1207,40 +1461,16 @@ describe("HTTP request handling", () => {
         meta: { location: `./${(item as { id: number }).id}` },
       };
     }
-    children = {
-      ":userId": new (class extends ItemKind {
-        async content(ctx: RequestContext): Promise<Repr> {
-          return {
-            content: { id: Number(ctx.params.userId), name: "Alice" },
-            meta: {},
-          };
-        }
-        async replace(ctx: RequestContext): Promise<Repr> {
-          return {
-            content: {
-              id: Number(ctx.params.userId),
-              ...(await ctx.json<Record<string, unknown>>()),
-            },
-            meta: {},
-          };
-        }
-        async patch(ctx: RequestContext): Promise<Repr> {
-          return {
-            content: {
-              id: Number(ctx.params.userId),
-              ...(await ctx.json<Record<string, unknown>>()),
-            },
-            meta: {},
-          };
-        }
-        async delete(ctx: RequestContext): Promise<Repr> {
-          return { content: null, meta: {} };
-        }
-      })(),
-    };
   }
 
-  class Settings extends SingletonKind {
+  class SettingsKind extends SingletonKind {
+    resolve(params: Record<string, string>) {
+      const r = new SettingsResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class SettingsResource extends SingletonResource {
     async content(ctx: RequestContext): Promise<Repr> {
       return { content: { theme: "dark" }, meta: {} };
     }
@@ -1253,13 +1483,27 @@ describe("HTTP request handling", () => {
     }
   }
 
-  class Dashboard extends ReadOnlyKind {
+  class DashboardKind extends ReadOnlyKind {
+    resolve(params: Record<string, string>) {
+      const r = new DashboardResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class DashboardResource extends ReadOnlyResource {
     async content(ctx: RequestContext): Promise<Repr> {
       return { content: { count: 42, active: true }, meta: {} };
     }
   }
 
-  class CalculateTax extends ActionKind {
+  class CalculateTaxKind extends ActionKind {
+    resolve(params: Record<string, string>) {
+      const r = new CalculateTaxResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class CalculateTaxResource extends ActionResource {
     async invoke(ctx: RequestContext): Promise<Repr> {
       return {
         content: { tax: (await ctx.json<{ amount: number }>()).amount * 0.1 },
@@ -1269,11 +1513,11 @@ describe("HTTP request handling", () => {
   }
 
   const app = new Site({
-    users: new Users(),
-    settings: new Settings(),
-    dashboard: new Dashboard(),
+    users: new UsersKind(),
+    settings: new SettingsKind(),
+    dashboard: new DashboardKind(),
     actions: {
-      calculateTax: new CalculateTax(),
+      calculateTax: new CalculateTaxKind(),
     },
   });
 
@@ -1499,7 +1743,14 @@ describe("HTTP request handling", () => {
   });
 
   it("handles handler errors with 500", async () => {
-    class Broken extends CollectionKind {
+    class BrokenKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new BrokenResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class BrokenResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         throw new Error("DB connection failed");
       }
@@ -1508,7 +1759,7 @@ describe("HTTP request handling", () => {
       }
     }
 
-    const brokenApp = new Site({ broken: new Broken() });
+    const brokenApp = new Site({ broken: new BrokenKind() });
     const response = await brokenApp.handleRequest({
       method: "GET",
       path: "/broken",
@@ -1519,7 +1770,14 @@ describe("HTTP request handling", () => {
   });
 
   it("handles non-Error throws with 500", async () => {
-    class Broken extends CollectionKind {
+    class BrokenKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new BrokenResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class BrokenResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         throw "string error";
       }
@@ -1528,7 +1786,7 @@ describe("HTTP request handling", () => {
       }
     }
 
-    const brokenApp = new Site({ broken: new Broken() });
+    const brokenApp = new Site({ broken: new BrokenKind() });
     const response = await brokenApp.handleRequest({
       method: "GET",
       path: "/broken",
@@ -1538,7 +1796,14 @@ describe("HTTP request handling", () => {
   });
 
   it("handles async handler errors", async () => {
-    class Broken extends CollectionKind {
+    class BrokenKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new BrokenResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class BrokenResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         throw new Error("Async fail");
       }
@@ -1547,7 +1812,7 @@ describe("HTTP request handling", () => {
       }
     }
 
-    const brokenApp = new Site({ broken: new Broken() });
+    const brokenApp = new Site({ broken: new BrokenKind() });
     const response = await brokenApp.handleRequest({
       method: "GET",
       path: "/broken",
@@ -1557,7 +1822,14 @@ describe("HTTP request handling", () => {
   });
 
   it("passes headers in RequestContext", async () => {
-    class Echo extends ActionKind {
+    class EchoKind extends ActionKind {
+      resolve(params: Record<string, string>) {
+        const r = new EchoResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class EchoResource extends ActionResource {
       async invoke(ctx: RequestContext): Promise<Repr> {
         return {
           content: { auth: ctx.headers["authorization"] ?? "none" },
@@ -1566,7 +1838,7 @@ describe("HTTP request handling", () => {
       }
     }
 
-    const echoApp = new Site({ echo: new Echo() });
+    const echoApp = new Site({ echo: new EchoKind() });
     const response = await echoApp.handleRequest({
       method: "POST",
       path: "/echo",
@@ -1585,7 +1857,14 @@ describe("HTTP request handling", () => {
 
 describe("resolveResource", () => {
   it("resolves root descriptor with empty path", () => {
-    class TestCollection extends CollectionKind {
+    class TestCollectionKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new TestCollectionResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class TestCollectionResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
@@ -1594,31 +1873,52 @@ describe("resolveResource", () => {
       }
     }
 
-    const result = resolveResource(new TestCollection(), "");
+    const result = resolveResource(new TestCollectionKind(), []);
     expect(result).not.toBeNull();
     expect(result).toBeInstanceOf(CollectionResource);
   });
 
   it("returns null when no children and path has segments", () => {
-    class TestReadOnly extends ReadOnlyKind {
+    class TestReadOnlyKind extends ReadOnlyKind {
+      children = {};
+      resolve(params: Record<string, string>) {
+        const r = new TestReadOnlyResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class TestReadOnlyResource extends ReadOnlyResource {
       async content(ctx: RequestContext): Promise<Repr> {
         return { content: { value: 1 }, meta: {} };
       }
     }
 
-    const result = resolveResource(new TestReadOnly(), "something");
+    const result = resolveResource(new TestReadOnlyKind(), ["something"]);
     expect(result).toBeNull();
   });
 
   it("resolves children with exact match", () => {
-    class TestCollection extends CollectionKind {
+    class TestCollectionKind extends CollectionKind {
       children = {
         special: new (class extends ReadOnlyKind {
-          async content(ctx: RequestContext): Promise<Repr> {
-            return { content: { special: true }, meta: {} };
+          resolve(params: Record<string, string>) {
+            const r = new (class extends ReadOnlyResource {
+              async content(ctx: RequestContext): Promise<Repr> {
+                return { content: { special: true }, meta: {} };
+              }
+            })();
+            r.params = params;
+            return r;
           }
         })(),
       };
+      resolve(params: Record<string, string>) {
+        const r = new TestCollectionResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class TestCollectionResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
@@ -1627,7 +1927,7 @@ describe("resolveResource", () => {
       }
     }
 
-    const result = resolveResource(new TestCollection(), "special");
+    const result = resolveResource(new TestCollectionKind(), ["special"]);
     expect(result).not.toBeNull();
     expect(result).toBeInstanceOf(ReadOnlyResource);
   });
@@ -1639,57 +1939,44 @@ describe("resolveResource", () => {
 
 describe("Full site integration", () => {
   // Simulating a realistic site structure
-  class Articles extends CollectionKind {
+  class ArticlesKind extends CollectionKind {
     children = {
       ":articleId": new (class extends ItemKind {
         children = {
           comments: {
             ":commentId": new (class extends ItemKind {
-              async content(ctx: RequestContext): Promise<Repr> {
-                return {
-                  content: {
-                    id: Number(ctx.params.commentId),
-                    text: "Great article!",
-                  },
-                  meta: {},
-                };
+              resolve(params: Record<string, string>) {
+                const r = new (class extends ItemResource {
+                  async content(ctx: RequestContext): Promise<Repr> {
+                    return {
+                      content: {
+                        id: Number(ctx.params.commentId),
+                        text: "Great article!",
+                      },
+                      meta: {},
+                    };
+                  }
+                })();
+                r.params = params;
+                return r;
               }
             })(),
           },
         };
-        async content(ctx: RequestContext): Promise<Repr> {
-          return {
-            content: {
-              id: Number(ctx.params.articleId),
-              title: "First Post",
-              authorId: 1,
-            },
-            meta: {},
-          };
-        }
-        async replace(ctx: RequestContext): Promise<Repr> {
-          return {
-            content: {
-              id: Number(ctx.params.articleId),
-              ...(await ctx.json<Record<string, unknown>>()),
-            },
-            meta: {},
-          };
-        }
-        async patch(ctx: RequestContext): Promise<Repr> {
-          return {
-            content: {
-              id: Number(ctx.params.articleId),
-              ...(await ctx.json<Record<string, unknown>>()),
-            },
-            meta: {},
-          };
-        }
-        async delete(ctx: RequestContext): Promise<Repr> {
-          return { content: null, meta: {} };
+        resolve(params: Record<string, string>) {
+          const r = new ArticleItemResource();
+          r.params = params;
+          return r;
         }
       })(),
     };
+    resolve(params: Record<string, string>) {
+      const r = new ArticlesResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class ArticlesResource extends CollectionResource {
     async list(ctx: RequestContext): Promise<Repr> {
       return {
         content: [
@@ -1706,8 +1993,48 @@ describe("Full site integration", () => {
       };
     }
   }
+  class ArticleItemResource extends ItemResource {
+    async content(ctx: RequestContext): Promise<Repr> {
+      return {
+        content: {
+          id: Number(ctx.params.articleId),
+          title: "First Post",
+          authorId: 1,
+        },
+        meta: {},
+      };
+    }
+    async replace(ctx: RequestContext): Promise<Repr> {
+      return {
+        content: {
+          id: Number(ctx.params.articleId),
+          ...(await ctx.json<Record<string, unknown>>()),
+        },
+        meta: {},
+      };
+    }
+    async patch(ctx: RequestContext): Promise<Repr> {
+      return {
+        content: {
+          id: Number(ctx.params.articleId),
+          ...(await ctx.json<Record<string, unknown>>()),
+        },
+        meta: {},
+      };
+    }
+    async delete(ctx: RequestContext): Promise<Repr> {
+      return { content: null, meta: {} };
+    }
+  }
 
-  class Profile extends SingletonKind {
+  class ProfileKind extends SingletonKind {
+    resolve(params: Record<string, string>) {
+      const r = new ProfileResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class ProfileResource extends SingletonResource {
     async content(ctx: RequestContext): Promise<Repr> {
       return { content: { name: "Alice", bio: "Developer" }, meta: {} };
     }
@@ -1722,13 +2049,27 @@ describe("Full site integration", () => {
     }
   }
 
-  class Stats extends ReadOnlyKind {
+  class StatsKind extends ReadOnlyKind {
+    resolve(params: Record<string, string>) {
+      const r = new StatsResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class StatsResource extends ReadOnlyResource {
     async content(ctx: RequestContext): Promise<Repr> {
       return { content: { views: 1000, likes: 42 }, meta: {} };
     }
   }
 
-  class SendNotification extends ActionKind {
+  class SendNotificationKind extends ActionKind {
+    resolve(params: Record<string, string>) {
+      const r = new SendNotificationResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class SendNotificationResource extends ActionResource {
     async invoke(ctx: RequestContext): Promise<Repr> {
       return {
         content: { sent: true, to: (await ctx.json<{ to: string }>()).to },
@@ -1738,14 +2079,14 @@ describe("Full site integration", () => {
   }
 
   const app = new Site({
-    articles: new Articles(),
-    profile: new Profile(),
-    stats: new Stats(),
+    articles: new ArticlesKind(),
+    profile: new ProfileKind(),
+    stats: new StatsKind(),
     actions: {
-      sendNotification: new SendNotification(),
+      sendNotification: new SendNotificationKind(),
     },
     admin: {
-      articles: new Articles(),
+      articles: new ArticlesKind(),
     },
   });
 
@@ -2016,7 +2357,14 @@ describe("Transformer registry", () => {
 });
 
 describe("Transformer pipeline", () => {
-  class Users extends CollectionKind {
+  class UsersKind extends CollectionKind {
+    resolve(params: Record<string, string>) {
+      const r = new UsersResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class UsersResource extends CollectionResource {
     async list(ctx: RequestContext): Promise<Repr> {
       return {
         content: [
@@ -2034,7 +2382,7 @@ describe("Transformer pipeline", () => {
     }
   }
 
-  const app = new Site({ users: new Users() });
+  const app = new Site({ users: new UsersKind() });
 
   it("Value → JSON transformation", async () => {
     const resource = app.resolve("/users")!;
@@ -2237,7 +2585,14 @@ describe("Transformer + HTTP integration", () => {
       },
     };
 
-    class Users extends CollectionKind {
+    class UsersKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new UsersResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UsersResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [{ id: 1, name: "Alice" }], meta: {} };
       }
@@ -2246,7 +2601,7 @@ describe("Transformer + HTTP integration", () => {
       }
     }
 
-    const app = new Site({ users: new Users() });
+    const app = new Site({ users: new UsersKind() });
     app.registry.register(csvTransformer);
 
     const response = await app.handleRequest({
@@ -2277,7 +2632,14 @@ describe("Transformer + HTTP integration", () => {
       },
     };
 
-    class Users extends CollectionKind {
+    class UsersKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new UsersResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UsersResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [{ id: 1 }], meta: {} };
       }
@@ -2286,7 +2648,7 @@ describe("Transformer + HTTP integration", () => {
       }
     }
 
-    const app = new Site({ users: new Users() });
+    const app = new Site({ users: new UsersKind() });
     app.registry.register(jsonToXml);
 
     const response = await app.handleRequest({
@@ -2310,7 +2672,7 @@ describe("Transformer + HTTP integration", () => {
 
 describe("getDescriptorSchema", () => {
   it("returns the descriptor schema when set", () => {
-    class TestCollection extends CollectionKind {
+    class TestCollection extends CollectionResource {
       schema: Schema = { type: "array", items: { type: "object" } };
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
@@ -2328,7 +2690,7 @@ describe("getDescriptorSchema", () => {
   });
 
   it("returns anySchema when no schema set", () => {
-    class TestReadOnly extends ReadOnlyKind {
+    class TestReadOnly extends ReadOnlyResource {
       async content(ctx: RequestContext): Promise<Repr> {
         return { content: { value: 1 }, meta: {} };
       }
@@ -2370,28 +2732,31 @@ describe("Auth", () => {
   });
 
   describe("matchAuthRule", () => {
-    it("returns undefined when no rule matches", () => {
+    it("returns no-match when no rule matches", () => {
       const rules: AuthRule[] = [{ match: "/users/**" }];
-      expect(matchAuthRule("/public", rules)).toBeUndefined();
+      expect(matchAuthRule("/public", rules)).toEqual({ kind: "no-match" });
     });
 
-    it("returns undefined for first matching rule (uses verifier)", () => {
+    it("returns use-verifier for first matching rule (uses verifier)", () => {
       const rules: AuthRule[] = [{ match: "/users/**" }];
-      // undefined = use the verifier (default auth)
-      expect(matchAuthRule("/users/42", rules)).toBeUndefined();
+      // use-verifier = use the default verifier (authConfig.verifier)
+      expect(matchAuthRule("/users/42", rules)).toEqual({ kind: "use-verifier" });
     });
 
     it("returns explicit auth name from rule", () => {
       const rules: AuthRule[] = [{ match: "/admin/**", auth: "admin-auth" }];
-      expect(matchAuthRule("/admin/settings", rules)).toBe("admin-auth");
+      expect(matchAuthRule("/admin/settings", rules)).toEqual({
+        kind: "named",
+        name: "admin-auth",
+      });
     });
 
-    it("returns null for explicitly disabled auth", () => {
+    it("returns no-auth for explicitly disabled auth", () => {
       const rules: AuthRule[] = [
         { match: "/public/**", auth: null },
         { match: "/**" },
       ];
-      expect(matchAuthRule("/public/page", rules)).toBeNull();
+      expect(matchAuthRule("/public/page", rules)).toEqual({ kind: "no-auth" });
     });
 
     it("first matching rule wins", () => {
@@ -2399,59 +2764,23 @@ describe("Auth", () => {
         { match: "/public/**", auth: null },
         { match: "/**" },
       ];
-      // /public/page matches first rule → null (no auth)
-      expect(matchAuthRule("/public/page", rules)).toBeNull();
-      // /admin/page matches second rule → undefined (use verifier)
-      expect(matchAuthRule("/admin/page", rules)).toBeUndefined();
-    });
-  });
-
-  describe("Proxy resolves with sub-paths", () => {
-    it("resolve returns Proxy for any sub-path under the prefix", () => {
-      class Proxy2 extends ProxyKind {
-        target(path: string): URL {
-          return new URL(path, "https://example.test");
-        }
-      }
-      const app = new Site({ proxy: new Proxy2() });
-
-      const r1 = app.resolve("/proxy");
-      expect(r1).toBeInstanceOf(ProxyResource);
-      expect(r1?.path).toBe("/proxy");
-
-      const r2 = app.resolve("/proxy/posts/1");
-      expect(r2).toBeInstanceOf(ProxyResource);
-      expect(r2?.path).toBe("/proxy");
-
-      const r3 = app.resolve("/proxy/a/b/c/d");
-      expect(r3).toBeInstanceOf(ProxyResource);
-    });
-
-    it("Proxy handler receives the full request path in target", async () => {
-      let capturedPath = "";
-      class P extends ProxyKind {
-        target(path: string): URL {
-          capturedPath = path;
-          // Throw to short-circuit fetch — we only care about what `path` was passed in
-          throw new Error("STOP_FETCH");
-        }
-      }
-      const app = new Site({ p: new P() });
-      try {
-        await app.handleRequest({
-          method: "GET",
-          path: "/p/posts/1",
-        });
-      } catch (e) {
-        // ignore — we only need the captured path
-      }
-      expect(capturedPath).toBe("/p/posts/1");
+      // /public/page matches first rule → no-auth (no auth)
+      expect(matchAuthRule("/public/page", rules)).toEqual({ kind: "no-auth" });
+      // /admin/page matches second rule → use-verifier (use verifier)
+      expect(matchAuthRule("/admin/page", rules)).toEqual({ kind: "use-verifier" });
     });
   });
 
   describe("Auth integration with handleRequest", () => {
     it("blocks unauthenticated requests to protected routes", async () => {
-      class JwtAuth extends ActionKind {
+      class JwtAuthKind extends ActionKind {
+        resolve(params: Record<string, string>) {
+          const r = new JwtAuthResource();
+          r.params = params;
+          return r;
+        }
+      }
+      class JwtAuthResource extends ActionResource {
         async invoke(ctx: RequestContext): Promise<Repr> {
           const auth = ctx.headers["authorization"];
           if (!auth) {
@@ -2464,7 +2793,14 @@ describe("Auth", () => {
         }
       }
 
-      class Users extends CollectionKind {
+      class UsersKind extends CollectionKind {
+        resolve(params: Record<string, string>) {
+          const r = new UsersResource();
+          r.params = params;
+          return r;
+        }
+      }
+      class UsersResource extends CollectionResource {
         async list(ctx: RequestContext): Promise<Repr> {
           return { content: [{ id: 1, name: "Alice" }], meta: {} };
         }
@@ -2475,8 +2811,8 @@ describe("Auth", () => {
 
       const app = new Site(
         {
-          "jwt-auth": new JwtAuth(),
-          users: new Users(),
+          "jwt-auth": new JwtAuthKind(),
+          users: new UsersKind(),
         },
         {
           auth: {
@@ -2496,7 +2832,14 @@ describe("Auth", () => {
     });
 
     it("allows authenticated requests to protected routes", async () => {
-      class JwtAuth extends ActionKind {
+      class JwtAuthKind extends ActionKind {
+        resolve(params: Record<string, string>) {
+          const r = new JwtAuthResource();
+          r.params = params;
+          return r;
+        }
+      }
+      class JwtAuthResource extends ActionResource {
         async invoke(ctx: RequestContext): Promise<Repr> {
           const auth = ctx.headers["authorization"];
           if (!auth) {
@@ -2509,7 +2852,14 @@ describe("Auth", () => {
         }
       }
 
-      class Users extends CollectionKind {
+      class UsersKind extends CollectionKind {
+        resolve(params: Record<string, string>) {
+          const r = new UsersResource();
+          r.params = params;
+          return r;
+        }
+      }
+      class UsersResource extends CollectionResource {
         async list(ctx: RequestContext): Promise<Repr> {
           return { content: [{ id: 1, name: "Alice" }], meta: {} };
         }
@@ -2520,8 +2870,8 @@ describe("Auth", () => {
 
       const app = new Site(
         {
-          "jwt-auth": new JwtAuth(),
-          users: new Users(),
+          "jwt-auth": new JwtAuthKind(),
+          users: new UsersKind(),
         },
         {
           auth: {
@@ -2542,19 +2892,40 @@ describe("Auth", () => {
     });
 
     it("allows access to routes with auth: null", async () => {
-      class JwtAuth extends ActionKind {
+      class JwtAuthKind extends ActionKind {
+        resolve(params: Record<string, string>) {
+          const r = new JwtAuthResource();
+          r.params = params;
+          return r;
+        }
+      }
+      class JwtAuthResource extends ActionResource {
         async invoke(ctx: RequestContext): Promise<Repr> {
           throw new HttpError(401, "Unauthorized");
         }
       }
 
-      class Public extends ReadOnlyKind {
+      class PublicKind extends ReadOnlyKind {
+        resolve(params: Record<string, string>) {
+          const r = new PublicResource();
+          r.params = params;
+          return r;
+        }
+      }
+      class PublicResource extends ReadOnlyResource {
         async content(ctx: RequestContext): Promise<Repr> {
           return { content: { message: "hello" }, meta: {} };
         }
       }
 
-      class Users extends CollectionKind {
+      class UsersKind extends CollectionKind {
+        resolve(params: Record<string, string>) {
+          const r = new UsersResource();
+          r.params = params;
+          return r;
+        }
+      }
+      class UsersResource extends CollectionResource {
         async list(ctx: RequestContext): Promise<Repr> {
           return { content: [{ id: 1 }], meta: {} };
         }
@@ -2565,9 +2936,9 @@ describe("Auth", () => {
 
       const app = new Site(
         {
-          "jwt-auth": new JwtAuth(),
-          public: new Public(),
-          users: new Users(),
+          "jwt-auth": new JwtAuthKind(),
+          public: new PublicKind(),
+          users: new UsersKind(),
         },
         {
           auth: {
@@ -2604,7 +2975,33 @@ describe("Auth", () => {
 // ---------------------------------------------------------------------------
 
 describe("Edge runtime adapter", () => {
-  class Users extends CollectionKind {
+  class UsersKind extends CollectionKind {
+    children = {
+      ":userId": new (class extends ItemKind {
+        resolve(params: Record<string, string>) {
+          const r = new (class extends ItemResource {
+            async content(ctx: RequestContext): Promise<Repr> {
+              return {
+                content: { id: Number(ctx.params.userId), name: "Alice" },
+                meta: {},
+              };
+            }
+            async delete(ctx: RequestContext): Promise<Repr> {
+              return { content: null, meta: {} };
+            }
+          })();
+          r.params = params;
+          return r;
+        }
+      })(),
+    };
+    resolve(params: Record<string, string>) {
+      const r = new UsersResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class UsersResource extends CollectionResource {
     async list(ctx: RequestContext): Promise<Repr> {
       return { content: [{ id: 1, name: "Alice" }], meta: {} };
     }
@@ -2615,30 +3012,24 @@ describe("Edge runtime adapter", () => {
         meta: { location: `./${(item as { id: number }).id}` },
       };
     }
-    children = {
-      ":userId": new (class extends ItemKind {
-        async content(ctx: RequestContext): Promise<Repr> {
-          return {
-            content: { id: Number(ctx.params.userId), name: "Alice" },
-            meta: {},
-          };
-        }
-        async delete(ctx: RequestContext): Promise<Repr> {
-          return { content: null, meta: {} };
-        }
-      })(),
-    };
   }
 
-  class Settings extends SingletonKind {
+  class SettingsKind extends SingletonKind {
+    resolve(params: Record<string, string>) {
+      const r = new SettingsResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class SettingsResource extends SingletonResource {
     async content(ctx: RequestContext): Promise<Repr> {
       return { content: { theme: "dark" }, meta: {} };
     }
   }
 
   const app = new Site({
-    users: new Users(),
-    settings: new Settings(),
+    users: new UsersKind(),
+    settings: new SettingsKind(),
   });
 
   it("handleWebRequest converts Web Request to Response", async () => {
@@ -2753,7 +3144,14 @@ describe("Edge runtime adapter", () => {
 
 describe("new Site() return type", () => {
   it("returns definition, options, registry, and resolve", () => {
-    class Users extends CollectionKind {
+    class UsersKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new UsersResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UsersResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
@@ -2762,7 +3160,7 @@ describe("new Site() return type", () => {
       }
     }
 
-    const app = new Site({ users: new Users() });
+    const app = new Site({ users: new UsersKind() });
     expect(app.definition).toBeDefined();
     expect(app.options).toBeDefined();
     expect(app.registry).toBeInstanceOf(TransformerRegistry);
@@ -2770,13 +3168,27 @@ describe("new Site() return type", () => {
   });
 
   it("accepts SiteOptions with auth config", () => {
-    class JwtAuth extends ActionKind {
+    class JwtAuthKind extends ActionKind {
+      resolve(params: Record<string, string>) {
+        const r = new JwtAuthResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class JwtAuthResource extends ActionResource {
       async invoke(ctx: RequestContext): Promise<Repr> {
         return { content: { subject: "test" } as Identity, meta: {} };
       }
     }
 
-    class Users extends CollectionKind {
+    class UsersKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new UsersResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class UsersResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
@@ -2786,7 +3198,7 @@ describe("new Site() return type", () => {
     }
 
     const app = new Site(
-      { "jwt-auth": new JwtAuth(), users: new Users() },
+      { "jwt-auth": new JwtAuthKind(), users: new UsersKind() },
       {
         auth: {
           verifier: "jwt-auth",

@@ -17,7 +17,8 @@
     "@takanashi/rikka-dom": "workspace:*",
     "@takanashi/rikka-elements": "workspace:*",
     "@takanashi/rikka-signal": "workspace:*",
-    "@takanashi/rikka-site": "workspace:*"
+    "@takanashi/rikka-site": "workspace:*",
+    "@takanashi/rikka-resource-filesystem": "workspace:*"
   },
   "devDependencies": {
     "@rstest/core": "catalog:",

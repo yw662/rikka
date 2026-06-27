@@ -2,7 +2,7 @@
  * Node server entry point — `src/index.ts`.
  *
  * Verifies the minimal Node.js server starts and serves all 6 Kinds +
- * auth + proxy + 404 + CORS preflight. This is the entry users run with
+ * auth + 404 + CORS preflight. This is the entry users run with
  * `pnpm dev` / `pnpm start` (or `node --import tsx src/index.ts`) — no
  * wrangler, no edge runtime.
  *
@@ -29,7 +29,7 @@ describe("src/index.ts (Node entry)", () => {
     }
   });
 
-  it("starts a server and serves all six Kinds + auth + proxy + 404", async () => {
+  it("starts a server and serves all six Kinds + auth + 404", async () => {
     const { spawn } = await import("node:child_process");
     const tsxBin = `${process.cwd()}/node_modules/.bin/tsx`;
 
@@ -127,18 +127,11 @@ describe("src/index.ts (Node entry)", () => {
     const results = JSON.parse(searchWithAuth.body);
     expect(results.length).toBeGreaterThan(0);
 
-    // 7. Proxy — verify it forwards to upstream
-    const proxy = await probe(port, { path: "/proxy/posts/1" });
-    expect(proxy.status).toBe(200);
-    const upstream = JSON.parse(proxy.body);
-    expect(upstream.id).toBe(1);
-    expect(upstream.userId).toBe(1);
-
-    // 8. 404 for unknown path
+    // 7. 404 for unknown path
     const nf = await probe(port, { path: "/no-such-thing" });
     expect(nf.status).toBe(404);
 
-    // 9. CORS preflight
+    // 8. CORS preflight
     const pre = await probe(port, {
       method: "OPTIONS",
       path: "/articles",

@@ -2,17 +2,20 @@
  * Blog Site — resource definitions.
  *
  * Shared between all platform adapters.
- * Demonstrates all 6 Kinds, Schema, Auth, Transformers, and HttpError.
+ * Demonstrates all 6 Resource kinds, Schema, Auth, Transformers, and HttpError.
  */
 
 import {
   CollectionKind,
+  CollectionResource,
   ItemKind,
+  ItemResource,
   SingletonKind,
+  SingletonResource,
   ReadOnlyKind,
+  ReadOnlyResource,
   ActionKind,
-  ProxyKind,
-  StaticKind,
+  ActionResource,
   Site,
   HttpError,
   paginate,
@@ -22,6 +25,7 @@ import {
   type Schema,
   type StaticResolver,
 } from "@takanashi/rikka-site";
+import { FileSystemKind } from "@takanashi/rikka-resource-filesystem";
 import { elements } from "./elements.js";
 
 // ---------------------------------------------------------------------------
@@ -234,9 +238,19 @@ const textTransformer: Transformer = {
 // Resource definitions
 // ---------------------------------------------------------------------------
 
-class SiteRoot extends ReadOnlyKind {
-  schema: Schema = { type: "object" };
+class SiteRootKind extends ReadOnlyKind {
   element = "blog-home";
+
+  resolve(params: Record<string, string>) {
+    const r = new SiteRootResource();
+    r.params = params;
+    r.element = this.element;
+    return r;
+  }
+}
+
+class SiteRootResource extends ReadOnlyResource {
+  schema: Schema = { type: "object" };
 
   async content(_ctx: RequestContext): Promise<Repr> {
     return {
@@ -265,7 +279,15 @@ class SiteRoot extends ReadOnlyKind {
   }
 }
 
-class ArticleComment extends ItemKind {
+class ArticleCommentKind extends ItemKind {
+  resolve(params: Record<string, string>) {
+    const r = new ArticleCommentResource();
+    r.params = params;
+    return r;
+  }
+}
+
+class ArticleCommentResource extends ItemResource {
   schema: Schema = { type: "object" };
 
   async content(ctx: RequestContext): Promise<Repr> {
@@ -285,7 +307,19 @@ class ArticleComment extends ItemKind {
   }
 }
 
-class ArticleComments extends CollectionKind {
+class ArticleCommentsKind extends CollectionKind {
+  children = {
+    ":commentId": new ArticleCommentKind(),
+  };
+
+  resolve(params: Record<string, string>) {
+    const r = new ArticleCommentsResource();
+    r.params = params;
+    return r;
+  }
+}
+
+class ArticleCommentsResource extends CollectionResource {
   schema: Schema = { type: "array", items: { type: "object" } };
 
   async list(_ctx: RequestContext): Promise<Repr> {
@@ -309,21 +343,29 @@ class ArticleComments extends CollectionKind {
     comments.push(comment);
     return { content: comment, meta: { location: `./${comment.id}` } };
   }
-
-  children = {
-    ":commentId": new ArticleComment(),
-  };
 }
 
-class ArticleItem extends ItemKind {
-  schema: Schema = { type: "object" };
+class ArticleItemKind extends ItemKind {
   context = "https://rikka.dev/schemas/article";
   jsonldType = "Article";
   element = "blog-article-detail";
 
   children = {
-    comments: new ArticleComments(),
+    comments: new ArticleCommentsKind(),
   };
+
+  resolve(params: Record<string, string>) {
+    const r = new ArticleItemResource();
+    r.params = params;
+    r.context = this.context;
+    r.jsonldType = this.jsonldType;
+    r.element = this.element;
+    return r;
+  }
+}
+
+class ArticleItemResource extends ItemResource {
+  schema: Schema = { type: "object" };
 
   async content(ctx: RequestContext): Promise<Repr> {
     const id = Number(ctx.params.articleId);
@@ -398,15 +440,27 @@ class ArticleItem extends ItemKind {
   }
 }
 
-class Articles extends CollectionKind {
-  schema: Schema = { type: "array", items: { type: "object" } };
+class ArticlesKind extends CollectionKind {
   context = "https://rikka.dev/schemas/article";
   jsonldType = "ArticleCollection";
   element = "blog-article-list";
 
   children = {
-    ":articleId": new ArticleItem(),
+    ":articleId": new ArticleItemKind(),
   };
+
+  resolve(params: Record<string, string>) {
+    const r = new ArticlesResource();
+    r.params = params;
+    r.context = this.context;
+    r.jsonldType = this.jsonldType;
+    r.element = this.element;
+    return r;
+  }
+}
+
+class ArticlesResource extends CollectionResource {
+  schema: Schema = { type: "array", items: { type: "object" } };
 
   async list(ctx: RequestContext): Promise<Repr> {
     const enriched = articles.map((a) => ({
@@ -434,7 +488,15 @@ class Articles extends CollectionKind {
   }
 }
 
-class UserItem extends ItemKind {
+class UserItemKind extends ItemKind {
+  resolve(params: Record<string, string>) {
+    const r = new UserItemResource();
+    r.params = params;
+    return r;
+  }
+}
+
+class UserItemResource extends ItemResource {
   schema: Schema = { type: "object" };
 
   async content(ctx: RequestContext): Promise<Repr> {
@@ -445,13 +507,23 @@ class UserItem extends ItemKind {
   }
 }
 
-class Users extends CollectionKind {
-  schema: Schema = { type: "array", items: { type: "object" } };
+class UsersKind extends CollectionKind {
   element = "blog-user-list";
 
   children = {
-    ":userId": new UserItem(),
+    ":userId": new UserItemKind(),
   };
+
+  resolve(params: Record<string, string>) {
+    const r = new UsersResource();
+    r.params = params;
+    r.element = this.element;
+    return r;
+  }
+}
+
+class UsersResource extends CollectionResource {
+  schema: Schema = { type: "array", items: { type: "object" } };
 
   async list(_ctx: RequestContext): Promise<Repr> {
     return { content: users, meta: {} };
@@ -470,9 +542,19 @@ class Users extends CollectionKind {
   }
 }
 
-class SiteSettings extends SingletonKind {
-  schema: Schema = { type: "object" };
+class SiteSettingsKind extends SingletonKind {
   element = "blog-settings";
+
+  resolve(params: Record<string, string>) {
+    const r = new SiteSettingsResource();
+    r.params = params;
+    r.element = this.element;
+    return r;
+  }
+}
+
+class SiteSettingsResource extends SingletonResource {
+  schema: Schema = { type: "object" };
 
   async content(_ctx: RequestContext): Promise<Repr> {
     return { content: settings, meta: {} };
@@ -497,9 +579,19 @@ class SiteSettings extends SingletonKind {
   }
 }
 
-class Dashboard extends ReadOnlyKind {
-  schema: Schema = { type: "object" };
+class DashboardKind extends ReadOnlyKind {
   element = "blog-dashboard";
+
+  resolve(params: Record<string, string>) {
+    const r = new DashboardResource();
+    r.params = params;
+    r.element = this.element;
+    return r;
+  }
+}
+
+class DashboardResource extends ReadOnlyResource {
+  schema: Schema = { type: "object" };
 
   async content(_ctx: RequestContext): Promise<Repr> {
     return {
@@ -514,7 +606,15 @@ class Dashboard extends ReadOnlyKind {
   }
 }
 
-class Search extends ActionKind {
+class SearchKind extends ActionKind {
+  resolve(params: Record<string, string>) {
+    const r = new SearchResource();
+    r.params = params;
+    return r;
+  }
+}
+
+class SearchResource extends ActionResource {
   schema: Schema = { type: "object" };
 
   async invoke(ctx: RequestContext): Promise<Repr> {
@@ -530,7 +630,15 @@ class Search extends ActionKind {
   }
 }
 
-class AuthVerifier extends ActionKind {
+class AuthVerifierKind extends ActionKind {
+  resolve(params: Record<string, string>) {
+    const r = new AuthVerifierResource();
+    r.params = params;
+    return r;
+  }
+}
+
+class AuthVerifierResource extends ActionResource {
   async invoke(ctx: RequestContext): Promise<Repr> {
     const authHeader = ctx.headers["authorization"];
     if (!authHeader?.startsWith("Bearer ")) {
@@ -545,14 +653,6 @@ class AuthVerifier extends ActionKind {
     const identity = tokenMap[token];
     if (!identity) throw new HttpError(401, "Invalid token");
     return { content: identity, meta: {} };
-  }
-}
-
-class ExternalAPI extends ProxyKind {
-  target(path: string): URL {
-    // Strip the /proxy mount prefix to get the upstream path
-    const upstream = path.replace(/^\/proxy/, "") || "/";
-    return new URL(`https://jsonplaceholder.typicode.com${upstream}`);
   }
 }
 
@@ -571,22 +671,21 @@ const isNode = import.meta.url.startsWith("file:");
 export function createApp(options: BlogAppOptions = {}) {
   const app = new Site(
     {
-      "": new SiteRoot(),
-      articles: new Articles(),
-      users: new Users(),
-      settings: new SiteSettings(),
-      dashboard: new Dashboard(),
+      "": new SiteRootKind(),
+      articles: new ArticlesKind(),
+      users: new UsersKind(),
+      settings: new SiteSettingsKind(),
+      dashboard: new DashboardKind(),
       actions: {
-        search: new Search(),
+        search: new SearchKind(),
       },
-      auth: new AuthVerifier(),
-      proxy: new ExternalAPI(),
+      auth: new AuthVerifierKind(),
       static: options.staticResolver
-        ? new StaticKind({ resolver: options.staticResolver })
-        : new StaticKind({ root: "./public" }),
+        ? new FileSystemKind({ resolver: options.staticResolver })
+        : new FileSystemKind({ root: "./public" }),
       admin: {
-        articles: new Articles(),
-        users: new Users(),
+        articles: new ArticlesKind(),
+        users: new UsersKind(),
       },
     },
     {

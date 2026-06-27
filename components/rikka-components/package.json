@@ -1,0 +1,40 @@
+{
+  "name": "@takanashi/rikka-components",
+  "version": "0.0.1",
+  "description": "General-purpose virtual scroll and virtual table components built on rikka",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yw662/rikka.git",
+    "directory": "components/rikka-components"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rslib build",
+    "dev": "rslib build --watch",
+    "test": "rstest",
+    "test:watch": "rstest -w"
+  },
+  "dependencies": {
+    "@takanashi/rikka-dom": "workspace:*",
+    "@takanashi/rikka-signal": "workspace:*"
+  },
+  "devDependencies": {
+    "@rslib/core": "catalog:",
+    "@rstest/core": "catalog:",
+    "@rstest/coverage-v8": "catalog:",
+    "happy-dom": "catalog:",
+    "typescript": "catalog:"
+  }
+}

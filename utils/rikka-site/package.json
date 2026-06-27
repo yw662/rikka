@@ -44,9 +44,9 @@
     "typecheck": "tsc -p tsconfig.test.json --noEmit"
   },
   "dependencies": {
-    "@takanashi/rikka-signal": "workspace:*",
     "@takanashi/rikka-dom": "workspace:*",
     "@takanashi/rikka-elements": "workspace:*",
+    "@takanashi/rikka-signal": "workspace:*",
     "esbuild": "catalog:"
   },
   "devDependencies": {

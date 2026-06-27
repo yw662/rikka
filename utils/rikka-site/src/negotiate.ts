@@ -80,12 +80,6 @@ function parseAcceptQuery(registry: TransformerRegistry, value: string): string 
     return normalized;
   }
 
-  // Check if it's a valid MIME type pattern that matches a transformer
-  const types = registry.registeredOutputTypes();
-  if (types.includes(normalized)) {
-    return normalized;
-  }
-
   return null;
 }
 

@@ -1,33 +1,47 @@
 /**
  * @module resource
- * Resource — the core abstract class hierarchy.
+ * Resource — the core dual hierarchy.
  *
- *   abstract class ResourceKind
- *     abstract class CollectionKind extends ResourceKind   (list, create)
- *     abstract class ItemKind extends ResourceKind          (content, replace?, patch?, delete?)
- *     abstract class SingletonKind extends ResourceKind     (content, replace?, patch?)
- *     abstract class ReadOnlyKind extends ResourceKind      (content)
- *     abstract class ActionKind extends ResourceKind        (invoke)
- *     abstract class ProxyKind extends ResourceKind         (target)
- *     class StaticKind extends ReadOnlyKind                  (file serving)
+ *   abstract class ResourceKind                              (config + factory)
+ *     abstract class CollectionKind extends ResourceKind     (→ CollectionResource)
+ *     abstract class ItemKind extends ResourceKind           (→ ItemResource)
+ *     abstract class SingletonKind extends ResourceKind     (→ SingletonResource)
+ *     abstract class ReadOnlyKind extends ResourceKind      (→ ReadOnlyResource)
+ *     abstract class ActionKind extends ResourceKind        (→ ActionResource)
  *
- *   class Resource                                            (per-request wrapper)
- *     class CollectionResource extends Resource              (get→list, post→create)
- *     class ItemResource extends Resource                    (get→content, put→replace, ...)
- *     class SingletonResource extends Resource               (get→content, put→replace, ...)
- *     class ReadOnlyResource extends Resource                (get→content)
- *     class ActionResource extends Resource                  (post→invoke)
- *     class ProxyResource extends Resource                   (proxy intercept)
+ *   abstract class Resource                                  (per-request: methods + state)
+ *     abstract class CollectionResource extends Resource    (list, create → get, post)
+ *     abstract class ItemResource extends Resource          (content, replace? → get, put; patch?, delete?)
+ *     abstract class SingletonResource extends Resource     (content, replace? → get, put; patch?)
+ *     abstract class ReadOnlyResource extends Resource      (content → get)
+ *     abstract class ActionResource extends Resource        (invoke → post)
  *
- * Users extend the abstract class for their Kind, then create an instance:
- *   class Users extends CollectionKind { ... }
- *   const app = site({ users: new Users() });
- *   const app = site({ "assets/": new StaticKind({ root: "./public" }) });
+ * Kind is in the site tree — it holds config and creates per-request Resources.
+ * Resource carries params, path, and handler methods.
  *
- * The site tree stores **instances** (ResourceKind). Instances are shared
- * across requests — they are kinds (type descriptors), not per-request
- * state. Per-request state (params, path) is carried by RequestContext
- * and by the {@link Resource} returned from resolution.
+ * Double instantiation:
+ *   1. `new XxxKind(config)` — create template with config
+ *   2. `kind.resolve(params)` — create per-request Resource
+ *
+ * `resolve(params)`:
+ *   - Only receives `params` (path parameters extracted from the URL).
+ *   - The framework sets `resource.path` and `resource.params` afterwards.
+ *
+ * Children map keys:
+ *   - `"segment"` — exact match (e.g. `"users"`)
+ *   - `":name"` — single-segment param (e.g. `":userId"` → `params.userId`)
+ *   - `":name*"` — catch-all param, consumes all remaining segments
+ *                  (e.g. `":path*"` → `params.path = "a/b/c"` or `"a/b/c/"`)
+ *   - `"/"` — matches a trailing slash on this resource (remaining is `[""]`)
+ *
+ * Trailing slash is encoded in `remaining` as a trailing `""`:
+ *   `/docs`  → `["docs"]`     — no trailing slash
+ *   `/docs/` → `["docs", ""]` — trailing slash
+ * The `"/"` child matches when `remaining = [""]` (trailing slash only).
+ * Catch-all `remaining.join("/")` naturally includes the trailing slash.
+ *
+ * Matching order: exact → `:param` → catch-all.
+ * Backtracking: if a match recurses but fails, the next option is tried.
  */
 
 import type { Schema } from "./schema.js";
@@ -42,17 +56,24 @@ import { HttpError, isHttpError } from "./errors.js";
 // ---------------------------------------------------------------------------
 
 /**
- * A function that takes a path segment and returns a ResourceKind instance.
- * Called during path resolution with the matched path segment.
+ * A function that takes a path segment (or joined catch-all path) and returns
+ * a ResourceKind instance. Called during path resolution.
  */
 export type ChildResolver = (param: string) => ResourceKind;
 
 /**
- * The children map: keys are path segments (e.g. ":userId"), values are either
+ * The children map: keys are path segments, values are either
  * a ResourceKind instance, a ChildResolver (dynamic), or a nested
  * ChildrenMap for route grouping.
  *
- * Special key "/" — matches a trailing slash on this resource.
+ * Key forms:
+ *   - `"segment"` — exact match
+ *   - `":name"` — single-segment param → `params.name`
+ *   - `":name*"` — catch-all, consumes all remaining segments → `params.name`
+ *   - `"/"` — matches trailing slash on this resource (remaining is `[""]`)
+ *
+ * Trailing slash is encoded in `remaining` as a trailing `""`:
+ *   `/docs/` → `["docs", ""]`,  `/docs` → `["docs"]`
  */
 export interface ChildrenMap {
   [key: string]: ResourceKind | ChildResolver | ChildrenMap;
@@ -73,57 +94,371 @@ export interface CustomElementConstructor {
 }
 
 // ---------------------------------------------------------------------------
-// ResourceKind — abstract base class
+// ResourceKind — abstract base class (config + factory)
 // ---------------------------------------------------------------------------
 
 /**
- * Base class for all resources.
+ * Base class for all resource kinds (templates in the site tree).
  *
- * Subclasses ({@link CollectionKind}, {@link ItemKind}, etc.) add kind-specific
- * abstract handler methods. Users extend those subclasses to implement
- * their resource logic.
+ * A Kind holds configuration and acts as a factory for per-request
+ * {@link Resource} instances via {@link resolve}.
  *
- * The site tree stores instances directly. They are shared across requests —
- * per-request state (params, path) is carried by RequestContext, not the
- * resource instance.
- */
-export abstract class ResourceKind {
-  /** Schema describing the data shape returned by handlers */
-  schema?: Schema;
-  /** Sub-resources, keyed by path segment */
-  children?: ChildrenMap;
-  /** Custom element for HTML representation */
-  element?: unknown;
-  /** JSON-LD @context URI */
-  context?: string;
-  /** JSON-LD @type */
-  jsonldType?: string;
-  /**
-   * If true, this resource catches all remaining path segments (like Proxy).
-   * Used by Static resources to serve files from arbitrary sub-paths.
-   */
-  catchAll?: boolean;
-
-  /**
-   * Create a per-request Resource wrapper for this kind.
-   * Each XxxKind subclass returns its corresponding XxxResource.
-   */
-  abstract createResource(
-    params: Record<string, string>,
-    path: string,
-  ): Resource;
-}
-
-// ---------------------------------------------------------------------------
-// Abstract Kind classes
-// ---------------------------------------------------------------------------
-
-/**
- * CollectionKind — supports list (GET) and create (POST).
+ * Kind does NOT define instance behavior — all handler methods live on
+ * {@link Resource}.
  *
  * @example
  * ```ts
- * class Users extends CollectionKind {
+ * class ArticlesKind extends CollectionKind {
+ *   children = { ":id": new ArticleKind() };
+ *
+ *   resolve(params) {
+ *     return new ArticlesResource(params);
+ *   }
+ * }
+ * ```
+ */
+export abstract class ResourceKind {
+  /** Schema describing the data shape (for content negotiation). */
+  schema?: Schema;
+  /**
+   * Sub-resources. When absent (`undefined`), this Kind is a leaf — no
+   * children to match. Set in the constructor for per-instance children
+   * (e.g. `DatabaseKind` builds children from the input schema).
+   * See {@link ChildrenMap} for key forms.
+   */
+  children?: ChildrenMap;
+  /** Custom element name for HTML representation. */
+  element?: unknown;
+  /** JSON-LD @context URI. */
+  context?: string;
+  /** JSON-LD @type. */
+  jsonldType?: string;
+
+  /**
+   * Create a per-request {@link Resource} from the extracted path params.
+   *
+   * The framework sets `resource.path` and `resource.params` after this returns.
+   *
+   * @param params - Path parameters extracted from the URL
+   *   (e.g. `{ userId: "42", path: "a/b/c" }`).
+   */
+  abstract resolve(params: Record<string, string>): Resource;
+}
+
+// ---------------------------------------------------------------------------
+// Resource — abstract base class (per-request instance with methods)
+// ---------------------------------------------------------------------------
+
+/**
+ * All HTTP methods registered in the IANA HTTP Method Registry.
+ * @see https://www.iana.org/assignments/http-methods/http-methods.xhtml
+ */
+const HTTP_METHODS = [
+  // RFC 9110 — HTTP Semantics
+  "get",
+  "head",
+  "post",
+  "put",
+  "delete",
+  "connect",
+  "options",
+  "trace",
+  "patch",
+  // RFC 4918 — WebDAV
+  "propfind",
+  "proppatch",
+  "mkcol",
+  "copy",
+  "move",
+  "lock",
+  "unlock",
+  // RFC 3253 — DeltaV (versioning)
+  "version-control",
+  "report",
+  "checkout",
+  "checkin",
+  "uncheckout",
+  "mkworkspace",
+  "update",
+  "label",
+  "merge",
+  "baseline-control",
+  "mkactivity",
+  // RFC 4791 — CalDAV
+  "mkcalendar",
+  // RFC 5842 — Binding Extensions to WebDAV
+  "bind",
+  "rebind",
+  "unbind",
+  // RFC 3744 — WebDAV Access Control Protocol
+  "acl",
+  // RFC 3648 — Ordered Collections Protocol
+  "orderpatch",
+  // RFC 4437 — Redirect Reference Resources
+  "updateredirectref",
+  "mkredirectref",
+  // RFC 5323 — SEARCH
+  "search",
+  // RFC 9113 — HTTP/2
+  "pri",
+  // RFC 2068 — Link / Unlink (obsolete but registered)
+  "link",
+  "unlink",
+  // RFC 10008 — QUERY
+  "query",
+] as const;
+
+/**
+ * Base class for per-request resource instances.
+ *
+ * Carries `params` and `path` for this resolution, plus handler methods.
+ * The framework dispatches HTTP methods (`get`, `post`, etc.) on the
+ * Resource instance.
+ *
+ * All IANA-registered HTTP methods are present as named methods — each
+ * defaults to 405 Method Not Allowed. Subclasses override the ones they
+ * support. {@link allowedMethods} auto-detects overrides by comparing
+ * against `Resource.prototype`, so there is no need to override it.
+ *
+ * Users extend abstract subclasses ({@link CollectionResource},
+ * {@link ItemResource}, etc.) to implement their resource logic.
+ */
+export abstract class Resource {
+  /** Per-request path parameters (e.g. `{ articleId: "42" }`). */
+  params: Record<string, string> = {};
+  /** The resolved URL path for this resource (e.g. `/articles/42`). */
+  path: string = "";
+  /** Schema describing the data shape (for content negotiation). */
+  schema?: Schema;
+  /** Custom element name for HTML representation. */
+  element?: unknown;
+  /** JSON-LD @context URI. */
+  context?: string;
+  /** JSON-LD @type. */
+  jsonldType?: string;
+
+  /** Default 405 response — shared by all method stubs. */
+  protected notAllowed(): never {
+    throw new HttpError(405, "Method Not Allowed", undefined, {
+      Allow: this.allowedMethods().join(", "),
+    });
+  }
+
+  // --- RFC 9110: HTTP Semantics ---
+  get(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  head(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  post(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  put(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  delete(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  connect(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  options(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  trace(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  patch(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+
+  // --- RFC 4918: WebDAV ---
+  propfind(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  proppatch(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  mkcol(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  copy(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  move(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  lock(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  unlock(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+
+  // --- RFC 3253: DeltaV (versioning) ---
+  "version-control"(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  report(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  checkout(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  checkin(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  uncheckout(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  mkworkspace(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  update(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  label(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  merge(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  "baseline-control"(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  mkactivity(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+
+  // --- RFC 4791: CalDAV ---
+  mkcalendar(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+
+  // --- RFC 5842: Binding Extensions to WebDAV ---
+  bind(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  rebind(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  unbind(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+
+  // --- RFC 3744: WebDAV Access Control Protocol ---
+  acl(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+
+  // --- RFC 3648: Ordered Collections Protocol ---
+  orderpatch(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+
+  // --- RFC 4437: Redirect Reference Resources ---
+  updateredirectref(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  mkredirectref(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+
+  // --- RFC 5323: SEARCH ---
+  search(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+
+  // --- RFC 9113: HTTP/2 ---
+  pri(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+
+  // --- RFC 2068: Link / Unlink (obsolete but registered) ---
+  link(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+  unlink(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+
+  // --- RFC 10008: QUERY ---
+  query(ctx: RequestContext): Repr | Promise<Repr> {
+    this.notAllowed();
+  }
+
+  /**
+   * Auto-derive allowed methods by checking which HTTP methods are overridden.
+   * Compares against `Resource.prototype` — overridden methods differ.
+   * No need to override this in subclasses.
+   */
+  allowedMethods(): string[] {
+    return HTTP_METHODS.filter(
+      (m) =>
+        (this as unknown as Record<string, unknown>)[m] !==
+        (Resource.prototype as unknown as Record<string, unknown>)[m],
+    ).map((m) => m.toUpperCase());
+  }
+
+  /**
+   * Infer HTTP status code from the Repr and method.
+   *
+   * When `repr.meta.kind` is set, it takes precedence and maps directly:
+   * `redirect`→302, `created`→201, `no-content`→204, `value`→200/206.
+   * Otherwise the status is inferred from `content`'s shape and the method
+   * (backward compatible).
+   */
+  inferStatus(repr: Repr, method: string, hasRange: boolean): number {
+    switch (repr.meta.kind) {
+      case "redirect":
+        return 302;
+      case "created":
+        return 201;
+      case "no-content":
+        return 204;
+      case "value":
+        if (isPartial(repr.content)) return hasRange ? 206 : 200;
+        return 200;
+    }
+    // Fallback: infer from content shape + method
+    if (repr.content === null) {
+      if (repr.meta.location) return 302;
+      return 204;
+    }
+    if (isPartial(repr.content)) {
+      return hasRange ? 206 : 200;
+    }
+    if (method === "DELETE") return 204;
+    return 200;
+  }
+
+  /**
+   * Optional — only ActionResource implements this.
+   * Direct access to the invoke handler for auth verification.
+   * Used for duck-typing in verifyAuth.
+   */
+  invoke?(ctx: RequestContext): Repr | Promise<Repr>;
+}
+
+// ---------------------------------------------------------------------------
+// Abstract Kind / Resource pairs
+// ---------------------------------------------------------------------------
+
+/**
+ * CollectionKind — factory for {@link CollectionResource}.
+ * Leaf by default (no `children`). Set `children` to define sub-resources.
+ */
+export abstract class CollectionKind extends ResourceKind {
+  abstract resolve(params: Record<string, string>): CollectionResource;
+}
+
+/**
+ * CollectionResource — supports list (GET) and create (POST).
+ *
+ * @example
+ * ```ts
+ * class UsersResource extends CollectionResource {
  *   async list(ctx) {
  *     return { content: [{ id: 1 }], meta: {} };
  *   }
@@ -134,99 +469,146 @@ export abstract class ResourceKind {
  * }
  * ```
  */
-export abstract class CollectionKind extends ResourceKind {
+export abstract class CollectionResource extends Resource {
   abstract list(ctx: RequestContext): Repr | Promise<Repr>;
   abstract create(ctx: RequestContext): Repr | Promise<Repr>;
 
-  createResource(
-    params: Record<string, string>,
-    path: string,
-  ): CollectionResource {
-    return new CollectionResource(this, params, path);
+  get(ctx: RequestContext) {
+    return this.list(ctx);
+  }
+  post(ctx: RequestContext) {
+    return this.create(ctx);
+  }
+
+  override inferStatus(repr: Repr, method: string, hasRange: boolean): number {
+    // When kind is explicit, the base class handles it directly.
+    if (repr.meta.kind) return super.inferStatus(repr, method, hasRange);
+    // Backward compat: infer 201 from POST + location + non-null content.
+    if (method === "POST" && repr.meta.location && repr.content !== null)
+      return 201;
+    return super.inferStatus(repr, method, hasRange);
   }
 }
 
 /**
- * ItemKind — supports content (GET), replace (PUT), patch (PATCH), delete (DELETE).
- * Only `content` is required; `replace`, `patch`, and `delete` are optional.
+ * ItemKind — factory for {@link ItemResource}.
+ * Leaf by default (no `children`).
  */
 export abstract class ItemKind extends ResourceKind {
-  abstract content(ctx: RequestContext): Repr | Promise<Repr>;
-  replace?(ctx: RequestContext): Repr | Promise<Repr>;
-  patch?(ctx: RequestContext): Repr | Promise<Repr>;
-  delete?(ctx: RequestContext): Repr | Promise<Repr>;
+  abstract resolve(params: Record<string, string>): ItemResource;
+}
 
-  createResource(
-    params: Record<string, string>,
-    path: string,
-  ): ItemResource {
-    return new ItemResource(this, params, path);
+/**
+ * ItemResource — supports content (GET), replace (PUT), patch (PATCH), delete (DELETE).
+ *
+ * Only `content` is required. `replace` is optional (checked by `put`).
+ * `patch` and `delete` are optional — override them directly on your subclass.
+ */
+export abstract class ItemResource extends Resource {
+  abstract content(ctx: RequestContext): Repr | Promise<Repr>;
+  /** Optional PUT handler. If defined, `put()` forwards to this. */
+  replace?(ctx: RequestContext): Repr | Promise<Repr>;
+
+  get(ctx: RequestContext) {
+    return this.content(ctx);
+  }
+  put(ctx: RequestContext) {
+    if (!this.replace) {
+      throw new HttpError(405, "Method Not Allowed", undefined, {
+        Allow: this.allowedMethods().join(", "),
+      });
+    }
+    return this.replace(ctx);
+  }
+  // patch() and delete() — user overrides Resource.patch/delete directly.
+
+  override allowedMethods(): string[] {
+    const methods = ["GET"];
+    if (this.replace) methods.push("PUT");
+    if (this.patch !== Resource.prototype.patch) methods.push("PATCH");
+    if (this.delete !== Resource.prototype.delete) methods.push("DELETE");
+    return methods;
   }
 }
 
 /**
- * SingletonKind — supports content (GET), replace (PUT), patch (PATCH).
- * Only `content` is required; `replace` and `patch` are optional.
+ * SingletonKind — factory for {@link SingletonResource}.
+ * Leaf by default (no `children`).
  */
 export abstract class SingletonKind extends ResourceKind {
-  abstract content(ctx: RequestContext): Repr | Promise<Repr>;
-  replace?(ctx: RequestContext): Repr | Promise<Repr>;
-  patch?(ctx: RequestContext): Repr | Promise<Repr>;
+  abstract resolve(params: Record<string, string>): SingletonResource;
+}
 
-  createResource(
-    params: Record<string, string>,
-    path: string,
-  ): SingletonResource {
-    return new SingletonResource(this, params, path);
+/**
+ * SingletonResource — supports content (GET), replace (PUT), patch (PATCH).
+ *
+ * Only `content` is required. `replace` is optional (checked by `put`).
+ * `patch` is optional — override it directly on your subclass.
+ */
+export abstract class SingletonResource extends Resource {
+  abstract content(ctx: RequestContext): Repr | Promise<Repr>;
+  /** Optional PUT handler. If defined, `put()` forwards to this. */
+  replace?(ctx: RequestContext): Repr | Promise<Repr>;
+
+  get(ctx: RequestContext) {
+    return this.content(ctx);
+  }
+  put(ctx: RequestContext) {
+    if (!this.replace) {
+      throw new HttpError(405, "Method Not Allowed", undefined, {
+        Allow: this.allowedMethods().join(", "),
+      });
+    }
+    return this.replace(ctx);
+  }
+  // patch() — user overrides Resource.patch directly.
+
+  override allowedMethods(): string[] {
+    const methods = ["GET"];
+    if (this.replace) methods.push("PUT");
+    if (this.patch !== Resource.prototype.patch) methods.push("PATCH");
+    return methods;
   }
 }
 
 /**
- * ReadOnlyKind — supports content (GET) only.
+ * ReadOnlyKind — factory for {@link ReadOnlyResource}.
+ * Leaf by default (no `children`).
  */
 export abstract class ReadOnlyKind extends ResourceKind {
+  abstract resolve(params: Record<string, string>): ReadOnlyResource;
+}
+
+/**
+ * ReadOnlyResource — supports content (GET) only.
+ */
+export abstract class ReadOnlyResource extends Resource {
   abstract content(ctx: RequestContext): Repr | Promise<Repr>;
 
-  createResource(
-    params: Record<string, string>,
-    path: string,
-  ): ReadOnlyResource {
-    return new ReadOnlyResource(this, params, path);
+  get(ctx: RequestContext) {
+    return this.content(ctx);
   }
 }
 
 /**
- * ActionKind — supports invoke (POST) only.
- * Used for stateless operations like authentication, webhooks, etc.
+ * ActionKind — factory for {@link ActionResource}.
+ * Leaf by default (no `children`).
  */
 export abstract class ActionKind extends ResourceKind {
-  abstract invoke(ctx: RequestContext): Repr | Promise<Repr>;
-
-  createResource(
-    params: Record<string, string>,
-    path: string,
-  ): ActionResource {
-    return new ActionResource(this, params, path);
-  }
+  abstract resolve(params: Record<string, string>): ActionResource;
 }
 
 /**
- * ProxyKind — transparently forwards all methods to a target URL.
+ * ActionResource — supports invoke (POST) only.
+ * Used for stateless operations like authentication, webhooks, etc.
+ *
+ * `invoke()` is also exposed for duck-typing by the auth verifier.
  */
-export abstract class ProxyKind extends ResourceKind {
-  /** Proxy catches all remaining path segments. */
-  readonly catchAll = true;
-  /**
-   * Resolve the target URL for a given request path.
-   * Receives the remaining path after the proxy mount point.
-   */
-  abstract target(path: string): URL | Promise<URL>;
+export abstract class ActionResource extends Resource {
+  abstract invoke(ctx: RequestContext): Repr | Promise<Repr>;
 
-  createResource(
-    params: Record<string, string>,
-    path: string,
-  ): ProxyResource {
-    return new ProxyResource(this, params, path);
+  post(ctx: RequestContext) {
+    return this.invoke(ctx);
   }
 }
 
@@ -251,365 +633,7 @@ export type StaticResolver = (path: string) => Promise<
 >;
 
 // ---------------------------------------------------------------------------
-// StaticKind — concrete class for file serving (extends ReadOnlyKind)
-// ---------------------------------------------------------------------------
-
-/**
- * StaticKind — serves static files from a root directory or resolver.
- *
- * Like ReadOnlyKind (GET only) but with catchAll behavior for sub-path resolution.
- * Create an instance with config and mount it directly:
- *
- * @example
- * ```ts
- * const app = site({
- *   "assets/": new StaticKind({ root: "./public" }),
- * });
- * // /assets/style.css → ./public/style.css
- * ```
- */
-export class StaticKind extends ReadOnlyKind {
-  private rootDir?: string;
-  private indexFile: string;
-  private fileResolver?: StaticResolver;
-
-  constructor(config: {
-    /** Root directory for static files (Node.js only). */
-    root?: string;
-    /** Default index file for directory requests (default: "index.html"). */
-    index?: string;
-    /** Edge-compatible resolver. When provided, `root` is ignored. */
-    resolver?: StaticResolver;
-  }) {
-    super();
-    if (config.root === undefined && config.resolver === undefined) {
-      throw new TypeError("Static requires either `root` or `resolver`.");
-    }
-    this.rootDir = config.root;
-    this.indexFile = config.index ?? "index.html";
-    this.fileResolver = config.resolver;
-    this.catchAll = true;
-  }
-
-  async content(ctx: RequestContext): Promise<Repr> {
-    const mountPrefix = ctx.resourcePath ?? "";
-    const rawRelative = ctx.path.slice(mountPrefix.length) || "/";
-
-    let relativePath: string;
-    try {
-      relativePath = sanitizeStaticPath(rawRelative);
-    } catch (err) {
-      if (isHttpError(err)) throw err;
-      throw new HttpError(403, "Forbidden");
-    }
-
-    // Edge resolver path
-    if (this.fileResolver) {
-      let result = await this.fileResolver(relativePath);
-      if (!result && (!relativePath || rawRelative.endsWith("/"))) {
-        result = await this.fileResolver(
-          relativePath ? `${relativePath}/${this.indexFile}` : this.indexFile,
-        );
-      }
-      if (!result) throw new HttpError(404, "Not Found");
-
-      const mimeType =
-        result.type ?? guessMimeType(relativePath || this.indexFile);
-      return { content: result.content, meta: { type: mimeType } };
-    }
-
-    // Node.js filesystem path
-    const nodePath = await import(/* webpackIgnore: true */ "node:path");
-    const nodeFs = await import(/* webpackIgnore: true */ "node:fs/promises");
-
-    const resolvedRoot = nodePath.resolve(this.rootDir ?? ".");
-    const filePath = nodePath.resolve(resolvedRoot, relativePath);
-    if (
-      !filePath.startsWith(resolvedRoot + nodePath.sep) &&
-      filePath !== resolvedRoot
-    ) {
-      throw new HttpError(403, "Forbidden");
-    }
-
-    let targetPath = filePath;
-    try {
-      const s = await nodeFs.stat(filePath);
-      if (s.isDirectory()) {
-        targetPath = nodePath.resolve(filePath, this.indexFile);
-        if (
-          !targetPath.startsWith(resolvedRoot + nodePath.sep) &&
-          targetPath !== resolvedRoot
-        ) {
-          throw new HttpError(403, "Forbidden");
-        }
-      }
-    } catch (err) {
-      if (err instanceof HttpError) throw err;
-    }
-
-    try {
-      const buffer = await nodeFs.readFile(targetPath);
-      const ext = nodePath.extname(targetPath).toLowerCase();
-      const mimeType = mimeTypes[ext] ?? "application/octet-stream";
-
-      if (isTextMime(mimeType)) {
-        return { content: buffer.toString("utf-8"), meta: { type: mimeType } };
-      }
-      return {
-        content: new Uint8Array(
-          buffer.buffer,
-          buffer.byteOffset,
-          buffer.byteLength,
-        ),
-        meta: { type: mimeType },
-      };
-    } catch {
-      throw new HttpError(404, "Not Found");
-    }
-  }
-
-  createResource(
-    params: Record<string, string>,
-    path: string,
-  ): ReadOnlyResource {
-    return new ReadOnlyResource(this, params, path);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// MIME type utilities
-// ---------------------------------------------------------------------------
-
-const mimeTypes: Record<string, string> = {
-  ".html": "text/html; charset=utf-8",
-  ".htm": "text/html; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".js": "application/javascript; charset=utf-8",
-  ".mjs": "application/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".svg": "image/svg+xml; charset=utf-8",
-  ".ico": "image/x-icon",
-  ".woff": "font/woff",
-  ".woff2": "font/woff2",
-  ".ttf": "font/ttf",
-  ".eot": "application/vnd.ms-fontobject",
-  ".txt": "text/plain; charset=utf-8",
-  ".xml": "application/xml; charset=utf-8",
-  ".pdf": "application/pdf",
-  ".webp": "image/webp",
-  ".webm": "video/webm",
-  ".mp4": "video/mp4",
-  ".wasm": "application/wasm",
-  ".map": "application/json; charset=utf-8",
-};
-
-/** Text MIME types — content is decoded as UTF-8 string. */
-const textMimePrefixes = [
-  "text/",
-  "application/javascript",
-  "application/json",
-  "application/xml",
-  "application/wasm",
-  "image/svg+xml",
-];
-
-function isTextMime(mime: string): boolean {
-  return textMimePrefixes.some((p) => mime.startsWith(p));
-}
-
-/**
- * Normalize a request path into a safe relative path.
- * Rejects traversal outside the mount point.
- */
-function sanitizeStaticPath(rawRelative: string): string {
-  const parts = rawRelative.replace(/^\//, "").split("/").filter(Boolean);
-  const safe: string[] = [];
-  for (const part of parts) {
-    if (part === "..") {
-      if (safe.length === 0) throw new HttpError(403, "Forbidden");
-      safe.pop();
-    } else if (part !== ".") {
-      safe.push(part);
-    }
-  }
-  return safe.join("/");
-}
-
-/** Guess a MIME type from a file path. */
-function guessMimeType(filePath: string): string {
-  const dot = filePath.lastIndexOf(".");
-  const ext = dot === -1 ? "" : filePath.slice(dot).toLowerCase();
-  return mimeTypes[ext] ?? "application/octet-stream";
-}
-
-// ---------------------------------------------------------------------------
-// Resource — the result of path resolution
-// ---------------------------------------------------------------------------
-
-const HTTP_METHODS = ["get", "post", "put", "patch", "delete"] as const;
-
-/**
- * The result of resolving a URL path against the resource tree.
- *
- * Wraps a shared ResourceKind instance with per-request state (params, path).
- * HTTP methods default to 405; XxxResource subclasses override the ones they support.
- * `allowedMethods()` is auto-derived by checking which methods are overridden.
- */
-export class Resource {
-  constructor(
-    readonly kind: ResourceKind,
-    readonly params: Record<string, string>,
-    readonly path: string,
-  ) {}
-
-  // Property forwarding
-  get schema() { return this.kind.schema; }
-  get element() { return this.kind.element; }
-  get context() { return this.kind.context; }
-  get jsonldType() { return this.kind.jsonldType; }
-
-  // HTTP methods — all default to 405 Method Not Allowed
-  get(ctx: RequestContext): Repr | Promise<Repr> {
-    throw new HttpError(405, "Method Not Allowed", undefined, { Allow: this.allowedMethods().join(", ") });
-  }
-  post(ctx: RequestContext): Repr | Promise<Repr> {
-    throw new HttpError(405, "Method Not Allowed", undefined, { Allow: this.allowedMethods().join(", ") });
-  }
-  put(ctx: RequestContext): Repr | Promise<Repr> {
-    throw new HttpError(405, "Method Not Allowed", undefined, { Allow: this.allowedMethods().join(", ") });
-  }
-  patch(ctx: RequestContext): Repr | Promise<Repr> {
-    throw new HttpError(405, "Method Not Allowed", undefined, { Allow: this.allowedMethods().join(", ") });
-  }
-  delete(ctx: RequestContext): Repr | Promise<Repr> {
-    throw new HttpError(405, "Method Not Allowed", undefined, { Allow: this.allowedMethods().join(", ") });
-  }
-
-  /**
-   * Auto-derive allowed methods by checking which HTTP methods are overridden.
-   * Compares against Resource.prototype — overridden methods differ.
-   */
-  allowedMethods(): string[] {
-    return HTTP_METHODS
-      .filter(m => this[m] !== Resource.prototype[m])
-      .map(m => m.toUpperCase());
-  }
-
-  /**
-   * Infer HTTP status code from the Repr and method.
-   * Default implementation; XxxResource subclasses may override.
-   */
-  inferStatus(repr: Repr, method: string, hasRange: boolean): number {
-    if (repr.content === null) {
-      if (repr.meta.location) return 302;
-      return 204;
-    }
-    if (isPartial(repr.content)) {
-      return hasRange ? 206 : 200;
-    }
-    if (method === "DELETE") return 204;
-    return 200;
-  }
-
-  // Optional — only ProxyResource implements this
-  // Returns the proxy target URL for the given path
-  proxy?(path: string): URL | Promise<URL>;
-
-  // Optional — only ActionResource implements this
-  // Direct access to invoke() for auth verification
-  invoke?(ctx: RequestContext): Repr | Promise<Repr>;
-}
-
-/** CollectionResource — GET→list, POST→create */
-export class CollectionResource extends Resource {
-  declare readonly kind: CollectionKind;
-
-  async get(ctx: RequestContext) { return this.kind.list(ctx); }
-  async post(ctx: RequestContext) { return this.kind.create(ctx); }
-
-  override inferStatus(repr: Repr, method: string, hasRange: boolean): number {
-    if (method === "POST" && repr.meta.location && repr.content !== null) return 201;
-    return super.inferStatus(repr, method, hasRange);
-  }
-}
-
-/** ItemResource — GET→content, PUT→replace, PATCH→patch, DELETE→delete */
-export class ItemResource extends Resource {
-  declare readonly kind: ItemKind;
-
-  async get(ctx: RequestContext) { return this.kind.content(ctx); }
-  async put(ctx: RequestContext) {
-    if (!this.kind.replace) throw new HttpError(405, "Method Not Allowed", undefined, { Allow: this.allowedMethods().join(", ") });
-    return this.kind.replace(ctx);
-  }
-  async patch(ctx: RequestContext) {
-    if (!this.kind.patch) throw new HttpError(405, "Method Not Allowed", undefined, { Allow: this.allowedMethods().join(", ") });
-    return this.kind.patch(ctx);
-  }
-  async delete(ctx: RequestContext) {
-    if (!this.kind.delete) throw new HttpError(405, "Method Not Allowed", undefined, { Allow: this.allowedMethods().join(", ") });
-    return this.kind.delete(ctx);
-  }
-
-  override allowedMethods(): string[] {
-    const methods = ["GET"];
-    if (this.kind.replace) methods.push("PUT");
-    if (this.kind.patch) methods.push("PATCH");
-    if (this.kind.delete) methods.push("DELETE");
-    return methods;
-  }
-}
-
-/** SingletonResource — GET→content, PUT→replace, PATCH→patch */
-export class SingletonResource extends Resource {
-  declare readonly kind: SingletonKind;
-
-  async get(ctx: RequestContext) { return this.kind.content(ctx); }
-  async put(ctx: RequestContext) {
-    if (!this.kind.replace) throw new HttpError(405, "Method Not Allowed", undefined, { Allow: this.allowedMethods().join(", ") });
-    return this.kind.replace(ctx);
-  }
-  async patch(ctx: RequestContext) {
-    if (!this.kind.patch) throw new HttpError(405, "Method Not Allowed", undefined, { Allow: this.allowedMethods().join(", ") });
-    return this.kind.patch(ctx);
-  }
-
-  override allowedMethods(): string[] {
-    const methods = ["GET"];
-    if (this.kind.replace) methods.push("PUT");
-    if (this.kind.patch) methods.push("PATCH");
-    return methods;
-  }
-}
-
-/** ReadOnlyResource — GET→content only */
-export class ReadOnlyResource extends Resource {
-  declare readonly kind: ReadOnlyKind;
-
-  async get(ctx: RequestContext) { return this.kind.content(ctx); }
-}
-
-/** ActionResource — POST→invoke */
-export class ActionResource extends Resource {
-  declare readonly kind: ActionKind;
-
-  async post(ctx: RequestContext) { return this.kind.invoke(ctx); }
-  invoke(ctx: RequestContext) { return this.kind.invoke(ctx); }
-}
-
-/** ProxyResource — intercepts all methods via proxy() */
-export class ProxyResource extends Resource {
-  declare readonly kind: ProxyKind;
-
-  proxy(path: string) { return this.kind.target(path); }
-}
-
-// ---------------------------------------------------------------------------
-// Kind helpers
+// Helpers
 // ---------------------------------------------------------------------------
 
 /**
@@ -620,10 +644,17 @@ export function isResourceKind(value: unknown): value is ResourceKind {
 }
 
 /**
+ * Check if a value is a Resource instance.
+ */
+export function isResource(value: unknown): value is Resource {
+  return value instanceof Resource;
+}
+
+/**
  * Resolve a ChildrenMap entry to a ResourceKind instance.
  * If the entry is a direct instance, return it; if it's a ChildResolver, call it.
  */
-function resolveChildEntry(
+function resolveKindEntry(
   entry: ResourceKind | ChildResolver,
   segment: string,
 ): ResourceKind {
@@ -634,224 +665,186 @@ function resolveChildEntry(
 }
 
 /**
- * Check if a ChildrenMap entry is a resource or resolver (not a nested map).
+ * Check if a ChildrenMap entry is a Kind or resolver (not a nested map).
  */
-function isResourceOrResolver(
+function isKindOrResolver(
   entry: ResourceKind | ChildResolver | ChildrenMap,
 ): entry is ResourceKind | ChildResolver {
   return isResourceKind(entry) || typeof entry === "function";
 }
 
-/**
- * Strip a single trailing slash from a path string (if present).
- * Used to normalize the resolved `path` so callers see `/articles/42`
- * rather than `/articles/42/`.
- */
-function stripTrailingSlash(p: string): string {
-  return p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p;
+// ---------------------------------------------------------------------------
+// Key classification helpers
+// ---------------------------------------------------------------------------
+
+/** Check if a children key is a single-segment param (`":name"`). */
+function isParamKey(key: string): boolean {
+  return key.startsWith(":") && !key.endsWith("*");
+}
+
+/** Check if a children key is a catch-all param (`":name*"`). */
+function isCatchAllKey(key: string): boolean {
+  return key.startsWith(":") && key.endsWith("*");
+}
+
+/** Extract the param name from a `":name"` key. */
+function paramKeyName(key: string): string {
+  return key.slice(1);
+}
+
+/** Extract the param name from a `":name*"` key. */
+function catchAllKeyName(key: string): string {
+  return key.slice(1, -1); // remove ":" and "*"
 }
 
 // ---------------------------------------------------------------------------
-// Resolution — walk the resource tree, return Resource
+// Resolution — walk the Kind tree, return per-request Resource
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve a trailing-slash "/" child of a resource, if present.
- * Returns a {@link Resource} carrying the same params/path, or null.
+ * Finalize a resource: set `params`. The caller is responsible for setting
+ * `resource.path` (it always equals the original request path).
  */
-function resolveTrailingSlash(
-  resource: ResourceKind,
+function finalize(
+  resource: Resource | null,
   params: Record<string, string>,
-  path: string,
 ): Resource | null {
-  if (!resource.children || !("/" in resource.children)) return null;
-  const slashChild = resource.children["/"];
-  if (!isResourceOrResolver(slashChild)) return null;
-  const child = resolveChildEntry(slashChild, "");
-  return child.createResource(params, path);
+  if (!resource) return null;
+  resource.params = params;
+  return resource;
 }
 
 /**
- * Try to match a path segment against a ChildrenMap entry.
- * Returns `{ kind, newParams }` on match, or null.
- */
-function matchChild(
-  children: ChildrenMap,
-  segment: string,
-  params: Record<string, string>,
-): { kind: ResourceKind; newParams: Record<string, string> } | null {
-  // Exact match first
-  if (segment in children) {
-    const child = children[segment];
-    if (isResourceOrResolver(child)) {
-      const resource = resolveChildEntry(child, segment);
-      return { kind: resource, newParams: params };
-    }
-    return null;
-  }
-
-  // Parameterized match (keys starting with ":")
-  for (const [key, child] of Object.entries(children)) {
-    if (key.startsWith(":")) {
-      const paramName = key.slice(1);
-      if (isResourceOrResolver(child)) {
-        const resource = resolveChildEntry(child, segment);
-        return {
-          kind: resource,
-          newParams: { ...params, [paramName]: segment },
-        };
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Walk a ChildrenMap (route group) to resolve remaining path segments.
- * Returns a {@link Resource} on success, or null.
- */
-function walkChildrenMap(
-  map: ChildrenMap,
-  remaining: string[],
-  params: Record<string, string>,
-  pathSoFar: string,
-): Resource | null {
-  if (remaining.length === 0) return null;
-
-  const [next, ...rest] = remaining;
-  const nextPath = `${pathSoFar}${next}/`;
-
-  // Exact match in map
-  if (next in map) {
-    const child = map[next];
-    if (isResourceOrResolver(child)) {
-      const resource = resolveChildEntry(child, next);
-      return walkResource(resource, rest, params, nextPath);
-    } else {
-      return walkChildrenMap(child, rest, params, nextPath);
-    }
-  }
-
-  // Parameterized match in map
-  for (const [key, child] of Object.entries(map)) {
-    if (key.startsWith(":")) {
-      const paramName = key.slice(1);
-      if (isResourceOrResolver(child)) {
-        const resource = resolveChildEntry(child, next);
-        const newParams = { ...params, [paramName]: next };
-        return walkResource(resource, rest, newParams, nextPath);
-      } else {
-        const newParams = { ...params, [paramName]: next };
-        return walkChildrenMap(child, rest, newParams, nextPath);
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Walk a Resource's children to resolve remaining path segments.
- * Returns a {@link Resource} on success, or null.
+ * The single recursive matcher. Walks a tree of Kinds / children maps along
+ * `remaining` path segments and returns the resolved per-request Resource.
  *
- * The resource instance is **not** mutated — params and path are carried
- * by the returned Resource wrapper.
+ * `node` is either a ResourceKind (this level has a handler — `node.resolve()`
+ * is called when `remaining` is exhausted) or a bare ChildrenMap (route group
+ * with no handler — only descent succeeds). `current` and `children` are both
+ * derived from `node`, so they are not separate parameters.
+ *
+ * `params` accumulates path parameters during matching — each `:param` match
+ * adds to it, and `kind.resolve(params)` receives the full set at the end.
+ * It cannot be derived from `remaining` (which is consumed during matching).
+ *
+ * Trailing slash is encoded in `remaining` as a trailing `""`:
+ *   `/docs`  → `["docs"]`    — no trailing slash
+ *   `/docs/` → `["docs", ""]` — trailing slash
+ *   `[""]`                     — trailing slash only (no more segments)
+ *
+ * Matching order: exact → `:param` → catch-all. Backtracks on failure.
+ * `resource.path` is NOT set here — the caller sets it from the request path.
  */
-function walkResource(
-  current: ResourceKind,
+function resolve(
+  node: ResourceKind | ChildrenMap,
   remaining: string[],
   params: Record<string, string>,
-  pathSoFar: string,
 ): Resource | null {
-  // No more segments — we've found the resource
+  const current = isResourceKind(node) ? node : null;
+  const children = isResourceKind(node) ? node.children : node;
+
+  // No remaining segments — resolve current.
   if (remaining.length === 0) {
-    return current.createResource(params, stripTrailingSlash(pathSoFar));
+    if (!current) return null;
+    return finalize(current.resolve(params), params);
   }
 
-  // catchAll resources (e.g. StaticKind) consume all remaining segments.
-  if (current.catchAll) {
-    return current.createResource(params, stripTrailingSlash(pathSoFar));
+  // Trailing slash only — remaining is `[""]`.
+  if (remaining.length === 1 && remaining[0] === "") {
+    // The "/" child pattern matches the trailing slash on this path.
+    if (children && "/" in children) {
+      const slashChild = children["/"];
+      if (isKindOrResolver(slashChild)) {
+        const kind = resolveKindEntry(slashChild, "");
+        return finalize(kind.resolve(params), params);
+      }
+    }
+    // No "/" child — finalize current (trailing slash preserved by caller).
+    if (!current) return null;
+    return finalize(current.resolve(params), params);
   }
 
-  // No children defined — can't resolve further
-  if (!current.children) return null;
+  // Need to descend — but no children to match against.
+  if (!children) return null;
 
   const [next, ...rest] = remaining;
-  const match = matchChild(current.children, next, params);
 
-  if (match) {
-    return walkResource(
-      match.kind,
-      rest,
-      match.newParams,
-      `${pathSoFar}${next}/`,
-    );
+  // 1. Exact match
+  if (next in children && next !== "/" && !next.startsWith(":")) {
+    const child = children[next];
+    if (isKindOrResolver(child)) {
+      const kind = resolveKindEntry(child, next);
+      const r = resolve(kind, rest, params);
+      if (r) return r;
+    } else {
+      // Nested route group — no current kind.
+      const r = resolve(child, rest, params);
+      if (r) return r;
+    }
   }
 
-  // Try nested ChildrenMap for exact match
-  if (next in current.children) {
-    const child = current.children[next];
-    if (!isResourceOrResolver(child)) {
-      return walkChildrenMap(child, rest, params, `${pathSoFar}${next}/`);
-    }
+  // 2. Single-segment :param match
+  for (const [key, child] of Object.entries(children)) {
+    if (!isParamKey(key)) continue;
+    if (!isKindOrResolver(child)) continue;
+    const paramName = paramKeyName(key);
+    const kind = resolveKindEntry(child, next);
+    const newParams = { ...params, [paramName]: next };
+    const r = resolve(kind, rest, newParams);
+    if (r) return r;
+  }
+
+  // 3. Catch-all (`:name*`) — consumes all remaining segments.
+  // remaining.join("/") naturally includes the trailing slash:
+  //   ["docs", ""].join("/") → "docs/"
+  //   ["docs"].join("/")     → "docs"
+  for (const [key, child] of Object.entries(children)) {
+    if (!isCatchAllKey(key)) continue;
+    if (!isKindOrResolver(child)) continue;
+    const paramName = catchAllKeyName(key);
+    const joined = remaining.join("/");
+    const kind = resolveKindEntry(child, joined);
+    const newParams = { ...params, [paramName]: joined };
+    return finalize(kind.resolve(newParams), newParams);
   }
 
   return null;
 }
 
 /**
- * Resolve a path against a resource tree.
- * Walks the children recursively, calling ChildResolvers with path segments.
+ * Resolve remaining segments against a Kind tree or a bare children map.
  *
- * The resource instance is returned as-is (shared across requests). Per-request
- * state (params, path) is carried by the returned {@link Resource}.
+ * Accepts either a {@link ResourceKind} (resolved with its own `children`)
+ * or a {@link ChildrenMap} (resolved with no current Kind — used by
+ * `Site.resolve` against the site definition).
  *
- * Trailing slash handling: if `hasTrailingSlash` is true and the resolved
- * resource has a "/" child, that child is used instead.
+ * Trailing slash is encoded in `remaining` as a trailing `""`:
+ *   `/docs/` → `["docs", ""]`,  `/docs` → `["docs"]`
+ *
+ * @param root - A ResourceKind (resolved with its `children`) or a bare
+ *   ChildrenMap (resolved with no current Kind).
+ * @param remaining - Remaining path segments (may contain trailing `""`).
+ * @param path - If provided, sets `resource.path`. Always equals the request
+ *   path. Routing does NOT use this — it's purely for the caller's convenience.
+ * @returns A per-request Resource carrying `params` and `path`, or null.
  */
 export function resolveResource(
-  root: ResourceKind,
-  path: string,
-  pathPrefix = "/",
-  hasTrailingSlash = false,
+  root: ResourceKind | ChildrenMap,
+  remaining: string[],
+  path?: string,
 ): Resource | null {
-  const segments = path.split("/").filter(Boolean);
-  const result = walkResource(root, segments, {}, pathPrefix);
-
-  if (!result) return null;
-
-  if (hasTrailingSlash) {
-    const slashResult = resolveTrailingSlash(
-      result.kind,
-      result.params,
-      result.path,
-    );
-    if (slashResult) return slashResult;
-  }
-
-  return result;
+  const r = resolve(root, remaining, {});
+  if (r && path !== undefined) r.path = path;
+  return r;
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Schema helper
 // ---------------------------------------------------------------------------
 
 /**
  * Get the schema from a resource, defaulting to anySchema.
  */
-export function getDescriptorSchema(resource: ResourceKind): Schema {
+export function getDescriptorSchema(resource: Resource): Schema {
   return resource.schema ?? anySchema;
-}
-
-/**
- * Resolve a trailing-slash "/" child on a resource (public helper for site.ts).
- * Carries the same params/path as the input.
- */
-export function tryResolveTrailingSlash(
-  resource: ResourceKind,
-  params: Record<string, string>,
-  path: string,
-): Resource | null {
-  return resolveTrailingSlash(resource, params, path);
 }

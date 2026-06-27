@@ -86,10 +86,23 @@ export class ReactiveRange {
     range.deleteContents();
   }
 
-  reconcile(newElements: Element[]): void {
+  reconcile(newChildren: Child[]): void {
     if (!this.#alive) return;
     const p = this.parent;
     if (!p) return;
+
+    // Mixed content (text/signal/function/non-Element items) has no stable
+    // identity for keyed diffing, so clear and rebuild via insertChildBefore.
+    // Only Element children participate in the smart reconcile below.
+    if (!newChildren.every((c) => c instanceof Element)) {
+      this.clear();
+      for (const item of newChildren) {
+        insertChildBefore(p, item, this.end);
+      }
+      return;
+    }
+
+    const newElements = newChildren as Element[];
 
     // Fast path: if there are no existing children, just append all new elements.
     if (this.start.nextSibling === this.end) {
@@ -175,6 +188,25 @@ export function registerDisposable(el: Element, dispose: () => void): void {
     });
   }
   set.add(dispose);
+}
+
+/**
+ * Explicitly run every disposable registered on `el` and tear down the
+ * tracking entries. This is the primary cleanup path at known lifecycle
+ * points (e.g. a For item being removed); the FinalizationRegistry above
+ * remains as a GC safety net for elements that slip through explicit
+ * teardown. Disposables are wrapped in `once`, so a later registry callback
+ * touching the same (now empty) set is a harmless no-op.
+ */
+export function disposeElement(el: Element): void {
+  const set = elementDisposables.get(el);
+  if (set) {
+    for (const d of set) d();
+    set.clear();
+    elementDisposables.delete(el);
+  }
+  keyedDisposables.delete(el);
+  effectRegistry.unregister(el);
 }
 
 function getStyle(el: Element): CSSStyleDeclaration | null {
@@ -264,6 +296,23 @@ function toAttrName(key: string): string {
   return PROPERTY_TO_ATTR[key] ?? key;
 }
 
+/**
+ * Shared attribute setter used by both the static and reactive binding
+ * paths. null/undefined/false remove the attribute, true sets it to "",
+ * everything else is stringified. This keeps the two paths consistent.
+ */
+export function setAttr(el: Element, key: string, value: unknown): void {
+  if (value == null || value === false) {
+    el.removeAttribute(toAttrName(key));
+    return;
+  }
+  if (value === true) {
+    el.setAttribute(toAttrName(key), "");
+    return;
+  }
+  el.setAttribute(toAttrName(key), String(value));
+}
+
 function applyAttrStatic(el: Element, key: string, value: unknown): () => void {
   if (key.startsWith("on") && key.length > 2) {
     if (typeof value === "function") {
@@ -292,46 +341,33 @@ function applyAttrStatic(el: Element, key: string, value: unknown): () => void {
     return () => {};
   }
 
-  if (value == null || value === false) {
-    el.removeAttribute(toAttrName(key));
-    return () => {};
-  }
-  if (value === true) {
-    el.setAttribute(toAttrName(key), "");
-    return () => {};
-  }
-  el.setAttribute(toAttrName(key), String(value));
+  setAttr(el, key, value);
   return () => {};
 }
 
-function applyAttrSignal(
+/**
+ * Two-way binding for form fields (value/checked/selectedIndex). Writes the
+ * signal into the DOM property reactively, and — when the signal is
+ * writable — listens for input/change events to write the user's edit back
+ * into the signal. This is the only place two-way semantics live; the core
+ * applyAttrSignal path is purely one-way.
+ */
+function bindTwoWay(
   el: Element,
-  key: string,
+  attrKey: string,
   signal: Signal.State<unknown> | Signal.Computed<unknown>,
 ): () => void {
-  const attrKey = key;
   const weakRef = new WeakRef(el);
-
-  let innerDispose: (() => void) | null = null;
 
   const disposeEffect = effect(() => {
     const target = weakRef.deref();
     if (!target) return;
-    innerDispose?.();
-    innerDispose = null;
-    if (TWO_WAY_ATTRS.has(attrKey) && isInputElement(target)) {
-      assignDomProperty(target, attrKey, signal.get());
-    } else {
-      innerDispose = applyAttrStatic(target, attrKey, signal.get());
-    }
+    // Two-way attrs are written as DOM properties, not attributes.
+    assignDomProperty(target, attrKey, signal.get());
   });
 
   let disposeListener: (() => void) | null = null;
-  if (
-    isWritableSignal(signal) &&
-    TWO_WAY_ATTRS.has(attrKey) &&
-    isInputElement(el)
-  ) {
+  if (isWritableSignal(signal)) {
     const eventType = getTwoWayEventType(attrKey, el);
     const handler = () => {
       const target = weakRef.deref();
@@ -347,11 +383,37 @@ function applyAttrSignal(
   }
 
   return () => {
-    innerDispose?.();
-    innerDispose = null;
     disposeEffect();
     disposeListener?.();
     disposeListener = null;
+  };
+}
+
+function applyAttrSignal(
+  el: Element,
+  key: string,
+  signal: Signal.State<unknown> | Signal.Computed<unknown>,
+): () => void {
+  // Form-field two-way binding is delegated to bindTwoWay so the core path
+  // below stays a pure one-way signal→attribute binding.
+  if (TWO_WAY_ATTRS.has(key) && isInputElement(el)) {
+    return bindTwoWay(el, key, signal);
+  }
+
+  const weakRef = new WeakRef(el);
+  let innerDispose: (() => void) | null = null;
+
+  const disposeEffect = effect(() => {
+    const target = weakRef.deref();
+    if (!target) return;
+    innerDispose?.();
+    innerDispose = applyAttrStatic(target, key, signal.get());
+  });
+
+  return () => {
+    innerDispose?.();
+    innerDispose = null;
+    disposeEffect();
   };
 }
 
@@ -396,10 +458,6 @@ export function bindAttrs(el: Element, attrs: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(attrs)) {
     bindAttr(el, key, value);
   }
-}
-
-function applyAttrs(el: Element, attrs: Record<string, unknown>): void {
-  bindAttrs(el, attrs);
 }
 
 export function attachRange(
@@ -457,16 +515,7 @@ function insertChildBefore(
         }
 
         if (Array.isArray(value)) {
-          if (value.every((v) => v instanceof Element)) {
-            range.reconcile(value as Element[]);
-          } else {
-            const p = range.parent;
-            if (!p) return;
-            range.clear();
-            for (const item of value) {
-              insertChildBefore(p, item, range.end);
-            }
-          }
+          range.reconcile(value);
           return;
         }
 
@@ -632,7 +681,7 @@ export function createElement(
   }
 
   if (attrs) {
-    applyAttrs(el, attrs);
+    bindAttrs(el, attrs);
   }
 
   for (const child of children) {
@@ -642,15 +691,32 @@ export function createElement(
   return el;
 }
 
-export function For<T, K = T>(
+/**
+ * Internal helper: keyed memoization + DOM reconciliation over a source
+ * array. The key type K is pinned at the call site — `K = T` when no
+ * `keyFn` is given (the item is its own key, compared by `===`) and
+ * `K = ReturnType<keyFn>` otherwise. This is what lets the public
+ * signatures stay free of `as unknown as K` escapes: the key type is
+ * always concrete before we reach the cache.
+ *
+ * Unkeyed semantics: using the item itself as the key means identity
+ * (`===`) decides reuse. For primitives this is value equality; for
+ * objects it is reference equality. Two array slots holding the same
+ * reference will share a DOM node — this is correct, since they are
+ * literally the same object and must render identically. When a slot's
+ * reference changes (e.g. a fresh object from a fetch), the old node is
+ * disposed and a new one is built. Callers who want value-based reuse
+ * across reference changes supply a `keyFn`.
+ */
+function makeFor<T, K>(
   source: Signal.State<T[]> | Signal.Computed<T[]>,
   render: (item: T, index: number) => Element,
-  keyFn?: (item: T, index: number) => K,
+  getKey: (item: T, index: number) => K,
 ): ReactiveRange {
-  const cache = new Map<K, HTMLElement>();
+  const cache = new Map<K, { element: HTMLElement; dispose: () => void }>();
 
   return new ReactiveRange((range) => {
-    return effect(() => {
+    const stop = effect(() => {
       if (!range.alive) return;
 
       const items = source.get();
@@ -659,26 +725,73 @@ export function For<T, K = T>(
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        const key = keyFn ? keyFn(item, i) : (item as unknown as K);
+        const key = getKey(item, i);
 
         if (cache.has(key)) {
           const cached = cache.get(key);
-          if (cached) result.push(cached);
+          if (cached) result.push(cached.element);
         } else {
-          const el = render(item, i);
-          cache.set(key, el as HTMLElement);
-          result.push(el as HTMLElement);
+          const el = render(item, i) as HTMLElement;
+          cache.set(key, { element: el, dispose: () => disposeElement(el) });
+          result.push(el);
         }
         used.add(key);
       }
 
-      for (const [key] of cache) {
+      for (const [key, entry] of cache) {
         if (!used.has(key)) {
+          entry.dispose();
           cache.delete(key);
         }
       }
 
       range.reconcile(result);
     });
+    // When the range is detached (parent removed, Show toggled off, etc.),
+    // dispose every cached element so their signal bindings and child
+    // ranges are torn down immediately rather than waiting for GC.
+    return () => {
+      stop();
+      for (const [, entry] of cache) entry.dispose();
+      cache.clear();
+    };
   });
+}
+
+/**
+ * Iterate a reactive array, keyed by item identity (`===` on the item
+ * itself). For primitives this is value equality; for objects it is
+ * reference equality — two slots holding the same reference share a
+ * DOM node (correct, since they are the same object), and a slot whose
+ * reference changes gets a fresh node. Use the keyed overload below
+ * when you need value-based reuse across reference changes.
+ */
+export function For<T>(
+  source: Signal.State<T[]> | Signal.Computed<T[]>,
+  render: (item: T, index: number) => Element,
+): ReactiveRange;
+/**
+ * Iterate a reactive array keyed by `keyFn`. Items with the same key
+ * preserve their DOM node across renders (only moved, not rebuilt).
+ * Use this when items have a stable identity (e.g. `item.id`) — it
+ * avoids re-rendering unchanged items and keeps stateful child nodes
+ * (form focus, scroll position) stable across reorders.
+ */
+export function For<T, K>(
+  source: Signal.State<T[]> | Signal.Computed<T[]>,
+  render: (item: T, index: number) => Element,
+  keyFn: (item: T, index: number) => K,
+): ReactiveRange;
+export function For<T, K>(
+  source: Signal.State<T[]> | Signal.Computed<T[]>,
+  render: (item: T, index: number) => Element,
+  keyFn?: (item: T, index: number) => K,
+): ReactiveRange {
+  // When keyFn is absent, K = T and the item is its own key. We pin K = T
+  // explicitly at the call site so the type system sees a concrete key
+  // type all the way down to the cache — no `as unknown as K` escape.
+  // When keyFn is present, K is its return type and we pass it through.
+  return keyFn
+    ? makeFor(source, render, keyFn)
+    : makeFor<T, T>(source, render, (item) => item);
 }

@@ -2,7 +2,9 @@ import { describe, it, expect } from "@rstest/core";
 import * as http from "node:http";
 import {
   CollectionKind,
+  CollectionResource,
   ItemKind,
+  ItemResource,
   Site,
 } from "../src/index.js";
 import type { RequestContext, Repr } from "../src/index.js";
@@ -50,7 +52,14 @@ function probe(
 }
 
 describe("Node adapter", () => {
-  class Items extends CollectionKind {
+  class ItemsKind extends CollectionKind {
+    resolve(params: Record<string, string>) {
+      const r = new ItemsResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class ItemsResource extends CollectionResource {
     async list(ctx: RequestContext): Promise<Repr> {
       return { content: [{ id: 1, name: "Alice" }], meta: {} };
     }
@@ -63,7 +72,7 @@ describe("Node adapter", () => {
   }
 
   const app = new Site({
-    items: new Items(),
+    items: new ItemsKind(),
   });
 
   it("createNodeHandler works with http.createServer", async () => {
@@ -122,25 +131,38 @@ describe("Node adapter", () => {
   });
 
   it("DELETE returns 204 with no body", async () => {
-    class Deletable extends CollectionKind {
+    class DeletableKind extends CollectionKind {
+      children = {
+        ":id": new (class extends ItemKind {
+          resolve(params: Record<string, string>) {
+            const r = new (class extends ItemResource {
+              async content(ctx: RequestContext): Promise<Repr> {
+                return { content: { id: ctx.params.id }, meta: {} };
+              }
+              async delete(ctx: RequestContext): Promise<Repr> {
+                return { content: null, meta: {} };
+              }
+            })();
+            r.params = params;
+            return r;
+          }
+        })(),
+      };
+      resolve(params: Record<string, string>) {
+        const r = new DeletableResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class DeletableResource extends CollectionResource {
       async list(ctx: RequestContext): Promise<Repr> {
         return { content: [], meta: {} };
       }
       async create(ctx: RequestContext): Promise<Repr> {
         return { content: {}, meta: {} };
       }
-      children = {
-        ":id": new (class extends ItemKind {
-          async content(ctx: RequestContext): Promise<Repr> {
-            return { content: { id: ctx.params.id }, meta: {} };
-          }
-          async delete(ctx: RequestContext): Promise<Repr> {
-            return { content: null, meta: {} };
-          }
-        })(),
-      };
     }
-    const s = serve(new Site({ x: new Deletable() }), { port: 0, host: "127.0.0.1" });
+    const s = serve(new Site({ x: new DeletableKind() }), { port: 0, host: "127.0.0.1" });
     await s.ready;
 
     try {
@@ -153,7 +175,14 @@ describe("Node adapter", () => {
   });
 
   it("Range header triggers 206", async () => {
-    class Rangeable extends CollectionKind {
+    class RangeableKind extends CollectionKind {
+      resolve(params: Record<string, string>) {
+        const r = new RangeableResource();
+        r.params = params;
+        return r;
+      }
+    }
+    class RangeableResource extends CollectionResource {
       async create(ctx: RequestContext): Promise<Repr> {
         return { content: {}, meta: {} };
       }
@@ -171,7 +200,7 @@ describe("Node adapter", () => {
         };
       }
     }
-    const s = serve(new Site({ x: new Rangeable() }), { port: 0, host: "127.0.0.1" });
+    const s = serve(new Site({ x: new RangeableKind() }), { port: 0, host: "127.0.0.1" });
     await s.ready;
 
     try {

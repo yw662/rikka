@@ -3,19 +3,26 @@
  * Resource-oriented server framework with content negotiation.
  *
  * Core concepts:
- * - **Kind** — HTTP semantic constraint (Collection, Item, Singleton, ReadOnly, Action, Proxy)
+ * - **ResourceKind** — Abstract base class for resource templates (config +
+ *   factory). Kinds are mounted in the site tree and create per-request
+ *   Resources via `resolve(params, path)`.
+ * - **Resource** — Abstract base class for per-request resource instances.
+ *   Carries `params` and `path` alongside handler methods (get, post, ...).
  * - **Repr** — A Resource's Representation: `{ content, meta }`. Returned by methods.
  * - **Schema** — Describes the shape of structured data
- * - **ResourceKind** — Abstract base class for all resources; instances are mounted in the site tree
  * - **Transformer** — Converts structured values into raw bytes (JSON, HTML, CSV, ...)
  * - **RequestContext** — Unified request context (params, query, body, range, identity)
  * - **Auth** — Declarative authentication via auth resources and rules
  *
  * @example
  * ```ts
- * import { CollectionKind, Site } from "@takanashi/rikka-site";
+ * import { CollectionKind, CollectionResource, Site } from "@takanashi/rikka-site";
  *
- * class Articles extends CollectionKind {
+ * class ArticlesKind extends CollectionKind {
+ *   resolve(params, path) { return new ArticlesResource(params, path as string); }
+ * }
+ *
+ * class ArticlesResource extends CollectionResource {
  *   async list(ctx) { return { content: [...articles], meta: {} }; }
  *   async create(ctx) {
  *     const article = { id: nextId++, ...(await ctx.json()) };
@@ -24,7 +31,7 @@
  *   }
  * }
  *
- * const app = new Site({ articles: new Articles() });
+ * const app = new Site({ articles: new ArticlesKind() });
  * ```
  */
 
@@ -50,13 +57,16 @@ export type {
 
 // Repr
 export {
+  Repr,
   isRepr,
   isPartial,
   isBytes,
   isHttpError,
   HttpError,
+  guessMimeType,
+  isTextMime,
 } from "./representation.js";
-export type { Repr, ReprMeta, PartialContent } from "./representation.js";
+export type { ReprMeta, PartialContent } from "./representation.js";
 
 // Context
 export {
@@ -76,28 +86,30 @@ export type {
 
 // Auth
 export { globMatch, matchAuthRule, corsHeaders } from "./auth.js";
-export type { AuthConfig, AuthRule, CorsConfig } from "./auth.js";
+export type {
+  AuthConfig,
+  AuthRule,
+  AuthMatchResult,
+  CorsConfig,
+} from "./auth.js";
 
 // Resource types and classes
 export {
   ResourceKind,
   Resource,
-  CollectionResource,
-  ItemResource,
-  SingletonResource,
-  ReadOnlyResource,
-  ActionResource,
-  ProxyResource,
   CollectionKind,
+  CollectionResource,
   ItemKind,
+  ItemResource,
   SingletonKind,
+  SingletonResource,
   ReadOnlyKind,
+  ReadOnlyResource,
   ActionKind,
-  ProxyKind,
-  StaticKind,
+  ActionResource,
   isResourceKind,
+  isResource,
   resolveResource,
-  tryResolveTrailingSlash,
   getDescriptorSchema,
 } from "./resource.js";
 export type {
@@ -106,6 +118,15 @@ export type {
   CustomElementConstructor,
   StaticResolver,
 } from "./resource.js";
+
+// Events (SSE streaming)
+export {
+  EventsKind,
+  EventsResource,
+  createInMemoryEventSource,
+  formatSseEvent,
+} from "./events.js";
+export type { EventSource, SseEvent, EventsKindOptions } from "./events.js";
 
 // Site definition
 export { Site } from "./site.js";
@@ -135,6 +156,12 @@ export {
   cborTransformer,
   protobuf,
   htmlTransformer,
+  directoryListingHtmlTransformer,
+  webdavMultistatusTransformer,
+  webdavLockTransformer,
+  escapeHtml,
+  escapeXml,
+  formatSize,
 } from "./transform.js";
 export type {
   Transformer,
@@ -144,6 +171,9 @@ export type {
   HydrationStrategy,
   SerializationStrategy,
   ProtobufMessage,
+  DirectoryListingData,
+  WebdavMultistatusData,
+  WebdavLockData,
 } from "./transform.js";
 
 // HTTP adapter

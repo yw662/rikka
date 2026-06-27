@@ -1,5 +1,5 @@
 import { Signal, effect, computed } from "@takanashi/rikka-signal";
-import { h } from "@takanashi/rikka-dom";
+import { h, disposeElement, isSignal } from "@takanashi/rikka-dom";
 import type { Child, CommonHTMLAttributes } from "@takanashi/rikka-dom";
 import type { CamelCase, PascalCase } from "./utils.js";
 import { toCamelCase, toKebabCase, toPascalCase } from "./utils.js";
@@ -105,6 +105,30 @@ export type DatasetSpec = {
 // Event Types
 // ---------------------------------------------------------------------------
 
+/**
+ * A type-only marker for a programmatically-dispatched custom event with a
+ * typed `detail` payload. At runtime this function returns `undefined` — it
+ * exists solely to feed TypeScript inference so that the generated
+ * `dispatch<PascalName>` method and `on<camelName>` listener prop are typed
+ * with the correct `CustomEvent<T>` shape.
+ *
+ * In an `events` config, `undefined` has two meanings that are
+ * indistinguishable at runtime but distinct at the type level:
+ *   1. As a bare value (`reset: undefined`): a detail-less event —
+ *      `dispatchReset()` takes no `detail` argument and listeners receive
+ *      `CustomEvent<void>`.
+ *   2. As the return of `event<T>()` (`custom: event<MyPayload>()`): a typed
+ *      event — `dispatchCustom(detail: MyPayload)` requires the payload and
+ *      listeners receive `CustomEvent<MyPayload>`. The runtime `undefined`
+ *      return is the same as case 1, but the call-site type signature
+ *      carries the `T`.
+ *
+ * The actual dispatch is performed by the generated `dispatch<PascalName>`
+ * method on the element instance. For DOM-originated events that need to
+ * derive a `detail` from the native `Event`, declare a transform function
+ * directly as the spec value (e.g. `change: (e) => e.target.value`) instead
+ * of using `event<T>()`.
+ */
 export function event<T = void>(): ((domEvent: Event) => T) | undefined {
   return undefined;
 }
@@ -821,7 +845,7 @@ function bindAttributeSlots(
           trackDisposable(
             element,
             effect(() => {
-              const v = (prop as { get(): unknown }).get();
+              const v = prop.get();
               if (v === null || v === undefined || v === false) {
                 el.removeAttribute(attrName);
               } else {
@@ -836,24 +860,46 @@ function bindAttributeSlots(
           }
         }
       } else {
-        el.setAttribute(
-          attrName,
-          value.replace(/\{\{(\w+)\}\}/g, (_match, name) => {
-            const result = readTemplateVar(element, name);
-            if (result.kind === "signal") return String(result.value.get());
-            if (result.kind === "value")
-              return result.value != null ? String(result.value) : "";
-            return "";
-          }),
+        // Multi-match attribute (e.g. `{{a}}-{{b}}`). Establish an effect when
+        // any binding is reactive so the attribute updates on signal changes,
+        // mirroring the multi-match text path in bindTextSlots.
+        let needsEffect = false;
+        const initialValue = value.replace(
+          /\{\{(\w+)\}\}/g,
+          (_match, name) => {
+            const reactiveValue = getElementBinding(element, name);
+            if (isSignal(reactiveValue)) {
+              needsEffect = true;
+              return String(reactiveValue.get());
+            }
+            return reactiveValue != null ? String(reactiveValue) : "";
+          },
         );
+        el.setAttribute(attrName, initialValue);
+        if (needsEffect) {
+          trackDisposable(
+            element,
+            effect(() => {
+              el.setAttribute(
+                attrName,
+                value.replace(
+                  /\{\{(\w+)\}\}/g,
+                  (_m: string, n: string) => {
+                    const result = readTemplateVar(element, n);
+                    if (result.kind === "signal")
+                      return String(result.value.get());
+                    if (result.kind === "value")
+                      return result.value != null ? String(result.value) : "";
+                    return "";
+                  },
+                ),
+              );
+            }),
+          );
+        }
       }
     }
   }
-}
-
-function isSignal(value: unknown): value is { get(): unknown } {
-  if (value == null || typeof value !== "object") return false;
-  return Signal.isState(value) || Signal.isComputed(value);
 }
 
 // ---------------------------------------------------------------------------
@@ -1334,6 +1380,21 @@ function defineElementImpl<C extends BaseConfig = BaseConfig>(
         }
       }
       runDisposables(this);
+      // Dispose signal bindings registered via h()'s bindAttr/registerDisposable
+      // (the rikka-dom side of the two-system cleanup). runDisposables above
+      // only covers the symbol-keyed disposables (template slots, render
+      // effect); attribute/child bindings live in the elementDisposables
+      // WeakMap and need disposeElement to release them.
+      disposeElement(this);
+      // Clear the shadow DOM so that reconnection does not duplicate template
+      // content (appended via appendChild) and adoptedStyleSheets (appended via
+      // spread). The render path already uses replaceChildren, but the template
+      // path and styles accumulate without this. #initialized is reset below so
+      // connectedCallback re-runs the full setup on reconnect.
+      if (shadowOptions && this.shadowRoot) {
+        this.shadowRoot.replaceChildren();
+        this.shadowRoot.adoptedStyleSheets = [];
+      }
       this.#initialized = false;
     }
   }
@@ -1375,18 +1436,6 @@ function defineElementImpl<C extends BaseConfig = BaseConfig>(
 
   applyEvents(proto, RikkaElementInner, events);
 
-  if (typeof customElements !== "undefined" && !customElements.get(tagName)) {
-    customElements.define(
-      tagName,
-      RikkaElementInner as unknown as CustomElementConstructor,
-    );
-  }
-
-  // WebMCP: register tools at class level (once per tagName)
-  if (tools && Object.keys(tools).length > 0) {
-    registerToolsToWebMCP(tagName, tools);
-  }
-
   const tagHelper = (...args: unknown[]) => {
     if (isPlainObject(args[0])) {
       return h(
@@ -1397,6 +1446,38 @@ function defineElementImpl<C extends BaseConfig = BaseConfig>(
     }
     return h(tagName, ...(args as Child[])) as unknown as RikkaElement<C>;
   };
+
+  // If the tagName is already registered (HMR, repeated calls), the Custom
+  // Elements registry cannot redefine it — the browser keeps the old class.
+  // Return the existing constructor (with .h attached) so that
+  // `MyElement.h(...)` and `document.createElement("my-element")` produce
+  // instances of the same class instead of diverging.
+  if (typeof customElements !== "undefined" && customElements.get(tagName)) {
+    const existing = customElements.get(tagName) as ElementConstructor<C>;
+    console.warn(
+      `<${tagName}> is already defined; returning the existing constructor. ` +
+        `Re-definition is not supported by the Custom Elements registry.`,
+    );
+    Object.defineProperty(existing, "h", {
+      value: tagHelper,
+      writable: false,
+      enumerable: true,
+      configurable: true,
+    });
+    return existing;
+  }
+
+  if (typeof customElements !== "undefined") {
+    customElements.define(
+      tagName,
+      RikkaElementInner as unknown as CustomElementConstructor,
+    );
+  }
+
+  // WebMCP: register tools at class level (once per tagName)
+  if (tools && Object.keys(tools).length > 0) {
+    registerToolsToWebMCP(tagName, tools);
+  }
 
   const result = RikkaElementInner as unknown as ElementConstructor<C>;
 

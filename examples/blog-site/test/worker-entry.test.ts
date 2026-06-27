@@ -70,7 +70,7 @@ describe("src/worker.ts (Cloudflare Workers entry)", () => {
     await new Promise<void>((r) => server.close(() => r()));
   });
 
-  it("responds to all six Kinds + auth + proxy + 404", async () => {
+  it("responds to all six Kinds + auth + 404", async () => {
     // ReadOnly — /
     const home = await probe(port, { path: "/" });
     expect(home.status).toBe(200);
@@ -120,11 +120,6 @@ describe("src/worker.ts (Cloudflare Workers entry)", () => {
     });
     expect(act.status).toBe(200);
     expect(JSON.parse(act.body).length).toBeGreaterThan(0);
-
-    // Proxy — /proxy/posts/1
-    const proxy = await probe(port, { path: "/proxy/posts/1" });
-    expect(proxy.status).toBe(200);
-    expect(JSON.parse(proxy.body).id).toBe(1);
 
     // 404
     const nf = await probe(port, { path: "/no-such-path" });

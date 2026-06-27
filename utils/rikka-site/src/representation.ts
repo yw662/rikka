@@ -18,6 +18,13 @@
  *
  * ## Status code inference
  *
+ * When `meta.kind` is set, it takes precedence:
+ * - `kind: "redirect"`  → 302
+ * - `kind: "created"`   → 201
+ * - `kind: "no-content"` → 204
+ * - `kind: "value"`     → 200 (or 206 for PartialContent with Range)
+ *
+ * When `meta.kind` is omitted, the server infers from `content`'s shape:
  * - `content === null && meta.location` → 302 (redirect)
  * - `content === null`                   → 204 (no content)
  * - `method === "POST" && kind === "Collection" && meta.location` → 201
@@ -89,6 +96,20 @@ export interface ReprMeta {
    * `<html lang="...">` attribute. If absent, the attribute is omitted.
    */
   lang?: string;
+
+  /**
+   * Explicit response kind — overrides the shape-based status inference in
+   * `Resource.inferStatus` and `buildResponse`.
+   *
+   * - `"redirect"` — 302, empty body, Location header from `location`
+   * - `"created"` — 201, Location header; body is `content` (may be null)
+   * - `"no-content"` — 204, empty body
+   * - `"value"` — 200, normal content negotiation on `content`
+   *
+   * When omitted, the server infers the kind from `content`'s shape and the
+   * (method, resource) pair (backward compatible).
+   */
+  kind?: "redirect" | "created" | "no-content" | "value";
 }
 
 /**
@@ -102,6 +123,53 @@ export interface Repr<TContent = unknown> {
   content: TContent;
   /** Transport-level metadata about the content. */
   meta: ReprMeta;
+}
+
+/**
+ * Smart constructors for the four response kinds.
+ *
+ * `Repr` is structurally a product `{ content, meta }`, but its semantics
+ * are a sum type tagged by `meta.kind`. Writing a redirect by hand as
+ * `{ content: null, meta: { location } }` works, but it leaves the
+ * invariant "redirect content must be null" implicit in the caller's
+ * discipline. These constructors make the sum type visible at every
+ * construction site and let the type checker carry the invariants:
+ *
+ * - `Repr.value(data)`            — 200, normal content negotiation
+ * - `Repr.redirect(location)`     — 302, empty body, Location header
+ * - `Repr.created(data, location)` — 201, Location header, body is `data`
+ * - `Repr.noContent()`            — 204, empty body
+ *
+ * The shape-based inference in `buildResponse` remains as a fallback for
+ * Reprs constructed without a `kind` (backward compat), but new code
+ * should prefer these constructors so the kind is always explicit.
+ */
+export namespace Repr {
+  /** A normal value Repr — 200, content negotiated on `content`. */
+  export function value<T>(
+    content: T,
+    meta: Omit<ReprMeta, "kind"> = {},
+  ): Repr<T> {
+    return { content, meta: { ...meta, kind: "value" } };
+  }
+
+  /** A redirect Repr — 302, empty body, Location header from `location`. */
+  export function redirect(location: string): Repr<null> {
+    return { content: null, meta: { location, kind: "redirect" } };
+  }
+
+  /**
+   * A created Repr — 201, Location header, body is `content`.
+   * Pass `null` for `content` when the response should have no body.
+   */
+  export function created<T>(content: T, location: string): Repr<T> {
+    return { content, meta: { location, kind: "created" } };
+  }
+
+  /** A no-content Repr — 204, empty body. */
+  export function noContent(): Repr<null> {
+    return { content: null, meta: { kind: "no-content" } };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -192,6 +260,58 @@ export function isRepr(val: unknown): val is Repr {
 // ---------------------------------------------------------------------------
 // HttpError — see ./errors.js (re-exported above)
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// MIME type helpers
+// ---------------------------------------------------------------------------
+
+const mimeTypes: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".htm": "text/html; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".js": "application/javascript; charset=utf-8",
+  ".mjs": "application/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml; charset=utf-8",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".eot": "application/vnd.ms-fontobject",
+  ".txt": "text/plain; charset=utf-8",
+  ".xml": "application/xml; charset=utf-8",
+  ".pdf": "application/pdf",
+  ".webp": "image/webp",
+  ".webm": "video/webm",
+  ".mp4": "video/mp4",
+  ".wasm": "application/wasm",
+  ".map": "application/json; charset=utf-8",
+};
+
+const textMimePrefixes = [
+  "text/",
+  "application/javascript",
+  "application/json",
+  "application/xml",
+  "application/wasm",
+  "image/svg+xml",
+];
+
+/** Guess a MIME type from a file path or extension. */
+export function guessMimeType(filePathOrExt: string): string {
+  const dot = filePathOrExt.lastIndexOf(".");
+  const ext = dot === -1 ? filePathOrExt : filePathOrExt.slice(dot);
+  return mimeTypes[ext.toLowerCase()] ?? "application/octet-stream";
+}
+
+/** Check if a MIME type represents text content. */
+export function isTextMime(mime: string): boolean {
+  return textMimePrefixes.some((p) => mime.startsWith(p));
+}
 
 // ---------------------------------------------------------------------------
 // Re-exports for transformer compatibility

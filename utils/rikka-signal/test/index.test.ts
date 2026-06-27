@@ -317,6 +317,91 @@ describe("effect edge cases", () => {
   });
 });
 
+describe("effect abort signal", () => {
+  it("passes a non-aborted AbortSignal to fn", () => {
+    let signal: AbortSignal | undefined;
+    effect((s) => {
+      signal = s;
+    });
+    expect(signal).toBeDefined();
+    expect(signal!.aborted).toBe(false);
+  });
+
+  it("aborts the signal on dispose", () => {
+    let signal: AbortSignal | undefined;
+    const dispose = effect((s) => {
+      signal = s;
+    });
+    expect(signal!.aborted).toBe(false);
+    dispose();
+    expect(signal!.aborted).toBe(true);
+  });
+
+  it("aborts the previous signal on re-run", async () => {
+    const a = signal(1);
+    const signals: AbortSignal[] = [];
+    effect((s) => {
+      a.get();
+      signals.push(s);
+    });
+    expect(signals).toHaveLength(1);
+    expect(signals[0].aborted).toBe(false);
+
+    a.set(2);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(signals).toHaveLength(2);
+    expect(signals[0].aborted).toBe(true);
+    expect(signals[1].aborted).toBe(false);
+  });
+
+  it("aborts on dispose even if fn threw", () => {
+    let captured: AbortSignal | undefined;
+    const dispose = effect((s) => {
+      captured = s;
+      throw new Error("boom");
+    });
+    expect(captured).toBeDefined();
+    dispose();
+    expect(captured!.aborted).toBe(true);
+  });
+
+  it("does not double-call cleanup when fn throws on re-run", async () => {
+    const a = signal(1);
+    const cleanup = rs.fn();
+    let shouldThrow = false;
+    effect(() => {
+      a.get();
+      if (shouldThrow) throw new Error("boom");
+      return cleanup;
+    });
+    expect(cleanup).not.toHaveBeenCalled();
+
+    shouldThrow = true;
+    a.set(2);
+    await new Promise((r) => setTimeout(r, 50));
+    // fn threw — cleanup from the previous run was called once
+    expect(cleanup).toHaveBeenCalledTimes(1);
+
+    shouldThrow = false;
+    a.set(3);
+    await new Promise((r) => setTimeout(r, 50));
+    // fn succeeded — the old (already-called) cleanup must NOT be called again
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it("is backwards compatible with fn that ignores the signal", async () => {
+    const a = signal(1);
+    const fn = rs.fn(() => {
+      a.get();
+    });
+    effect(fn);
+    expect(fn).toHaveBeenCalledTimes(1);
+    a.set(2);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("computed edge cases", () => {
   it("computed with no signal dependency returns constant", () => {
     const derived = computed(() => 42);

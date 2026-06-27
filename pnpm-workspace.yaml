@@ -1,5 +1,6 @@
 packages:
   - 'utils/*'
+  - 'resources/*'
   - 'components/*'
   - 'docs/rikka-homepage'
   - 'examples/*'
@@ -15,6 +16,7 @@ catalog:
   esbuild: ^0.25.0
   happy-dom: ^20.9.0
   highlight.js: ^11.11.1
+  node-sql-parser: ^5.4.0
   playwright: ^1.60.0
   signal-polyfill: ^0.2.2
   sucrase: ^3.35.0

@@ -1,9 +1,16 @@
 import { describe, it, expect } from "@rstest/core";
-import { Site, CollectionKind, createHtmlTransformer } from "../src/index.js";
+import { Site, CollectionKind, CollectionResource, createHtmlTransformer } from "../src/index.js";
 import type { RequestContext, Repr } from "../src/index.js";
 
 describe("HTML transformer serialization", () => {
-  class Articles extends CollectionKind {
+  class ArticlesKind extends CollectionKind {
+    resolve(params: Record<string, string>) {
+      const r = new ArticlesResource();
+      r.params = params;
+      return r;
+    }
+  }
+  class ArticlesResource extends CollectionResource {
     element = "blog-article-list";
     async list(ctx: RequestContext): Promise<Repr> {
       return { content: [{ id: 1, title: "Hello" }], meta: {} };
@@ -13,7 +20,7 @@ describe("HTML transformer serialization", () => {
     }
   }
 
-  const app = new Site({ articles: new Articles() });
+  const app = new Site({ articles: new ArticlesKind() });
 
   async function renderHtml(serialization?: "data-attr" | "jsonld" | "both") {
     const transformer = createHtmlTransformer({
@@ -22,9 +29,8 @@ describe("HTML transformer serialization", () => {
     });
     app.registry.register(transformer);
 
-    const resolved = app.resolve("/articles")!;
-    const resource = resolved.kind;
-    const path = resolved.path;
+    const resource = app.resolve("/articles")!;
+    const path = resource.path;
     const repr: Repr = { content: [{ id: 1, title: "Hello" }], meta: {} };
     const result = await transformer.transform(repr, { path, element: resource.element });
 

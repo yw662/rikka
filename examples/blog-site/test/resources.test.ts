@@ -4,7 +4,7 @@
  * These don't start any server — they call `app.handleRequest(...)` directly
  * with a synthetic `HttpRequest`. The goal is to verify the resource tree
  * wired up in `src/resources.ts` behaves correctly in isolation: that the
- * transformers are wired, that auth rules match, that proxy forwards, that
+ * transformers are wired, that auth rules match, that
  * CRUD works end-to-end at the handler level.
  *
  * For HTTP-level tests (status codes, headers, CORS preflight, static files)
@@ -27,7 +27,9 @@ function toBody(data: unknown): ReadableStream<Uint8Array> {
   });
 }
 
-function makeRequest(overrides: Partial<HttpRequest> & { jsonBody?: unknown }): HttpRequest {
+function makeRequest(
+  overrides: Partial<HttpRequest> & { jsonBody?: unknown },
+): HttpRequest {
   const { jsonBody, ...rest } = overrides;
   return {
     method: "GET",
@@ -47,11 +49,13 @@ describe("resource tree behavior", () => {
   // --- Collection.list ---
 
   it("Collection.list enriches articles with author info", async () => {
-    const r = await app.handleRequest(makeRequest({
-      method: "GET",
-      path: "/articles",
-      accept: "application/json",
-    }));
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "GET",
+        path: "/articles",
+        accept: "application/json",
+      }),
+    );
     expect(r.status).toBe(200);
     const list = JSON.parse(r.body as string);
     expect(list.length).toBeGreaterThan(0);
@@ -65,54 +69,64 @@ describe("resource tree behavior", () => {
     // NOTE: blog-site's Articles resource takes `tag` as a config arg, not a
     // query param. Verify that the query parser does at least not break — the
     // list handler just receives the same articles regardless.
-    const r = await app.handleRequest(makeRequest({
-      method: "GET",
-      path: "/articles",
-      query: { tag: "intro" },
-      accept: "application/json",
-    }));
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "GET",
+        path: "/articles",
+        query: { tag: "intro" },
+        accept: "application/json",
+      }),
+    );
     expect(r.status).toBe(200);
     const list = JSON.parse(r.body as string);
     expect(list.length).toBeGreaterThan(0);
   });
 
   it("Collection.create returns 201 + Location for valid body", async () => {
-    const r = await app.handleRequest(makeRequest({
-      method: "POST",
-      path: "/articles",
-      accept: "application/json",
-      jsonBody: { title: "T", body: "x", tags: ["new"] },
-    }));
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/articles",
+        accept: "application/json",
+        jsonBody: { title: "T", body: "x", tags: ["new"] },
+      }),
+    );
     expect(r.status).toBe(201);
     expect(r.headers["Location"]).toBeTruthy();
   });
 
   it("Collection.create returns 400 for missing required fields", async () => {
-    const r = await app.handleRequest(makeRequest({
-      method: "POST",
-      path: "/articles",
-      jsonBody: { title: "T" }, // missing body
-    }));
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/articles",
+        jsonBody: { title: "T" }, // missing body
+      }),
+    );
     expect(r.status).toBe(400);
   });
 
   it("Collection.create returns 400 for over-long title", async () => {
-    const r = await app.handleRequest(makeRequest({
-      method: "POST",
-      path: "/articles",
-      jsonBody: { title: "x".repeat(201), body: "y" },
-    }));
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/articles",
+        jsonBody: { title: "x".repeat(201), body: "y" },
+      }),
+    );
     expect(r.status).toBe(400);
   });
 
   // --- Item ---
 
   it("Item.content returns enriched article with comments", async () => {
-    const r = await app.handleRequest(makeRequest({
-      method: "GET",
-      path: "/articles/1",
-      accept: "application/json",
-    }));
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "GET",
+        path: "/articles/1",
+        accept: "application/json",
+      }),
+    );
     expect(r.status).toBe(200);
     const article = JSON.parse(r.body as string);
     expect(article.id).toBe(1);
@@ -121,58 +135,70 @@ describe("resource tree behavior", () => {
   });
 
   it("Item.content returns 404 for unknown id", async () => {
-    const r = await app.handleRequest(makeRequest({
-      method: "GET",
-      path: "/articles/99999",
-      headers: { accept: "application/json" },
-    }));
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "GET",
+        path: "/articles/99999",
+        headers: { accept: "application/json" },
+      }),
+    );
     expect(r.status).toBe(404);
   });
 
   it("Item.delete returns 204 on success", async () => {
     // First create
-    const c = await app.handleRequest(makeRequest({
-      method: "POST",
-      path: "/articles",
-      accept: "application/json",
-      jsonBody: { title: "to-delete", body: "x" },
-    }));
+    const c = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/articles",
+        accept: "application/json",
+        jsonBody: { title: "to-delete", body: "x" },
+      }),
+    );
     const id = c.headers["Location"];
     expect(c.status).toBe(201);
 
     // Then delete
-    const d = await app.handleRequest(makeRequest({
-      method: "DELETE",
-      path: `/articles/${id}`,
-    }));
+    const d = await app.handleRequest(
+      makeRequest({
+        method: "DELETE",
+        path: `/articles/${id}`,
+      }),
+    );
     expect(d.status).toBe(204);
     expect(d.body).toBe("");
 
     // Then verify gone — second delete should 404
-    const d2 = await app.handleRequest(makeRequest({
-      method: "DELETE",
-      path: `/articles/${id}`,
-    }));
+    const d2 = await app.handleRequest(
+      makeRequest({
+        method: "DELETE",
+        path: `/articles/${id}`,
+      }),
+    );
     expect(d2.status).toBe(404);
   });
 
   it("Item.patch merges partial update", async () => {
     // Create
-    const c = await app.handleRequest(makeRequest({
-      method: "POST",
-      path: "/articles",
-      accept: "application/json",
-      jsonBody: { title: "original", body: "orig" },
-    }));
+    const c = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/articles",
+        accept: "application/json",
+        jsonBody: { title: "original", body: "orig" },
+      }),
+    );
     const id = c.headers["Location"];
 
     // Patch only title
-    const p = await app.handleRequest(makeRequest({
-      method: "PATCH",
-      path: `/articles/${id}`,
-      accept: "application/json",
-      jsonBody: { title: "patched" },
-    }));
+    const p = await app.handleRequest(
+      makeRequest({
+        method: "PATCH",
+        path: `/articles/${id}`,
+        accept: "application/json",
+        jsonBody: { title: "patched" },
+      }),
+    );
     expect(p.status).toBe(200);
     const article = JSON.parse(p.body as string);
     expect(article.title).toBe("patched");
@@ -182,11 +208,13 @@ describe("resource tree behavior", () => {
   // --- Singleton ---
 
   it("Singleton.content returns current settings", async () => {
-    const r = await app.handleRequest(makeRequest({
-      method: "GET",
-      path: "/settings",
-      accept: "application/json",
-    }));
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "GET",
+        path: "/settings",
+        accept: "application/json",
+      }),
+    );
     expect(r.status).toBe(200);
     const s = JSON.parse(r.body as string);
     expect(s).toHaveProperty("siteName");
@@ -195,22 +223,26 @@ describe("resource tree behavior", () => {
   });
 
   it("Singleton.replace requires siteName", async () => {
-    const r = await app.handleRequest(makeRequest({
-      method: "PUT",
-      path: "/settings",
-      jsonBody: { theme: "light" }, // missing siteName
-    }));
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "PUT",
+        path: "/settings",
+        jsonBody: { theme: "light" }, // missing siteName
+      }),
+    );
     expect(r.status).toBe(400);
   });
 
   // --- ReadOnly ---
 
   it("ReadOnly.content returns dashboard counts", async () => {
-    const r = await app.handleRequest(makeRequest({
-      method: "GET",
-      path: "/dashboard",
-      accept: "application/json",
-    }));
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "GET",
+        path: "/dashboard",
+        accept: "application/json",
+      }),
+    );
     expect(r.status).toBe(200);
     const d = JSON.parse(r.body as string);
     expect(typeof d.articleCount).toBe("number");
@@ -222,51 +254,59 @@ describe("resource tree behavior", () => {
   // --- Action ---
 
   it("Action.invoke returns search results", async () => {
-    const r = await app.handleRequest(makeRequest({
-      method: "POST",
-      path: "/actions/search",
-      accept: "application/json",
-      headers: {
-        "content-type": "application/json",
-        authorization: "Bearer reader-token",
-      },
-      jsonBody: { query: "Signals" },
-    }));
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/actions/search",
+        accept: "application/json",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer reader-token",
+        },
+        jsonBody: { query: "Signals" },
+      }),
+    );
     expect(r.status).toBe(200);
     const results = JSON.parse(r.body as string);
     expect(results.length).toBeGreaterThan(0);
   });
 
   it("Action.invoke returns 401 without auth", async () => {
-    const r = await app.handleRequest(makeRequest({
-      method: "POST",
-      path: "/actions/search",
-      headers: { "content-type": "application/json" },
-      jsonBody: { query: "Signals" },
-    }));
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/actions/search",
+        headers: { "content-type": "application/json" },
+        jsonBody: { query: "Signals" },
+      }),
+    );
     expect(r.status).toBe(401);
   });
 
   // --- Auth rules ---
 
   it("admin/articles GET requires auth", async () => {
-    const r = await app.handleRequest(makeRequest({
-      method: "GET",
-      path: "/admin/articles",
-      headers: { accept: "application/json" },
-    }));
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "GET",
+        path: "/admin/articles",
+        headers: { accept: "application/json" },
+      }),
+    );
     expect(r.status).toBe(401);
   });
 
   it("admin/articles GET with admin token returns 200", async () => {
-    const r = await app.handleRequest(makeRequest({
-      method: "GET",
-      path: "/admin/articles",
-      headers: {
-        accept: "application/json",
-        authorization: "Bearer admin-token",
-      },
-    }));
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "GET",
+        path: "/admin/articles",
+        headers: {
+          accept: "application/json",
+          authorization: "Bearer admin-token",
+        },
+      }),
+    );
     expect(r.status).toBe(200);
   });
 
@@ -284,11 +324,13 @@ describe("resource tree behavior", () => {
   it("public GET paths don't require auth", async () => {
     // /articles, /users, /dashboard, /settings all have auth: null rules
     for (const path of ["/articles", "/users", "/dashboard", "/settings"]) {
-      const r = await app.handleRequest(makeRequest({
-        method: "GET",
-        path,
-        headers: { accept: "application/json" },
-      }));
+      const r = await app.handleRequest(
+        makeRequest({
+          method: "GET",
+          path,
+          headers: { accept: "application/json" },
+        }),
+      );
       expect(r.status).toBe(200);
     }
   });
@@ -303,37 +345,19 @@ describe("resource tree behavior", () => {
   // top-level code, so transformer behavior is validated there.
 
   it("HTML response includes data-resource embedded data", async () => {
-    const r = await app.handleRequest(makeRequest({
-      method: "GET",
-      path: "/articles",
-    }));
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "GET",
+        path: "/articles",
+      }),
+    );
     expect(r.status).toBe(200);
     // Default hydration strategy is "data-attr" — data is embedded as
     // a data-resource attribute on the custom element.
     expect(r.body).toContain("data-resource=");
     expect(r.body).toContain("blog-article-list");
     // Sitemap is embedded as a JSON script tag
-    expect(r.body).toContain('data-sitemap');
-  });
-
-  // --- Proxy ---
-
-  it("Proxy resolves and forwards (network may be unreachable)", async () => {
-    const r = await app.handleRequest(makeRequest({
-      method: "GET",
-      path: "/proxy/users/1",
-    }));
-    // If rikka-site rejected the path, we'd get 404 or 405. Upstream status
-    // depends on network, so we only assert the framework passed through.
-    expect(r.status).not.toBe(405);
-  });
-
-  it("Proxy unknown path still resolves (upstream decides status)", async () => {
-    const r = await app.handleRequest(makeRequest({
-      method: "GET",
-      path: "/proxy/this/does/not/exist",
-    }));
-    expect(r.status).not.toBe(405);
+    expect(r.body).toContain("data-sitemap");
   });
 
   // --- Error handling ---
@@ -352,12 +376,14 @@ describe("resource tree behavior", () => {
 
 describe("write operations", () => {
   it("patches an article", async () => {
-    const response = await app.handleRequest(makeRequest({
-      method: "PATCH",
-      path: "/articles/1",
-      accept: "application/json",
-      jsonBody: { title: "Updated Title", body: "Updated body." },
-    }));
+    const response = await app.handleRequest(
+      makeRequest({
+        method: "PATCH",
+        path: "/articles/1",
+        accept: "application/json",
+        jsonBody: { title: "Updated Title", body: "Updated body." },
+      }),
+    );
     expect(response.status).toBe(200);
     const data = JSON.parse(response.body as string);
     expect(data.title).toBe("Updated Title");
@@ -365,44 +391,52 @@ describe("write operations", () => {
   });
 
   it("rejects patching an article with empty body", async () => {
-    const response = await app.handleRequest(makeRequest({
-      method: "PATCH",
-      path: "/articles/1",
-      accept: "application/json",
-      jsonBody: {},
-    }));
+    const response = await app.handleRequest(
+      makeRequest({
+        method: "PATCH",
+        path: "/articles/1",
+        accept: "application/json",
+        jsonBody: {},
+      }),
+    );
     expect(response.status).toBe(400);
   });
 
   it("creates a user", async () => {
-    const response = await app.handleRequest(makeRequest({
-      method: "POST",
-      path: "/users",
-      accept: "application/json",
-      jsonBody: { name: "Frank", email: "frank@example.com", role: "reader" },
-    }));
+    const response = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/users",
+        accept: "application/json",
+        jsonBody: { name: "Frank", email: "frank@example.com", role: "reader" },
+      }),
+    );
     expect(response.status).toBe(201);
     const data = JSON.parse(response.body as string);
     expect(data.name).toBe("Frank");
   });
 
   it("rejects creating a user with missing email", async () => {
-    const response = await app.handleRequest(makeRequest({
-      method: "POST",
-      path: "/users",
-      accept: "application/json",
-      jsonBody: { name: "Frank" },
-    }));
+    const response = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/users",
+        accept: "application/json",
+        jsonBody: { name: "Frank" },
+      }),
+    );
     expect(response.status).toBe(400);
   });
 
   it("patches settings", async () => {
-    const response = await app.handleRequest(makeRequest({
-      method: "PATCH",
-      path: "/settings",
-      accept: "application/json",
-      jsonBody: { siteName: "New Name", theme: "light", postsPerPage: 5 },
-    }));
+    const response = await app.handleRequest(
+      makeRequest({
+        method: "PATCH",
+        path: "/settings",
+        accept: "application/json",
+        jsonBody: { siteName: "New Name", theme: "light", postsPerPage: 5 },
+      }),
+    );
     expect(response.status).toBe(200);
     const data = JSON.parse(response.body as string);
     expect(data.siteName).toBe("New Name");
@@ -411,12 +445,14 @@ describe("write operations", () => {
   });
 
   it("rejects patching settings without siteName", async () => {
-    const response = await app.handleRequest(makeRequest({
-      method: "PATCH",
-      path: "/settings",
-      accept: "application/json",
-      jsonBody: { theme: "light" },
-    }));
+    const response = await app.handleRequest(
+      makeRequest({
+        method: "PATCH",
+        path: "/settings",
+        accept: "application/json",
+        jsonBody: { theme: "light" },
+      }),
+    );
     expect(response.status).toBe(400);
   });
 });

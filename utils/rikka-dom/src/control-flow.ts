@@ -1,7 +1,7 @@
 import { effect } from '@takanashi/rikka-signal';
 import type { Signal } from '@takanashi/rikka-signal';
 import { unwrapSignal } from './signal-utils.js';
-import { ReactiveRange } from './h.js';
+import { ReactiveRange, disposeElement } from './h.js';
 
 type Condition = boolean | Signal.State<boolean> | Signal.Computed<boolean>;
 
@@ -10,6 +10,11 @@ type RenderInput = RenderResult | (() => RenderResult);
 
 function toElements(result: RenderResult): Element[] {
   return result ? [result] : [];
+}
+
+function disposeElements(els: Element[] | null): void {
+  if (!els) return;
+  for (const el of els) disposeElement(el);
 }
 
 function normalizeRender(
@@ -28,7 +33,7 @@ export function Show(
   const renderFn = normalizeRender(render);
 
   return new ReactiveRange((range) => {
-    return effect(() => {
+    const stop = effect(() => {
       if (!range.alive) return;
 
       if (unwrapSignal(condition)) {
@@ -40,6 +45,11 @@ export function Show(
         range.clear();
       }
     });
+    return () => {
+      stop();
+      disposeElements(cached);
+      cached = null;
+    };
   });
 }
 
@@ -54,7 +64,7 @@ export function When(
   const falseFn = normalizeRender(falseRender);
 
   return new ReactiveRange((range) => {
-    return effect(() => {
+    const stop = effect(() => {
       if (!range.alive) return;
 
       if (unwrapSignal(condition)) {
@@ -69,6 +79,13 @@ export function When(
         range.reconcile(falseEls);
       }
     });
+    return () => {
+      stop();
+      disposeElements(trueEls);
+      disposeElements(falseEls);
+      trueEls = null;
+      falseEls = null;
+    };
   });
 }
 
@@ -107,7 +124,7 @@ export function Switch<T>(
   const fallbackFn = fallback ? normalizeRender(fallback) : undefined;
 
   return new ReactiveRange((range) => {
-    return effect(() => {
+    const stop = effect(() => {
       if (!range.alive) return;
 
       const val = unwrapSignal(value);
@@ -126,6 +143,11 @@ export function Switch<T>(
         range.reconcile(elements);
       }
     });
+    return () => {
+      stop();
+      for (const [, els] of cache) disposeElements(els);
+      cache.clear();
+    };
   });
 }
 

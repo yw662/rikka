@@ -1,8 +1,8 @@
 /**
  * @module rikka-signal
  *
- * Fine-grained reactive primitives: signals, computed values, and effects.
- * Built on top of {@link https://github.com/tc39/proposal-signals signal-polyfill}.
+ * Fine-grained reactive primitives: signals, computed values, effects, and
+ * async resources. Built on top of {@link https://github.com/tc39/proposal-signals signal-polyfill}.
  *
  * @example
  * import { signal, computed, effect } from '@takanashi/rikka-signal';
@@ -83,3 +83,9 @@ export function untracked<T>(fn: () => T): T {
 }
 
 export { effect } from './effect.js';
+export {
+  resource,
+  type Resource,
+  type ResourceState,
+  type FetchInfo,
+} from './resource.js';

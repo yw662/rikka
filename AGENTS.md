@@ -42,14 +42,16 @@ Full list with examples: <https://yw662.github.io/rikka/skills/common-pitfalls/S
 
 ## If you're working on this repository
 
-This is the rikka monorepo. Four published packages live under `utils/`:
+This is the rikka monorepo. Six published packages live under `utils/` and `resources/`:
 
-| Package                     | Path                    | Description                                                                                                                            |
-| --------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `@takanashi/rikka-signal`   | `utils/rikka-signal/`   | Reactive primitives: `signal`, `computed`, `effect`                                                                                    |
-| `@takanashi/rikka-dom`      | `utils/rikka-dom/`      | DOM creation: `h`, tag helpers, `For`/`Show`/`Switch`, `css`                                                                           |
-| `@takanashi/rikka-elements` | `utils/rikka-elements/` | Custom Elements: `defineElement`, `event`, attribute specs                                                                             |
-| `@takanashi/rikka-site`     | `utils/rikka-site/`     | Resource-oriented server: `ResourceKind` abstract class hierarchy, streaming bodies, Schema, Representation, content negotiation, auth |
+| Package                     | Path                                | Description                                                                                                                            |
+| --------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `@takanashi/rikka-signal`   | `utils/rikka-signal/`              | Reactive primitives: `signal`, `computed`, `effect`                                                                                    |
+| `@takanashi/rikka-dom`      | `utils/rikka-dom/`                 | DOM creation: `h`, tag helpers, `For`/`Show`/`Switch`, `css`                                                                           |
+| `@takanashi/rikka-elements` | `utils/rikka-elements/`            | Custom Elements: `defineElement`, `event`, attribute specs                                                                             |
+| `@takanashi/rikka-site`     | `utils/rikka-site/`                | Resource-oriented server: `Resource` abstract class hierarchy, streaming bodies, Schema, Representation, content negotiation, auth |
+| `@takanashi/rikka-resource-filesystem` | `resources/rikka-resource-filesystem/` | FileSystem + WebDAV resource adapter (`FileSystemKind`)                                                                              |
+| `@takanashi/rikka-resource-database`  | `resources/rikka-resource-database/`  | Schema-driven database resource adapter (`DatabaseKind`)                                                                              |
 
 Plus `components/rikka-live-playground/` (a web-component code playground), `docs/rikka-homepage/` (the marketing site), and `examples/blog-site/` (a rikka-site example).
 
@@ -67,11 +69,14 @@ pnpm homepage             # dev server for the marketing site
 ### Repo layout
 
 ```
-utils/                        # published npm packages
+utils/                        # published npm packages (core)
   rikka-signal/
   rikka-dom/
   rikka-elements/
-  rikka-site/                 # resource-oriented server framework
+  rikka-site/                 # resource-oriented server framework (core)
+resources/                    # published npm packages (resource adapters)
+  rikka-resource-filesystem/  # FileSystemKind adapter (static files + WebDAV)
+  rikka-resource-database/    # DatabaseKind adapter (schema-driven CRUD)
 components/                   # published web components
   rikka-live-playground/
 docs/                         # documentation site source

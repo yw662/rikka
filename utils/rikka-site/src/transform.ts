@@ -237,12 +237,19 @@ export class TransformerRegistry {
     return matches[0]?.transformer ?? null;
   }
 
-  /** Get all registered output MIME types (from transformers that produce raw). */
+  /**
+   * Get all registered output MIME types (from transformers that produce
+   * raw), sorted by priority descending so callers that pick the first
+   * match (e.g. `type/*` wildcard resolution in negotiate) get the
+   * highest-priority transformer rather than an arbitrary registration
+   * order.
+   */
   registeredOutputTypes(): string[] {
     return this.entries
       .filter((e): e is TransformerEntry & { output: SchemaRaw } =>
         isRawSchema(e.output),
       )
+      .sort((a, b) => b.priority - a.priority)
       .map((e) => e.output.mime);
   }
 
@@ -1253,12 +1260,35 @@ function relativeToRoot(path: string, target: string): string {
   return prefix + target;
 }
 
-function escapeHtml(s: string): string {
+// ---------------------------------------------------------------------------
+// Escaping & formatting utilities (used by transformers and file-serving Kinds)
+// ---------------------------------------------------------------------------
+
+/** Escape a string for safe inclusion in HTML text content. */
+export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** Escape a string for safe inclusion in XML text content. */
+export function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+/** Format a byte count as a human-readable size string. */
+export function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
 /**
@@ -1266,3 +1296,193 @@ function escapeHtml(s: string): string {
  * Default HTML transformer with no custom element configuration.
  */
 export const htmlTransformer: Transformer = createHtmlTransformer();
+
+// ---------------------------------------------------------------------------
+// Directory-listing HTML transformer — renders FileSystemResource listings
+// ---------------------------------------------------------------------------
+
+/**
+ * Directory-listing data shape returned by FileSystemResource.content().
+ * The resource layer returns this structured data; this transformer renders
+ * it as HTML.
+ */
+export interface DirectoryListingData {
+  type: "directory-listing";
+  path: string;
+  entries: Array<{
+    name: string;
+    size: number;
+    modified: Date;
+    isDirectory: boolean;
+  }>;
+}
+
+/**
+ * Built-in: Value(directory-listing) → Raw("text/html")
+ *
+ * Renders a directory listing as an HTML index page with links to each
+ * entry. Preferred over the generic htmlTransformer when the resource
+ * returns directory-listing structured data.
+ */
+export const directoryListingHtmlTransformer: Transformer = {
+  input: {
+    type: "object",
+    properties: {
+      type: { type: "string" },
+      entries: { type: "array" },
+    },
+  },
+  output: { type: "raw", mime: "text/html" },
+  priority: 10,
+  transform(repr: Repr): Repr {
+    const data = repr.content as DirectoryListingData;
+    const escapedPath = escapeHtml(data.path || "/");
+    const rows = data.entries
+      .map((e) => {
+        const name = escapeHtml(e.name);
+        const href = escapeHtml(
+          encodeURIComponent(e.name) + (e.isDirectory ? "/" : ""),
+        );
+        const size = e.isDirectory ? "-" : formatSize(e.size);
+        const modified = e.modified
+          .toISOString()
+          .slice(0, 19)
+          .replace("T", " ");
+        return `<tr><td><a href="${href}">${name}${e.isDirectory ? "/" : ""}</a></td><td>${size}</td><td>${modified}</td></tr>`;
+      })
+      .join("\n");
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Index of ${escapedPath}</title>
+<style>body{font-family:system-ui,sans-serif;margin:2em}table{border-collapse:collapse}td,th{padding:4px 12px;text-align:left}th{border-bottom:1px solid #ccc}</style>
+</head><body>
+<h1>Index of ${escapedPath}</h1>
+<table>
+<thead><tr><th>Name</th><th>Size</th><th>Modified</th></tr></thead>
+<tbody>
+${rows}
+</tbody></table>
+</body></html>`;
+    return { content: html, meta: { type: "text/html; charset=utf-8" } };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// WebDAV multistatus XML transformer — renders PROPFIND responses
+// ---------------------------------------------------------------------------
+
+/**
+ * WebDAV multistatus data shape returned by DavFileSystemResource.propfind().
+ */
+export interface WebdavMultistatusData {
+  type: "webdav-multistatus";
+  entries: Array<{
+    href: string;
+    isDirectory: boolean;
+    size: number;
+    modified: Date;
+    mimeType?: string;
+  }>;
+}
+
+/**
+ * Built-in: Value(webdav-multistatus) → Raw("application/xml; charset=utf-8")
+ *
+ * Renders a WebDAV PROPFIND multistatus XML response from structured data
+ * returned by DavFileSystemResource.propfind().
+ */
+export const webdavMultistatusTransformer: Transformer = {
+  input: {
+    type: "object",
+    properties: {
+      type: { type: "string" },
+      entries: { type: "array" },
+    },
+  },
+  output: { type: "raw", mime: "application/xml; charset=utf-8" },
+  priority: 10,
+  transform(repr: Repr): Repr {
+    const data = repr.content as WebdavMultistatusData;
+    const responseXml = data.entries
+      .map((e) => {
+        const isCollection = e.isDirectory;
+        const contentType =
+          e.mimeType ??
+          (isCollection
+            ? "httpd/unix-directory"
+            : "application/octet-stream");
+        return `  <D:response>
+    <D:href>${escapeXml(e.href)}</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:displayname>${escapeXml(e.href.split("/").filter(Boolean).pop() ?? "")}</D:displayname>
+        <D:resourcetype>${isCollection ? "<D:collection/>" : ""}</D:resourcetype>
+        <D:getcontentlength>${e.size}</D:getcontentlength>
+        <D:getcontenttype>${escapeXml(contentType)}</D:getcontenttype>
+        <D:getlastmodified>${e.modified.toUTCString()}</D:getlastmodified>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>`;
+      })
+      .join("\n");
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:">
+${responseXml}
+</D:multistatus>`;
+    return {
+      content: xml,
+      meta: { type: "application/xml; charset=utf-8" },
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// WebDAV lock XML transformer — renders LOCK responses
+// ---------------------------------------------------------------------------
+
+/**
+ * WebDAV lock data shape returned by DavFileSystemResource.lock().
+ */
+export interface WebdavLockData {
+  type: "webdav-lock";
+  token: string;
+  lockRoot: string;
+}
+
+/**
+ * Built-in: Value(webdav-lock) → Raw("application/xml; charset=utf-8")
+ *
+ * Renders a WebDAV LOCK response XML from structured data returned by
+ * DavFileSystemResource.lock().
+ */
+export const webdavLockTransformer: Transformer = {
+  input: {
+    type: "object",
+    properties: {
+      type: { type: "string" },
+      token: { type: "string" },
+    },
+  },
+  output: { type: "raw", mime: "application/xml; charset=utf-8" },
+  priority: 10,
+  transform(repr: Repr): Repr {
+    const data = repr.content as WebdavLockData;
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+<D:prop xmlns:D="DAV:">
+  <D:lockdiscovery>
+    <D:activelock>
+      <D:locktype><D:write/></D:locktype>
+      <D:lockscope><D:exclusive/></D:lockscope>
+      <D:depth>infinity</D:depth>
+      <D:timeout>Second-3600</D:timeout>
+      <D:locktoken><D:href>${escapeXml(data.token)}</D:href></D:locktoken>
+      <D:lockroot><D:href>${escapeXml(data.lockRoot)}</D:href></D:lockroot>
+    </D:activelock>
+  </D:lockdiscovery>
+</D:prop>`;
+    return {
+      content: xml,
+      meta: { type: "application/xml; charset=utf-8" },
+    };
+  },
+};

@@ -10,6 +10,7 @@ import { describe, it, expect, beforeEach, afterEach } from "@rstest/core";
 import {
   Site,
   ReadOnlyKind,
+  ReadOnlyResource,
   type HttpRequest,
   type RequestContext,
   type Repr,
@@ -38,7 +39,14 @@ class BadElement {
 }
 
 /** A ReadOnly resource that returns an empty object — used as a placeholder root. */
-class EmptyResource extends ReadOnlyKind {
+class EmptyKind extends ReadOnlyKind {
+  resolve(params: Record<string, string>) {
+    const r = new EmptyResource();
+    r.params = params;
+    return r;
+  }
+}
+class EmptyResource extends ReadOnlyResource {
   async content(ctx: RequestContext): Promise<Repr> {
     return { content: {}, meta: {} };
   }
@@ -68,7 +76,7 @@ describe("custom element bundle serving", () => {
 
   it("serves a bundled entry at /.well-known/assets/elements.js", async () => {
     const app = new Site(
-      { "": new EmptyResource() },
+      { "": new EmptyKind() },
       {
         customElements: { TestElement },
         customElementsEntry: entryPath,
@@ -87,7 +95,7 @@ describe("custom element bundle serving", () => {
 
   it("returns 404 when no entry is configured", async () => {
     const app = new Site(
-      { "": new EmptyResource() },
+      { "": new EmptyKind() },
       { customElements: { TestElement } },
     );
     const response = await app.handleRequest(
@@ -114,7 +122,7 @@ describe("static asset serving", () => {
     writeFileSync(robotsPath, "User-agent: *\nDisallow:\n");
 
     const app = new Site(
-      { "": new EmptyResource() },
+      { "": new EmptyKind() },
       {
         assets: {
           "robots.txt": { source: robotsPath },
@@ -137,7 +145,7 @@ describe("static asset serving", () => {
     writeFileSync(iconPath, Buffer.from([0x00, 0x00, 0x01, 0x00]));
 
     const app = new Site(
-      { "": new EmptyResource() },
+      { "": new EmptyKind() },
       {
         assets: {
           "favicon.ico": { source: iconPath },
@@ -155,7 +163,7 @@ describe("static asset serving", () => {
 
   it("returns 404 for unknown assets", async () => {
     const app = new Site(
-      { "": new EmptyResource() },
+      { "": new EmptyKind() },
       {},
     );
     const response = await app.handleRequest(
@@ -174,7 +182,7 @@ describe("HTML transformer asset links", () => {
 
   it("injects a relative custom element script", async () => {
     const app = new Site(
-      { "": new EmptyResource() },
+      { "": new EmptyKind() },
       {
         customElements: { TestElement },
         customElementsEntry: entryPath,
@@ -192,7 +200,7 @@ describe("HTML transformer asset links", () => {
   it("uses ../.well-known/assets for nested paths", async () => {
     const app = new Site(
       {
-        articles: new EmptyResource(),
+        articles: new EmptyKind(),
       },
       {
         customElements: { TestElement },
@@ -213,7 +221,7 @@ describe("HTML transformer asset links", () => {
     writeFileSync(iconPath, "<svg></svg>");
 
     const app = new Site(
-      { "": new EmptyResource() },
+      { "": new EmptyKind() },
       {
         assets: {
           "favicon.ico": { source: iconPath },

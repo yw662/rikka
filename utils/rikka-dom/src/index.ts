@@ -4,6 +4,7 @@ export {
   ReactiveRange,
   createElement,
   registerDisposable,
+  disposeElement,
   bindAttr,
   bindAttrs,
   unbindAttr,
@@ -291,6 +292,10 @@ export {
   svgtitle,
 } from "./tags.js";
 export type { H } from "./tags.js";
+
+// Signal helpers — exported so sibling packages (e.g. rikka-elements) can
+// reuse the canonical type guard instead of redefining it.
+export { isSignal } from "./signal-utils.js";
 
 import { h } from "./tags.js";
 export default h;

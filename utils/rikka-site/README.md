@@ -17,6 +17,8 @@ Each level only depends on the output of the previous level. Resources are pure 
 
 ### Kinds
 
+Five abstract Kinds (extend and instantiate):
+
 | Kind       | GET     | POST   | PUT     | PATCH | DELETE | Description              |
 | ---------- | ------- | ------ | ------- | ----- | ------ | ------------------------ |
 | Collection | list    | create | —       | —     | —      | Resource collection      |
@@ -24,7 +26,13 @@ Each level only depends on the output of the previous level. Resources are pure 
 | Singleton  | content | —      | replace | patch | —      | Globally unique resource |
 | ReadOnly   | content | —      | —       | —     | —      | Read-only view           |
 | Action     | —       | invoke | —       | —     | —      | Stateless operation      |
-| Proxy      | get     | post   | put     | patch | delete | Proxy resource           |
+
+Concrete resource adapters live in separate packages:
+
+| Package | Kind | Description |
+| ------- | ---- | ----------- |
+| `@takanashi/rikka-resource-filesystem` | `FileSystemKind` | Static files + WebDAV |
+| `@takanashi/rikka-resource-database` | `DatabaseKind` | Schema-driven CRUD |
 
 ### Representation
 
@@ -264,35 +272,23 @@ class Search extends ActionKind {
 }
 ```
 
-#### `class Foo extends ProxyKind`
+#### `FileSystemKind` — file serving
+
+Serve static files from a local directory or a custom resolver. `FileSystemKind` is a concrete class — pass config to the constructor and mount the instance. Mounted at a site key, it catches all remaining path segments as a relative file path.
 
 ```typescript
-import { ProxyKind } from "@takanashi/rikka-site";
+import { FileSystemKind, site } from "@takanashi/rikka-site";
 
-class ExternalAPI extends ProxyKind {
-  target(path: string): URL {
-    return new URL(path, "https://api.example.com");
-  }
-}
-```
-
-#### `StaticKind` — file serving
-
-Serve static files from a local directory or a custom resolver. `StaticKind` is a concrete class — pass config to the constructor and mount the instance. Mounted at a site key, it catches all remaining path segments as a relative file path.
-
-```typescript
-import { StaticKind, site } from "@takanashi/rikka-site";
-
-const app = site({ "assets/": new StaticKind({ root: "./public" }) });
+const app = site({ "assets/": new FileSystemKind({ root: "./public" }) });
 // /assets/style.css → ./public/style.css
 ```
 
 #### Edge / non-Node static files
 
-On Cloudflare Workers, Deno Deploy, or Vercel Edge there is no local filesystem. Pass a `resolver` function to the `StaticKind` constructor to provide files from a bundled manifest, KV store, or any other storage:
+On Cloudflare Workers, Deno Deploy, or Vercel Edge there is no local filesystem. Pass a `resolver` function to the `FileSystemKind` constructor to provide files from a bundled manifest, KV store, or any other storage:
 
 ```typescript
-import { StaticKind, site } from "@takanashi/rikka-site";
+import { FileSystemKind, site } from "@takanashi/rikka-site";
 
 const assets = new Map<string, { content: Uint8Array; type: string }>([
   [
@@ -306,7 +302,7 @@ const assets = new Map<string, { content: Uint8Array; type: string }>([
 ]);
 
 const app = site({
-  "assets/": new StaticKind({
+  "assets/": new FileSystemKind({
     resolver: async (path) => assets.get(path) ?? null,
   }),
 });
@@ -322,7 +318,7 @@ All handlers receive a `RequestContext` object:
 interface RequestContext {
   method: string; // HTTP method
   path: string; // URL path
-  resourcePath?: string; // Resolved resource mount path (e.g. "/assets" for a StaticKind resource)
+  resourcePath?: string; // Resolved resource mount path (e.g. "/assets" for a FileSystemKind resource)
   params: Record<string, string>; // Path parameters
   query: Record<string, string>; // Query parameters
   headers: Record<string, string>; // Request headers (lowercase keys)
@@ -830,22 +826,6 @@ const app = site(
 );
 ```
 
-### ProxyKind
-
-`ProxyKind` resources forward all methods to an external URL:
-
-```typescript
-import { ProxyKind, site } from "@takanashi/rikka-site";
-
-class ExternalAPI extends ProxyKind {
-  target(path: string): URL {
-    return new URL(path.replace(/^\/proxy/, ""), "https://api.example.com");
-  }
-}
-
-const app = site({ proxy: new ExternalAPI() });
-// /proxy/users → https://api.example.com/users
-```
 
 ## Client-Side Hydration
 

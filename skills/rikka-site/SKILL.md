@@ -31,8 +31,8 @@ Build web apps where **every URL is a resource** with automatic content negotiat
 │  │(routes) │  │Resolver  │  │(negotiate + transform)│  │
 │  └────────┘  └──────────┘  └─────────────────────┘  │
 │  ┌──────────┐  ┌─────────┐  ┌────────────────────┐  │
-│  │Auth      │  │CORS     │  │Static / Proxy      │  │
-│  │(Action + │  │(declar.)│  │(catchAll / forward)│  │
+│  │Auth      │  │CORS     │  │Static              │  │
+│  │(Action + │  │(declar.)│  │(catchAll)          │  │
 │  │ glob rls)│  │         │  │                    │  │
 │  └──────────┘  └─────────┘  └────────────────────┘  │
 └─────────────────────────────────────────────────────┘
@@ -53,7 +53,7 @@ Every resource in rikka-site goes through 4 levels:
 
 Each level only depends on the output of the previous level. Resources are pure domain concepts — they know nothing about HTTP. The site tree stores `ResourceKind` instances; per-request state (params, path) is carried by a `Resource` wrapper created via `kind.createResource(params, path)`. The server dispatches HTTP methods polymorphically (`resource.get(ctx)`, `resource.post(ctx)`, …) and infers status, headers, and body from the returned `Repr`.
 
-### Six Kinds + StaticKind
+### Five abstract Kinds
 
 | Kind | GET | POST | PUT | PATCH | DELETE | Use Case |
 |------|-----|------|-----|-------|--------|----------|
@@ -62,8 +62,13 @@ Each level only depends on the output of the previous level. Resources are pure 
 | `SingletonKind` | content | — | replace | patch | — | `/settings` — global config |
 | `ReadOnlyKind` | content | — | — | — | — | `/dashboard` — read-only view |
 | `ActionKind` | — | invoke | — | — | — | `/search` — stateless op |
-| `ProxyKind` | get | post | put | patch | delete | Forward to external API |
-| `StaticKind` | content | — | — | — | — | `/assets/*` — static files (catchAll) |
+
+Concrete resource adapters are in separate packages:
+
+| Package | Kind | Use Case |
+|---------|------|----------|
+| `@takanashi/rikka-resource-filesystem` | `FileSystemKind` | `/assets/*` — static files + WebDAV (catchAll) |
+| `@takanashi/rikka-resource-database` | `DatabaseKind` | `/db/*` — schema-driven CRUD |
 
 ### Repr — The Universal Data Container
 
@@ -580,13 +585,13 @@ class Articles extends CollectionKind {
 ## Static Files
 
 ```typescript
-import { StaticKind, Site } from "@takanashi/rikka-site";
+import { FileSystemKind, Site } from "@takanashi/rikka-site";
 
 // Node.js — serve from filesystem
-const assets = new StaticKind({ root: "./public" });
+const assets = new FileSystemKind({ root: "./public" });
 
 // Edge runtime — use a resolver (KV, R2, bundled manifest, etc.)
-const edgeAssets = new StaticKind({
+const edgeAssets = new FileSystemKind({
   resolver: async (path) => {
     const file = await MY_KV.get(path);
     if (!file) return null;
@@ -598,25 +603,7 @@ const app = new Site({ assets });
 // /assets/style.css → ./public/style.css
 ```
 
-`StaticKind` is a concrete class — pass `{ root }` or `{ resolver }` to the constructor. It is a catchAll resource — any remaining path segments are resolved as relative file paths. Path traversal (`..`) is rejected with 403 before the resolver is called. Directory requests fall back to `index.html`.
-
-## Proxy Resources
-
-```typescript
-import { ProxyKind, Site } from "@takanashi/rikka-site";
-
-class ExternalAPI extends ProxyKind {
-  target(path: string): URL {
-    const upstream = path.replace(/^\/proxy/, "") || "/";
-    return new URL(`https://api.example.com${upstream}`);
-  }
-}
-
-const app = new Site({ proxy: new ExternalAPI() });
-// /proxy/users → https://api.example.com/users
-```
-
-Proxy resources catch all remaining path segments and forward them to the target URL.
+`FileSystemKind` is a concrete class — pass `{ root }` or `{ resolver }` to the constructor. It is a catchAll resource — any remaining path segments are resolved as relative file paths. Path traversal (`..`) is rejected with 403 before the resolver is called. Directory requests fall back to `index.html`.
 
 ## Client-Side SDK
 
@@ -800,10 +787,10 @@ if (!customElements.get(name)) customElements.define(name, ctor);
 
 ### 6. Static files on Edge runtimes
 
-Cloudflare Workers / Deno Deploy have no filesystem, so `new StaticKind({ root: "..." })` won't work. Use the `resolver` option:
+Cloudflare Workers / Deno Deploy have no filesystem, so `new FileSystemKind({ root: "..." })` won't work. Use the `resolver` option:
 
 ```typescript
-const assets = new StaticKind({
+const assets = new FileSystemKind({
   resolver: async (path) => {
     const file = await MY_KV.get(path);
     return file ? { content: file, type: "text/css" } : null;

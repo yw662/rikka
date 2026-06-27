@@ -15,7 +15,7 @@
  *     active: BooleanAttr,
  *   },
  *   events: {
- *     change: Number,
+ *     change: (e: Event) => (e.target as HTMLInputElement).valueAsNumber,
  *     reset: undefined,
  *     custom: event<MyPayload>(),
  *   },
