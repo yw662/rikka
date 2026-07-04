@@ -176,9 +176,108 @@ function requireString(
   return val;
 }
 
+/**
+ * Validate that `obj[field]` (if present) is one of `allowed` values.
+ * Returns `defaultValue` when the field is omitted or null.
+ * Throws 400 if the field is present but not in the allowed list.
+ */
+function optionalEnum<T extends string>(
+  obj: Record<string, unknown>,
+  field: string,
+  allowed: readonly T[],
+  defaultValue: T,
+): T {
+  const val = obj[field];
+  if (val === undefined || val === null) return defaultValue;
+  if (typeof val !== "string" || !allowed.includes(val as T)) {
+    throw new HttpError(
+      400,
+      `"${field}" must be one of: ${allowed.join(", ")}`,
+    );
+  }
+  return val as T;
+}
+
+/**
+ * Validate that `obj[field]` (if present) is an array of strings, each within
+ * `maxLength` characters. Returns `defaultValue` when the field is omitted.
+ * Throws 400 if the field is present but not a string array, or if any
+ * element is not a string / exceeds the length limit.
+ */
+function optionalStringArray(
+  obj: Record<string, unknown>,
+  field: string,
+  maxElementLength: number,
+  defaultValue: string[] = [],
+): string[] {
+  const val = obj[field];
+  if (val === undefined || val === null) return defaultValue;
+  if (!Array.isArray(val)) {
+    throw new HttpError(400, `"${field}" must be an array of strings`);
+  }
+  for (const el of val) {
+    if (typeof el !== "string") {
+      throw new HttpError(400, `"${field}" must be an array of strings`);
+    }
+    if (el.length > maxElementLength) {
+      throw new HttpError(
+        400,
+        `"${field}" entries must be at most ${maxElementLength} characters`,
+      );
+    }
+  }
+  return val as string[];
+}
+
+/**
+ * Validate that `obj[field]` (if present) is a finite number `>= min`.
+ * Returns `undefined` when the field is omitted (caller decides default).
+ */
+function optionalFiniteNumber(
+  obj: Record<string, unknown>,
+  field: string,
+  min: number,
+): number | undefined {
+  const val = obj[field];
+  if (val === undefined || val === null) return undefined;
+  const n = Number(val);
+  if (!Number.isFinite(n) || n < min) {
+    throw new HttpError(400, `"${field}" must be a finite number >= ${min}`);
+  }
+  return n;
+}
+
 // ---------------------------------------------------------------------------
 // Custom Transformers
 // ---------------------------------------------------------------------------
+
+/**
+ * Escape a single CSV field per RFC 4180, with formula-injection defense.
+ *
+ * - Doubles internal double quotes (RFC 4180 §2.7).
+ * - Wraps fields containing comma, double quote, CR, or LF in double quotes
+ *   (RFC 4180 §2.6/§2.7).
+ * - Prefixes values that begin with `=`, `+`, `-`, or `@` with a TAB so
+ *   spreadsheet apps (Excel, Sheets, LibreOffice) treat them as text instead
+ *   of evaluating them as formulas (CSV formula injection / CWE-1236).
+ *   The TAB is preserved on import but renders invisibly in cell views.
+ */
+function csvEscape(value: unknown): string {
+  let s = value === null || value === undefined ? "" : String(value);
+  // Formula-injection defense — guard before any other transformation.
+  if (s.length > 0 && /[=+\-@]/.test(s[0]!)) {
+    s = `\t${s}`;
+  }
+  // RFC 4180 §2.7: double any internal double quotes.
+  if (s.includes('"')) {
+    s = s.replace(/"/g, '""');
+  }
+  // RFC 4180 §2.6: wrap fields containing comma, quote, CR, or LF.
+  if (/[",\r\n]/.test(s)) {
+    s = `"${s}"`;
+  }
+  return s;
+}
 
 const csvTransformer: Transformer = {
   input: { type: "array", items: { type: "object" } },
@@ -189,10 +288,11 @@ const csvTransformer: Transformer = {
     if (!Array.isArray(data) || data.length === 0) {
       return { content: "", meta: { type: "text/csv" } };
     }
-    const headers = Object.keys(data[0] as Record<string, unknown>).join(",");
+    const firstRow = data[0] as Record<string, unknown>;
+    const headers = Object.keys(firstRow).map(csvEscape).join(",");
     const rows = data.map((row: unknown) =>
       Object.values(row as Record<string, unknown>)
-        .map((v) => (typeof v === "string" ? `"${v}"` : String(v)))
+        .map(csvEscape)
         .join(","),
     );
     return {
@@ -300,7 +400,8 @@ class ArticleCommentResource extends ItemResource {
 
   async delete(ctx: RequestContext): Promise<Repr> {
     const cid = Number(ctx.params.commentId);
-    const idx = comments.findIndex((c) => c.id === cid);
+    const aid = Number(ctx.params.articleId);
+    const idx = comments.findIndex((c) => c.id === cid && c.articleId === aid);
     if (idx === -1) throw new HttpError(404, "Comment not found");
     comments.splice(idx, 1);
     return { content: null, meta: {} };
@@ -332,6 +433,12 @@ class ArticleCommentsResource extends CollectionResource {
 
   async create(ctx: RequestContext): Promise<Repr> {
     const id = Number(ctx.params.articleId);
+    // Verify the parent article exists before attaching a comment to it.
+    // Without this, POST /articles/99999/comments would create an orphan
+    // comment that never appears under any article.
+    if (!articles.some((a) => a.id === id)) {
+      throw new HttpError(404, "Article not found");
+    }
     const obj = requireFields(await ctx.json(), ["author", "text"]);
     const comment: Comment = {
       id: nextCommentId++,
@@ -394,9 +501,7 @@ class ArticleItemResource extends ItemResource {
       ...articles[idx]!,
       title,
       body,
-      tags: Array.isArray(obj.tags)
-        ? (obj.tags as string[])
-        : articles[idx]!.tags,
+      tags: optionalStringArray(obj, "tags", 50, articles[idx]!.tags),
     };
     return { content: articles[idx], meta: {} };
   }
@@ -422,8 +527,8 @@ class ArticleItemResource extends ItemResource {
     if (obj.body !== undefined) {
       articles[idx]!.body = requireString(obj, "body", 10000);
     }
-    if (Array.isArray(obj.tags)) {
-      articles[idx]!.tags = obj.tags as string[];
+    if (obj.tags !== undefined) {
+      articles[idx]!.tags = optionalStringArray(obj, "tags", 50, []);
     }
     return { content: articles[idx], meta: {} };
   }
@@ -480,7 +585,7 @@ class ArticlesResource extends CollectionResource {
       title,
       body,
       authorId: 1,
-      tags: Array.isArray(obj.tags) ? (obj.tags as string[]) : [],
+      tags: optionalStringArray(obj, "tags", 50, []),
       createdAt: new Date().toISOString().slice(0, 10),
     };
     articles.push(article);
@@ -535,7 +640,12 @@ class UsersResource extends CollectionResource {
       id: users.length + 1,
       name: requireString(obj, "name", 100),
       email: requireString(obj, "email", 200),
-      role: (obj.role as User["role"]) ?? "reader",
+      role: optionalEnum(
+        obj,
+        "role",
+        ["admin", "author", "reader"] as const,
+        "reader",
+      ),
     };
     users.push(user);
     return { content: user, meta: { location: `./${user.id}` } };
@@ -561,20 +671,39 @@ class SiteSettingsResource extends SingletonResource {
   }
 
   async replace(ctx: RequestContext): Promise<Repr> {
+    // PUT requires siteName (full replacement semantics).
     const obj = requireFields(await ctx.json(), ["siteName"]);
     settings.siteName = requireString(obj, "siteName", 100);
     if (obj.theme !== undefined) settings.theme = String(obj.theme);
-    if (obj.postsPerPage !== undefined)
-      settings.postsPerPage = Number(obj.postsPerPage);
+    const ppp = optionalFiniteNumber(obj, "postsPerPage", 1);
+    if (ppp !== undefined) settings.postsPerPage = ppp;
     return { content: settings, meta: {} };
   }
 
   async patch(ctx: RequestContext): Promise<Repr> {
-    const obj = requireFields(await ctx.json(), ["siteName"]);
-    settings.siteName = requireString(obj, "siteName", 100);
+    // PATCH allows partial updates — no field is required, but at least one
+    // must be provided so the operation isn't a silent no-op.
+    const body = await ctx.json();
+    if (typeof body !== "object" || body === null) {
+      throw new HttpError(400, "Request body must be a JSON object");
+    }
+    const obj = body as Record<string, unknown>;
+    if (
+      obj.siteName === undefined &&
+      obj.theme === undefined &&
+      obj.postsPerPage === undefined
+    ) {
+      throw new HttpError(
+        400,
+        "At least one of siteName, theme, or postsPerPage is required",
+      );
+    }
+    if (obj.siteName !== undefined) {
+      settings.siteName = requireString(obj, "siteName", 100);
+    }
     if (obj.theme !== undefined) settings.theme = String(obj.theme);
-    if (obj.postsPerPage !== undefined)
-      settings.postsPerPage = Number(obj.postsPerPage);
+    const ppp = optionalFiniteNumber(obj, "postsPerPage", 1);
+    if (ppp !== undefined) settings.postsPerPage = ppp;
     return { content: settings, meta: {} };
   }
 }
@@ -693,11 +822,36 @@ export function createApp(options: BlogAppOptions = {}) {
       auth: {
         verifier: "auth",
         rules: [
-          // Public read access
-          { match: "/dashboard", auth: null },
-          { match: "/settings", auth: null },
-          { match: "/articles", auth: null },
-          // Write operations require auth
+          // Public read access (GET only). Without the methods constraint,
+          // `auth: null` would also expose POST/PUT/PATCH/DELETE on these
+          // paths — the rule applies to ALL methods. Restricting to GET
+          // keeps public reads open while forcing writes through auth.
+          {
+            match: "/articles/**",
+            auth: null,
+            methods: ["GET", "HEAD", "OPTIONS"],
+          },
+          {
+            match: "/users/**",
+            auth: null,
+            methods: ["GET", "HEAD", "OPTIONS"],
+          },
+          {
+            match: "/dashboard",
+            auth: null,
+            methods: ["GET", "HEAD", "OPTIONS"],
+          },
+          {
+            match: "/settings",
+            auth: null,
+            methods: ["GET", "HEAD", "OPTIONS"],
+          },
+          // All write methods (POST/PUT/PATCH/DELETE) on the public read
+          // paths require auth.
+          { match: "/articles/**", auth: "auth" },
+          { match: "/users/**", auth: "auth" },
+          { match: "/settings", auth: "auth" },
+          // Admin and action routes require auth for every method.
           { match: "/admin/**", auth: "auth" },
           { match: "/actions/**", auth: "auth" },
         ],
@@ -714,7 +868,7 @@ export function createApp(options: BlogAppOptions = {}) {
               },
               "favicon.ico": {
                 source: new URL("../public/favicon.ico", import.meta.url),
-                contentType: "image/svg+xml",
+                contentType: "image/x-icon",
               },
             } as Record<string, { source: URL; contentType?: string }>,
           }

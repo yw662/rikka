@@ -102,10 +102,7 @@ describe("virtualTable", () => {
       height: 300,
     });
 
-    const scrollContainer = table.querySelector(
-      "[data-r-vtable-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(table, 300);
     document.body.appendChild(table);
     await waitFor(50);
 
@@ -133,10 +130,7 @@ describe("virtualTable", () => {
       height: 300,
     });
 
-    const scrollContainer = table.querySelector(
-      "[data-r-vtable-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(table, 300);
     document.body.appendChild(table);
     await waitFor(50);
 
@@ -168,10 +162,7 @@ describe("virtualTable", () => {
       height: 300,
     });
 
-    const scrollContainer = table.querySelector(
-      "[data-r-vtable-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(table, 300);
     document.body.appendChild(table);
     await waitFor(50);
 
@@ -196,10 +187,7 @@ describe("virtualTable", () => {
       height: 300,
     });
 
-    const scrollContainer = table.querySelector(
-      "[data-r-vtable-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(table, 300);
     document.body.appendChild(table);
     await waitFor(50);
 
@@ -227,10 +215,7 @@ describe("virtualTable", () => {
       selection,
     });
 
-    const scrollContainer = table.querySelector(
-      "[data-r-vtable-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(table, 300);
     document.body.appendChild(table);
     await waitFor(50);
 
@@ -264,10 +249,7 @@ describe("virtualTable", () => {
       selection,
     });
 
-    const scrollContainer = table.querySelector(
-      "[data-r-vtable-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(table, 300);
     document.body.appendChild(table);
     await waitFor(50);
 
@@ -296,10 +278,7 @@ describe("virtualTable", () => {
       sortDirection,
     });
 
-    const scrollContainer = table.querySelector(
-      "[data-r-vtable-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(table, 300);
     document.body.appendChild(table);
     await waitFor(50);
 
@@ -345,10 +324,7 @@ describe("virtualTable", () => {
       },
     });
 
-    const scrollContainer = table.querySelector(
-      "[data-r-vtable-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(table, 300);
     document.body.appendChild(table);
     await waitFor(50);
 
@@ -381,10 +357,7 @@ describe("virtualTable", () => {
       height: 300,
     });
 
-    const scrollContainer = table.querySelector(
-      "[data-r-vtable-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(table, 300);
     document.body.appendChild(table);
     await waitFor(50);
 
@@ -414,15 +387,12 @@ describe("virtualTable", () => {
       height: 300,
     });
 
-    const scrollContainer = table.querySelector(
-      "[data-r-vtable-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(table, 300);
     document.body.appendChild(table);
     await waitFor(50);
 
     // Scroll to row 50 (50 * 40 = 2000)
-    triggerScroll(scrollContainer, 2000);
+    triggerScroll(table, 2000);
     await waitFor(50);
 
     const rows = table.querySelectorAll("[data-r-vtable-row]");
@@ -440,10 +410,7 @@ describe("virtualTable", () => {
       height: 300,
     });
 
-    const scrollContainer = table.querySelector(
-      "[data-r-vtable-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(table, 300);
     document.body.appendChild(table);
     await waitFor(50);
 
@@ -472,15 +439,12 @@ describe("virtualTable", () => {
       height: 300,
     });
 
-    const scrollContainer = table.querySelector(
-      "[data-r-vtable-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(table, 300);
     document.body.appendChild(table);
     await waitFor(50);
 
     table.scrollToIndex(50);
     // 50 * 40 = 2000
-    expect(scrollContainer.scrollTop).toBe(2000);
+    expect(table.scrollTop).toBe(2000);
   });
 });

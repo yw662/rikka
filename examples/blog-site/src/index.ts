@@ -6,7 +6,7 @@
  * Visit http://localhost:3000 to see the blog.
  */
 
-import { serve } from "@takanashi/rikka-site/node";
+import { Site } from "@takanashi/rikka-site";
 import { createApp } from "./resources.js";
 
 const app = createApp();
@@ -14,13 +14,10 @@ const app = createApp();
 const port = Number(process.env["PORT"] ?? 3000);
 const host = process.env["HOST"] ?? "127.0.0.1";
 
-const server = serve(app, { port, host });
+const server = await app.listen({ port, host });
+await server.ready;
 
-server.ready.then(() => {
-  console.log(
-    `[rikka-site] blog-site listening on http://${server.host}:${server.port}`,
-  );
-});
+console.log(`[rikka-site] blog-site listening on http://${server.host}:${server.port}`);
 
 // Graceful shutdown
 const shutdown = async (signal: string) => {

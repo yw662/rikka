@@ -154,7 +154,7 @@ describe("createRouter", () => {
     globalThis.fetch = async () => ({
       ok: true,
       text: async () =>
-        `<html><head><title>Articles</title></head><body><rikka-resource path="/articles" data-resource="[]"></rikka-resource></body></html>`,
+        `<html><head><title>Articles</title></head><body><blog-article-list path="/articles" data-resource="[]"></blog-article-list></body></html>`,
     } as unknown as Response);
     history.pushState = () => {};
   });
@@ -177,7 +177,7 @@ describe("createRouter", () => {
       return {
         ok: true,
         text: async () =>
-          `<html><head><title>Articles</title></head><body><rikka-resource path="/articles" data-resource="[]"></rikka-resource></body></html>`,
+          `<html><head><title>Articles</title></head><body><blog-article-list path="/articles" data-resource="[]"></blog-article-list></body></html>`,
       } as unknown as Response;
     };
 

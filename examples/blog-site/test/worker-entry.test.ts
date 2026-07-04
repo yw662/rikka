@@ -71,8 +71,12 @@ describe("src/worker.ts (Cloudflare Workers entry)", () => {
   });
 
   it("responds to all six Kinds + auth + 404", async () => {
-    // ReadOnly — /
-    const home = await probe(port, { path: "/" });
+    // ReadOnly — / (browsers send Accept: text/html, which the framework
+    // negotiates to the HTML transformer)
+    const home = await probe(port, {
+      path: "/",
+      headers: { accept: "text/html" },
+    });
     expect(home.status).toBe(200);
     expect(home.headers["content-type"]).toContain("text/html");
 
@@ -144,6 +148,7 @@ describe("src/worker.ts (Cloudflare Workers entry)", () => {
       headers: {
         "content-type": "application/json",
         accept: "application/json",
+        authorization: "Bearer admin-token",
       },
       body: JSON.stringify({ title: "Worker body test", body: "x" }),
     });
@@ -166,9 +171,11 @@ describe("src/worker.ts (Cloudflare Workers entry)", () => {
     const body = await r.json();
     expect(body.error).toBeDefined();
 
-    // 405 wrong method
+    // 405 wrong method — auth is checked before method, so provide a valid
+    // token to reach the method check (DELETE on a Collection → 405).
     const wrong = new Request(`http://127.0.0.1:${port}/users`, {
       method: "DELETE",
+      headers: { authorization: "Bearer admin-token" },
     });
     const r2 = await worker.fetch(wrong, {}, {});
     expect(r2.status).toBe(405);

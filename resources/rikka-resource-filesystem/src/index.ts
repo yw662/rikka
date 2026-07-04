@@ -36,6 +36,13 @@ import {
   type RequestContext,
   HttpError,
 } from "@takanashi/rikka-site";
+import {
+  parseDasl,
+  evalWhere,
+  applyOrderby,
+  type DaslEntry,
+  type DaslSearch,
+} from "./dasl.js";
 
 // ---------------------------------------------------------------------------
 // Path sanitization (filesystem-specific)
@@ -155,6 +162,83 @@ const webdavLockSchema: Schema = {
 };
 
 // ---------------------------------------------------------------------------
+// WebDAV lock store (in-memory, per FileSystemKind instance)
+// ---------------------------------------------------------------------------
+
+/** A single active WebDAV lock. */
+interface WebDAVLock {
+  /** The opaque lock token (e.g. `opaquelocktoken:...`). */
+  token: string;
+  /** Owner description (raw LOCK request body or "anonymous"). */
+  owner: string;
+  /** Expiration timestamp (epoch ms). */
+  expires: number;
+}
+
+/**
+ * Simple in-memory WebDAV lock store.
+ *
+ * Locks are keyed by the sanitized resource path and shared across all
+ * per-request {@link DavFileSystemResource} instances belonging to the same
+ * {@link FileSystemKind}. Locks expire automatically (default 5 minutes);
+ * expired entries are swept on every acquire/release call.
+ *
+ * This is a best-effort implementation suitable for single-process servers.
+ * It does NOT coordinate across multiple server processes or machines.
+ */
+class LockStore {
+  private locks = new Map<string, WebDAVLock>();
+  private static readonly DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
+
+  /** Remove expired locks. Called on every acquire/release. */
+  cleanup(): void {
+    const now = Date.now();
+    for (const [key, lock] of this.locks) {
+      if (lock.expires <= now) {
+        this.locks.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Acquire (or refresh) a lock on `path`. Returns the new lock.
+   * An existing unexpired lock on the same path is replaced.
+   */
+  acquire(
+    path: string,
+    owner: string,
+    timeoutMs: number = LockStore.DEFAULT_TIMEOUT_MS,
+  ): WebDAVLock {
+    this.cleanup();
+    const token = `opaquelocktoken:${crypto.randomUUID()}`;
+    const lock: WebDAVLock = {
+      token,
+      owner,
+      expires: Date.now() + timeoutMs,
+    };
+    this.locks.set(path, lock);
+    return lock;
+  }
+
+  /**
+   * Release the lock on `path`.
+   * @throws 404 if no lock exists for `path`.
+   * @throws 409 if `token` does not match the stored lock token.
+   */
+  release(path: string, token: string | undefined): void {
+    this.cleanup();
+    const lock = this.locks.get(path);
+    if (!lock) {
+      throw new HttpError(404, "Not Found", "No lock exists for this resource");
+    }
+    if (!token || lock.token !== token) {
+      throw new HttpError(409, "Conflict", "Lock token does not match");
+    }
+    this.locks.delete(path);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Internal storage backends (not exported)
 // ---------------------------------------------------------------------------
 
@@ -165,13 +249,62 @@ const webdavLockSchema: Schema = {
 class LocalStorage implements WritableFileSystemStorage {
   constructor(private root: string) {}
 
+  /**
+   * Cached real (symlink-resolved) root path. `nodePath.resolve` does NOT
+   * resolve symlinks, so a symlink inside the root pointing to `/etc/passwd`
+   * would pass a naive `startsWith` containment check. We resolve the root
+   * with `fs.realpath` once and cache it.
+   */
+  private realRootPromise: Promise<string> | null = null;
+
+  private getRealRoot(): Promise<string> {
+    if (this.realRootPromise === null) {
+      this.realRootPromise = (async () => {
+        const nodePath = await import(/* webpackIgnore: true */ "node:path");
+        const nodeFs = await import(/* webpackIgnore: true */ "node:fs/promises");
+        const resolvedRoot = nodePath.resolve(this.root);
+        try {
+          return await nodeFs.realpath(resolvedRoot);
+        } catch {
+          // Root doesn't exist yet — fall back to the resolved (non-real) path.
+          return resolvedRoot;
+        }
+      })();
+    }
+    return this.realRootPromise;
+  }
+
   private async resolveSafe(path: string): Promise<string> {
     const nodePath = await import(/* webpackIgnore: true */ "node:path");
+    const nodeFs = await import(/* webpackIgnore: true */ "node:fs/promises");
+    const realRoot = await this.getRealRoot();
     const resolvedRoot = nodePath.resolve(this.root);
     const filePath = nodePath.resolve(resolvedRoot, path);
+
+    // Resolve symlinks for the containment check. We return `filePath`
+    // (not `realPath`) so operations like remove() act on the symlink itself
+    // rather than its target.
+    let realPath: string;
+    try {
+      realPath = await nodeFs.realpath(filePath);
+    } catch {
+      // Target doesn't exist yet (PUT/MKCOL to a new file). Resolve the
+      // parent directory and re-append the basename to verify containment.
+      const parent = nodePath.dirname(filePath);
+      const base = nodePath.basename(filePath);
+      try {
+        const realParent = await nodeFs.realpath(parent);
+        realPath = nodePath.join(realParent, base);
+      } catch {
+        // Parent doesn't exist either — fall back to the resolved path;
+        // the containment check below still applies.
+        realPath = filePath;
+      }
+    }
+
     if (
-      !filePath.startsWith(resolvedRoot + nodePath.sep) &&
-      filePath !== resolvedRoot
+      !realPath.startsWith(realRoot + nodePath.sep) &&
+      realPath !== realRoot
     ) {
       throw new HttpError(403, "Forbidden");
     }
@@ -371,6 +504,8 @@ export class FileSystemKind extends ResourceKind {
   readonly writable: boolean;
   readonly indexFile: string;
   readonly listDirectories: boolean;
+  /** In-memory WebDAV lock store. Shared by all resources of this Kind. */
+  readonly lockStore: LockStore;
 
   override children: { [key: string]: FileSystemKind } = { ":path*": this };
 
@@ -404,6 +539,7 @@ export class FileSystemKind extends ResourceKind {
     }
     this.indexFile = options.index ?? "index.html";
     this.listDirectories = options.listDirectories ?? true;
+    this.lockStore = new LockStore();
   }
 
   resolve(params: Record<string, string>): FileSystemResource {
@@ -511,21 +647,24 @@ export class FileSystemResource extends ReadOnlyResource {
       ctx.range.ranges.length > 0
     ) {
       const content = result.content;
-      const total =
-        typeof content === "string" ? content.length : content.byteLength;
+      // HTTP byte ranges operate on bytes, not UTF-16 code units. For string
+      // content, encode to bytes first so all range math is byte-accurate
+      // (multi-byte characters would otherwise be split incorrectly).
+      const bytes =
+        typeof content === "string"
+          ? new TextEncoder().encode(content)
+          : content;
+      const total = bytes.byteLength;
       const range = ctx.range.ranges[0];
       const start =
         range.start ?? (range.end !== undefined ? total - range.end : 0);
       const end = range.end ?? total - 1;
 
-      if (start >= total || end >= total) {
+      if (start >= total || end >= total || start > end) {
         throw new HttpError(416, "Range Not Satisfiable");
       }
 
-      const sliced =
-        typeof content === "string"
-          ? content.slice(start, end + 1)
-          : content.slice(start, end + 1);
+      const sliced = bytes.slice(start, end + 1);
 
       const partial: PartialContent = {
         unit: "bytes",
@@ -623,32 +762,43 @@ export class DavFileSystemResource extends FileSystemResource {
     return this.doCopyOrMove(ctx, "move");
   }
 
-  // --- LOCK: stub (non-functional) ---
-  // Returns a random lock token but does NOT actually lock the resource.
-  // Concurrent writers are not serialized; the token is not recorded.
-  // This is a minimal implementation for WebDAV protocol compliance —
-  // clients that require real mutual-exclusion should not rely on it.
+  // --- LOCK: acquire a WebDAV lock on the resource ---
+  // Stores the lock token in the Kind's in-memory lock store so that
+  // subsequent UNLOCK requests can be validated. The token is returned in
+  // the response body and the `Lock-Token` header (RFC 4918 Coded-URL form).
   async lock(ctx: RequestContext): Promise<Repr> {
     const relativePath = this.getRelativePath();
     const stat = await this.writableStorage.stat(relativePath);
     if (!stat) throw new HttpError(404, "Not Found");
 
-    const token = `opaquelocktoken:${crypto.randomUUID()}`;
+    // The LOCK request body carries the owner info; use it (or default).
+    const owner = (await ctx.text()) || "anonymous";
+    const lock = this.kind.lockStore.acquire(relativePath, owner);
     this.schema = webdavLockSchema;
     return {
       content: {
         type: "webdav-lock",
-        token,
+        token: lock.token,
         lockRoot: ctx.path,
       },
-      meta: { type: "application/xml; charset=utf-8" },
+      meta: {
+        type: "application/xml; charset=utf-8",
+        headers: { "Lock-Token": `<${lock.token}>` },
+      },
     };
   }
 
-  // --- UNLOCK: stub (always succeeds) ---
-  // Always returns success without validating the lock token, because no
-  // locks are actually held. See `lock()` above.
-  async unlock(_ctx: RequestContext): Promise<Repr> {
+  // --- UNLOCK: release a WebDAV lock ---
+  // Extracts the `Lock-Token` header (RFC 4918 Coded-URL form `<...>`),
+  // validates it against the stored lock for this resource path, and deletes
+  // the lock entry. Returns 404 if no lock exists, 409 if the token mismatches.
+  async unlock(ctx: RequestContext): Promise<Repr> {
+    const relativePath = this.getRelativePath();
+    const rawToken = ctx.headers["lock-token"];
+    // Strip the Coded-URL angle brackets: <opaquelocktoken:...> → opaquelocktoken:...
+    const match = rawToken?.match(/^<(.+)>$/);
+    const token = match ? match[1] : rawToken;
+    this.kind.lockStore.release(relativePath, token);
     return { content: null, meta: {} };
   }
 
@@ -763,6 +913,228 @@ export class DavFileSystemResource extends FileSystemResource {
     } catch {
       return null;
     }
+  }
+
+  // --- QUERY (RFC 10008) and SEARCH (RFC 5323) ---
+  //
+  // Both methods accept a DASL XML body (RFC 5323) and route through the
+  // same execution path. SEARCH is the original DASL transport; QUERY is
+  // the newer generic query method that uses `Accept-Query` for content-type
+  // negotiation. `Accept-Query` advertises `application/dasl+xml` only —
+  // callers needing other formats can override `query()`.
+
+  /**
+   * Content types accepted for the QUERY method body. Advertised via the
+   * `Accept-Query` response header (RFC 10008). DAV resources accept DASL
+   * XML only.
+   */
+  supportedQueryTypes(): string[] {
+    return ["application/dasl+xml"];
+  }
+
+  /** QUERY method — apply a DASL search request to this resource. */
+  async query(ctx: RequestContext): Promise<Repr> {
+    return this.executeDasl(ctx);
+  }
+
+  /** SEARCH method — RFC 5323, same DASL XML body as QUERY. */
+  async search(ctx: RequestContext): Promise<Repr> {
+    return this.executeDasl(ctx);
+  }
+
+  private async executeDasl(ctx: RequestContext): Promise<Repr> {
+    // Content-Type check. For QUERY we require application/dasl+xml (or +xml
+    // suffix). For SEARCH we accept any XML content type (application/xml,
+    // text/xml, application/dasl+xml) since SEARCH predates Accept-Query.
+    const ct = (ctx.headers["content-type"] ?? "").toLowerCase();
+    const isQuery = ctx.method === "QUERY";
+    if (isQuery) {
+      if (ct && !this.supportedQueryTypes().includes(ct)) {
+        throw new HttpError(415, "Unsupported Query Type", undefined, {
+          "Accept-Query": this.supportedQueryTypes().join(", "),
+        });
+      }
+    } else {
+      const isXml =
+        ct === "application/xml" ||
+        ct === "text/xml" ||
+        ct === "application/dasl+xml" ||
+        ct.endsWith("+xml");
+      if (ct && !isXml) {
+        throw new HttpError(415, "Unsupported Media Type", undefined, {
+          Accept: "application/xml, text/xml, application/dasl+xml",
+        });
+      }
+    }
+
+    const xml = await ctx.text();
+    let search: DaslSearch;
+    try {
+      search = parseDasl(xml);
+    } catch (err) {
+      throw new HttpError(
+        400,
+        "Bad Request",
+        `Invalid DASL XML: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    // Collect candidate entries from each <D:scope>. Multiple scopes union
+    // into one candidate set; duplicates (overlapping scopes) are de-duped
+    // by storage-relative path.
+    const candidates: DaslEntry[] = [];
+    const seen = new Set<string>();
+    for (const scope of search.from) {
+      await this.collectScope(scope, candidates, seen);
+    }
+
+    // Apply <D:where>
+    let matched = candidates;
+    if (search.where) {
+      matched = matched.filter((e) => evalWhere(e, search.where!));
+    }
+
+    // Apply <D:orderby>
+    if (search.orderby && search.orderby.length > 0) {
+      matched = applyOrderby(matched, search.orderby);
+    }
+
+    // Apply <D:limit><D:nresults>
+    if (search.limit != null) {
+      matched = matched.slice(0, search.limit);
+    }
+
+    this.schema = webdavMultistatusSchema;
+    return {
+      content: {
+        type: "webdav-multistatus",
+        entries: matched.map((e) => ({
+          href: e.href,
+          isDirectory: e.isDirectory,
+          size: e.size,
+          modified: e.modified,
+        })),
+      },
+      meta: { type: "application/xml; charset=utf-8" },
+    };
+  }
+
+  /**
+   * Collect {@link DaslEntry}s for a single `<D:scope>` into `out`.
+   *
+   * The scope href is resolved against the current resource's URL: empty or
+   * relative hrefs use the current resource path; absolute paths must lie
+   * within the same FileSystemKind mount (otherwise 403 — cross-mount search
+   * would require resolving through the site tree, which is not supported).
+   *
+   * Cycle detection: visited storage-relative paths are tracked in `seen`
+   * to handle symlinked directories that point back into the tree.
+   */
+  private async collectScope(
+    scope: { href: string; depth: "0" | "1" | "infinity" },
+    out: DaslEntry[],
+    seen: Set<string>,
+  ): Promise<void> {
+    const { relativePath, urlPath } = this.resolveScopeHref(scope.href);
+    await this.collectEntries(relativePath, urlPath, scope.depth, out, seen);
+  }
+
+  /**
+   * Recursively collect entries under `relativePath` (storage-relative)
+   * rooted at `urlPath` (URL-relative). Self is always included; depth
+   * controls how far we descend into subdirectories.
+   */
+  private async collectEntries(
+    relativePath: string,
+    urlPath: string,
+    depth: "0" | "1" | "infinity",
+    out: DaslEntry[],
+    seen: Set<string>,
+  ): Promise<void> {
+    // Cycle detection.
+    const visitKey = relativePath || ".";
+    if (seen.has(visitKey)) return;
+    seen.add(visitKey);
+
+    const stat = await this.writableStorage.stat(relativePath);
+    if (!stat) return;
+
+    // Self entry.
+    const name = urlPath ? urlPath.split("/").filter(Boolean).pop() ?? "" : "";
+    out.push({
+      href: urlPath,
+      name,
+      size: stat.size,
+      modified: stat.modified,
+      isDirectory: stat.isDirectory,
+    });
+
+    if (depth === "0" || !stat.isDirectory) return;
+
+    const entries = await this.writableStorage.list(relativePath);
+    if (!entries) return;
+
+    // depth: "1" — collect children at depth 0 (no recursion).
+    // depth: "infinity" — recurse with the same depth.
+    const childDepth: "0" | "1" | "infinity" =
+      depth === "1" ? "0" : "infinity";
+
+    for (const entry of entries) {
+      const childRel = relativePath
+        ? `${relativePath}/${entry.name}`
+        : entry.name;
+      const childUrl = urlPath.endsWith("/")
+        ? `${urlPath}${entry.name}`
+        : `${urlPath}/${entry.name}`;
+      await this.collectEntries(childRel, childUrl, childDepth, out, seen);
+    }
+  }
+
+  /**
+   * Resolve a `<D:scope>` `<D:href>` to a storage-relative path and URL path.
+   *
+   * - Empty href → current resource.
+   * - Relative href → resolved against the current resource URL.
+   * - Absolute href → must lie within the current FileSystemKind mount;
+   *   the mount prefix (computed from `this.path` minus `this.params.path`)
+   *   is stripped to produce a storage-relative path. Outside-mount hrefs
+   *   throw 403 (cross-mount search is not supported).
+   */
+  private resolveScopeHref(href: string): {
+    relativePath: string;
+    urlPath: string;
+  } {
+    const trimmed = href.trim();
+    if (trimmed === "" || trimmed === ".") {
+      return { relativePath: this.getRelativePath(), urlPath: this.path };
+    }
+
+    // Resolve relative hrefs against the current resource URL.
+    let urlPath: string;
+    try {
+      const url = new URL(trimmed, "http://_placeholder");
+      urlPath = url.pathname;
+    } catch {
+      throw new HttpError(400, "Bad Request", `Invalid scope href: ${href}`);
+    }
+
+    // Compute the FileSystemKind mount prefix in URL space.
+    const relPath = this.params.path ?? "";
+    const mountPrefix = relPath
+      ? this.path.slice(0, this.path.length - relPath.length)
+      : this.path;
+
+    if (mountPrefix && urlPath.startsWith(mountPrefix)) {
+      const rel = sanitizePath(urlPath.slice(mountPrefix.length));
+      return { relativePath: rel, urlPath };
+    }
+
+    // Outside the mount — not supported.
+    throw new HttpError(
+      403,
+      "Forbidden",
+      "DASL scope outside FileSystemKind mount is not supported",
+    );
   }
 }
 

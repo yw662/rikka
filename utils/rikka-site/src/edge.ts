@@ -5,8 +5,8 @@
  * Each platform has slightly different entry point conventions.
  * This module provides adapters for all major edge runtimes,
  * plus a generic `handleWebRequest` for any Web Standard compatible runtime.
- * The Node.js adapter lives in `./node.js` — it imports `node:http`, so
- * non-Node bundlers don't have to handle that scheme.
+ * The Node.js adapter is `Site.listen()` (on the main `Site` class) — it
+ * dynamically imports `node:http` so non-Node bundlers don't pull it in.
  *
  * ## Platform summary
  *
@@ -16,7 +16,7 @@
  * | Cloudflare Pages (Advanced Mode) | `createCloudflarePagesHandler` | `_worker.js` with `export default { fetch(req, env, ctx) }` |
  * | Vercel Edge | `handleWebRequest` | `export function GET(req)` or `export default { fetch(req) }` |
  * | Deno Deploy | `createDenoDeployHandler` | `Deno.serve(handler)` |
- * | Node.js (no edge) | `createNodeHandler` / `serve` from `./node.js` | Plain `http.createServer` |
+ * | Node.js (no edge) | `Site.listen()` | Plain `http.createServer` |
  * | Generic | `handleWebRequest` | Any `Request → Response` handler |
  */
 
@@ -70,6 +70,7 @@ export async function handleWebRequest(
     method: request.method,
     path: url.pathname,
     accept: request.headers.get("accept") ?? undefined,
+    acceptLanguage: request.headers.get("accept-language") ?? undefined,
     acceptQuery,
     body,
     query,

@@ -19,13 +19,13 @@ Each level only depends on the output of the previous level. Resources are pure 
 
 Five abstract Kinds (extend and instantiate):
 
-| Kind       | GET     | POST   | PUT     | PATCH | DELETE | Description              |
-| ---------- | ------- | ------ | ------- | ----- | ------ | ------------------------ |
-| Collection | list    | create | —       | —     | —      | Resource collection      |
-| Item       | content | —      | replace | patch | delete | Collection member        |
-| Singleton  | content | —      | replace | patch | —      | Globally unique resource |
-| ReadOnly   | content | —      | —       | —     | —      | Read-only view           |
-| Action     | —       | invoke | —       | —     | —      | Stateless operation      |
+| Kind       | GET     | POST   | PUT     | PATCH | DELETE | QUERY  | Description              |
+| ---------- | ------- | ------ | ------- | ----- | ------ | ------ | ------------------------ |
+| Collection | list    | create | —       | —     | —      | list   | Resource collection      |
+| Item       | content | —      | replace | patch | delete | —      | Collection member        |
+| Singleton  | content | —      | replace | patch | —      | —      | Globally unique resource |
+| ReadOnly   | content | —      | —       | —     | —      | —      | Read-only view           |
+| Action     | —       | invoke | —       | —     | —      | —      | Stateless operation      |
 
 Concrete resource adapters live in separate packages:
 
@@ -49,17 +49,18 @@ The same URL serves both API data and pages. The representation is determined by
 
 1. `?accept` query parameter (explicit override)
 2. `Accept` header (standard negotiation with q-values)
-3. Default: `text/html`
+3. Default: `application/json` for Value content (structured data); the resource's `meta.type` or a path-guessed MIME for Raw content
 
 ```
-GET /users                  → HTML page
-GET /users?accept=json      → JSON array
+GET /users                  → JSON array (default)
+GET /users?accept=html      → HTML page
 GET /users?accept=jsonld    → JSON-LD document
 GET /users?accept=csv       → CSV file
 GET /users?accept=cbor      → CBOR binary (Uint8Array body)
 GET /users?accept=protobuf  → protobuf bytes (if protobuf(schema) registered)
 Accept: application/json    → JSON array
 Accept: application/ld+json → JSON-LD document
+Accept: text/html           → HTML page (browser negotiation)
 ```
 
 ### Transformers
@@ -85,7 +86,7 @@ import {
   CollectionKind,
   ItemKind,
   SingletonKind,
-  site,
+  Site,
   handleWebRequest,
   type Schema,
 } from "@takanashi/rikka-site";
@@ -137,7 +138,7 @@ class Settings extends SingletonKind {
   }
 }
 
-const app = site({
+const app = new Site({
   articles: new Articles(),
   "articles/:articleId": new Article(),
   settings: new Settings(),
@@ -154,11 +155,13 @@ Each Kind is an abstract class. Extend it and implement the required methods. Ha
 
 #### `class Foo extends CollectionKind`
 
-`CollectionKind` supports `list` (GET) and `create` (POST).
+`CollectionKind` supports `list` (GET), `create` (POST), and `query` (QUERY — RFC 10008).
+The `query` method delegates to `list` after parsing a query IR; both `get` and
+`query` parse the request into a `Query` object and pass it to `list`.
 
 ```typescript
 import { CollectionKind, type Schema } from "@takanashi/rikka-site";
-import type { Repr, RequestContext } from "@takanashi/rikka-site";
+import type { Repr, RequestContext, Query } from "@takanashi/rikka-site";
 
 class Users extends CollectionKind {
   schema: Schema = { type: "array", items: { type: "object" } };
@@ -166,8 +169,13 @@ class Users extends CollectionKind {
   context = "https://schema.org"; // JSON-LD @context
   jsonldType = "UserCollection"; // JSON-LD @type override
 
-  async list(ctx: RequestContext): Promise<Repr> {
-    return { content: [...items] };
+  // `query` is optional — both GET and QUERY pass through here.
+  async list(ctx: RequestContext, query?: Query): Promise<Repr> {
+    let items = allUsers;
+    if (query?.filter) items = items.filter(/* apply filter */);
+    if (query?.sort) items = sortUsers(items, query.sort);
+    if (query?.limit) items = items.slice(query.offset ?? 0, query.limit);
+    return { content: items };
   }
 
   async create(ctx: RequestContext): Promise<Repr> {
@@ -178,8 +186,68 @@ class Users extends CollectionKind {
 }
 
 // Mount an instance in the site tree:
-const app = site({ users: new Users() });
+const app = new Site({ users: new Users() });
 ```
+
+##### QUERY Method (RFC 10008)
+
+`CollectionResource` provides built-in support for the HTTP `QUERY` method:
+
+- **`parseQuery(ctx)`** — parses the request into a format-tagged `Query` union.
+  Default dispatch by `Content-Type`: QUERY with `application/json` returns
+  `{ type: "json", body }` (raw parsed JSON); `application/graphql` (or
+  `*+graphql`) returns `{ type: "graphql", query }`; `application/dasl+xml`
+  (or `*+dasl+xml`) returns `{ type: "dasl", doc }` (raw XML string —
+  subclasses parse the doc themselves). GET returns
+  `{ type: "urlencoded", params }` from the query string.
+- **`supportedQueryTypes()`** — content types accepted for QUERY body. Default:
+  `["application/json"]`. Override to add `application/graphql`,
+  `application/dasl+xml`, etc.
+- **`Accept-Query` header** — when a client sends QUERY with an unsupported
+  `Content-Type`, the server replies `415` with an `Accept-Query` header listing
+  the supported types **before** the body is read (via Node's `checkContinue`
+  event).
+- **`Query` union** — no IR / no normalization; each variant carries the raw
+  parsed request in its native format:
+  ```typescript
+  type Query =
+    | { type: "json"; body: unknown }
+    | { type: "graphql"; query: string; variables?: Record<string, unknown> }
+    | { type: "dasl"; doc: unknown }
+    | { type: "urlencoded"; params: Record<string, string> };
+  ```
+  Subclasses switch on `query.type` in `list(ctx, query?)` to interpret the
+  variants they support; unsupported variants throw `415` with `Accept-Query`.
+
+##### Advertising Supported Query Syntax
+
+```typescript
+class GraphqlUsers extends UsersResource {
+  override supportedQueryTypes(): string[] {
+    return ["application/json", "application/graphql"];
+  }
+  override async parseQuery(ctx: RequestContext): Promise<Query> {
+    const ct = (ctx.headers["content-type"] ?? "").toLowerCase();
+    if (ct === "application/graphql") {
+      const text = await ctx.text();
+      return { type: "graphql", query: text };
+    }
+    return super.parseQuery(ctx);
+  }
+  async list(ctx: RequestContext, query?: Query): Promise<Repr> {
+    if (query?.type === "graphql") {
+      // execute query.graphql against your data store
+    }
+    return super.list(ctx, query);
+  }
+}
+```
+
+`DavFileSystemResource` (from `@takanashi/rikka-resource-filesystem`) supports
+`QUERY` and `SEARCH` (RFC 5323) via DASL XML — its `supportedQueryTypes()`
+returns `["application/dasl+xml"]` only, and the `<D:where>` / `<D:orderby>`
+/ `<D:limit>` operators are applied to directory entries with full
+depth:infinity recursion.
 
 #### `class Foo extends ItemKind`
 
@@ -277,9 +345,9 @@ class Search extends ActionKind {
 Serve static files from a local directory or a custom resolver. `FileSystemKind` is a concrete class — pass config to the constructor and mount the instance. Mounted at a site key, it catches all remaining path segments as a relative file path.
 
 ```typescript
-import { FileSystemKind, site } from "@takanashi/rikka-site";
+import { FileSystemKind, Site } from "@takanashi/rikka-site";
 
-const app = site({ "assets/": new FileSystemKind({ root: "./public" }) });
+const app = new Site({ "assets/": new FileSystemKind({ root: "./public" }) });
 // /assets/style.css → ./public/style.css
 ```
 
@@ -288,7 +356,7 @@ const app = site({ "assets/": new FileSystemKind({ root: "./public" }) });
 On Cloudflare Workers, Deno Deploy, or Vercel Edge there is no local filesystem. Pass a `resolver` function to the `FileSystemKind` constructor to provide files from a bundled manifest, KV store, or any other storage:
 
 ```typescript
-import { FileSystemKind, site } from "@takanashi/rikka-site";
+import { FileSystemKind, Site } from "@takanashi/rikka-site";
 
 const assets = new Map<string, { content: Uint8Array; type: string }>([
   [
@@ -301,7 +369,7 @@ const assets = new Map<string, { content: Uint8Array; type: string }>([
   ],
 ]);
 
-const app = site({
+const app = new Site({
   "assets/": new FileSystemKind({
     resolver: async (path) => assets.get(path) ?? null,
   }),
@@ -382,14 +450,14 @@ Schema types: `any`, `null`, `boolean`, `number`, `string`, `array`, `object`, `
 
 ### Site Definition
 
-#### `site(tree, options?)`
+#### `new Site(tree, options?)`
 
 Declares the resource tree. Object keys become URL path segments (or path patterns like `"articles/:id"`), values become resource instances or sub-trees.
 
 ```typescript
-import { site } from "@takanashi/rikka-site";
+import { Site } from "@takanashi/rikka-site";
 
-const app = site({
+const app = new Site({
   users: new Users(),
   "users/:userId": new UserItem(),
   posts: new Posts(),
@@ -418,7 +486,7 @@ Use the `"/"` key in a nested group to define a different resource for trailing-
 import {
   ItemKind,
   CollectionKind,
-  site,
+  Site,
   type Schema,
 } from "@takanashi/rikka-site";
 import type { Repr, RequestContext } from "@takanashi/rikka-site";
@@ -444,7 +512,7 @@ class FileDirectory extends CollectionKind {
   }
 }
 
-const app = site({
+const app = new Site({
   "files/:path": new FileItem(),
   "files/:path/": new FileDirectory(),
 });
@@ -458,7 +526,7 @@ const app = site({
 Configure authentication with the `auth` option. Auth resources are ordinary `ActionKind` resources:
 
 ```typescript
-import { ActionKind, site, HttpError } from "@takanashi/rikka-site";
+import { ActionKind, Site, HttpError } from "@takanashi/rikka-site";
 import type { Repr, RequestContext } from "@takanashi/rikka-site";
 
 class JwtVerifier extends ActionKind {
@@ -478,7 +546,7 @@ class JwtVerifier extends ActionKind {
   }
 }
 
-const app = site(
+const app = new Site(
   {
     "jwt-auth": new JwtVerifier(),
     users: new Users(),
@@ -536,9 +604,9 @@ export default { fetch: createFetchHandler(app) };
 
 ```typescript
 // src/index.ts
-import { site, createCloudflareWorkerHandler } from "@takanashi/rikka-site";
+import { Site, createCloudflareWorkerHandler } from "@takanashi/rikka-site";
 
-const app = site({
+const app = new Site({
   /* ... */
 });
 
@@ -573,9 +641,9 @@ Place a `_worker.js` in your build output directory. The handler manages both AP
 
 ```typescript
 // _worker.js
-import { site, createCloudflarePagesHandler } from "@takanashi/rikka-site";
+import { Site, createCloudflarePagesHandler } from "@takanashi/rikka-site";
 
-const app = site({
+const app = new Site({
   /* ... */
 });
 
@@ -594,9 +662,9 @@ export default createCloudflarePagesHandler(app, { apiPrefix: "/api" });
 
 ```typescript
 // api/hello.ts
-import { site, handleWebRequest } from "@takanashi/rikka-site";
+import { Site, handleWebRequest } from "@takanashi/rikka-site";
 
-const app = site({
+const app = new Site({
   /* ... */
 });
 
@@ -615,9 +683,9 @@ export default { fetch: (req) => handleWebRequest(app, req) };
 
 ```typescript
 // main.ts
-import { site, createDenoDeployHandler } from "@takanashi/rikka-site";
+import { Site, createDenoDeployHandler } from "@takanashi/rikka-site";
 
-const app = site({
+const app = new Site({
   /* ... */
 });
 
@@ -626,32 +694,35 @@ Deno.serve(createDenoDeployHandler(app));
 
 #### Node.js
 
-```typescript
-import { serve } from "@takanashi/rikka-site/node";
-import { site } from "@takanashi/rikka-site";
+`Site.listen()` is the Node.js adapter. It lives on the `Site` class itself
+and dynamically imports `node:http` only when called, so bundlers for edge
+runtimes (Cloudflare Workers, Deno Deploy) never pull `node:http` into the
+bundle.
 
-const app = site({
+```typescript
+import { Site } from "@takanashi/rikka-site";
+
+const app = new Site({
   /* ... */
 });
 
-const server = serve(app, { port: 3000 });
+const server = await app.listen({ port: 3000 });
+await server.ready;
 console.log(`Listening on ${server.host}:${server.port}`);
+
+// Graceful shutdown
+await server.close();
 ```
 
-For an existing `http.Server`, use `createNodeHandler`:
+`listen()` returns a `ListeningServer` with `port`, `host`, `close()`, and
+`ready`. Pass `{ port: 0 }` to let the OS pick a free port and read it back
+via `server.port`. Pass `{ path: "/run/rikka.sock" }` for a Unix socket, or
+`{ tls: { key, cert } }` for HTTP/2 over TLS.
 
-```typescript
-import { createServer } from "node:http";
-import { createNodeHandler } from "@takanashi/rikka-site/node";
-import { site } from "@takanashi/rikka-site";
-
-const app = site({
-  /* ... */
-});
-
-const server = createServer(createNodeHandler(app));
-server.listen(3000);
-```
+The `before` / `after` / `onRequest` / `onListen` hooks run per-request or
+once on listen, and `checkContinue` is wired so that QUERY requests with an
+unsupported `Content-Type` get a `415` plus `Accept-Query` header **before**
+the body is read.
 
 ### Transformers
 
@@ -684,12 +755,12 @@ you bring your own encoder.
 
 ```typescript
 import protobufjs from "protobufjs";
-import { protobuf, site } from "@takanashi/rikka-site";
+import { protobuf, Site } from "@takanashi/rikka-site";
 
 const Root = await protobufjs.load("user.proto");
 const User = Root.lookupType("app.User");
 
-const app = site(
+const app = new Site(
   { users: new Users() },
   {
     transformers: [protobuf({ encode: (msg) => User.encode(msg).finish() })],
@@ -742,7 +813,7 @@ rikka-site has **zero Node.js dependencies** in its core. It works on:
 | Cloudflare Pages         | `createCloudflarePagesHandler`  | `_worker.js` in output dir (Advanced Mode)             | Falls back to `env.ASSETS` for static files |
 | Vercel Edge              | `handleWebRequest`              | `export function GET(req)`                             | Add `export const runtime = "edge"`         |
 | Deno Deploy              | `createDenoDeployHandler`       | `Deno.serve(handler)`                                  | No build step                               |
-| Node.js                  | `serve` / `createNodeHandler`   | `serve(app)` or `createServer(createNodeHandler(app))` | Import from `@takanashi/rikka-site/node`    |
+| Node.js                  | `Site.listen()`                 | `await app.listen({ port })`                           | Dynamic `import("node:http")`; H2 over TLS via `tls` option |
 | Any Web Standard runtime | `handleWebRequest`              | `Request → Response`                                   | Universal adapter                           |
 
 ## JSON-LD
@@ -782,23 +853,27 @@ See `examples/blog-site/` for a complete example with:
 - Nested resources (articles → comments)
 - Content negotiation (HTML, JSON, JSON-LD, CSV, plain text)
 - Schema declarations
-- Node.js HTTP server adapter
+- Node.js HTTP server via `Site.listen()`
 - Cloudflare Workers adapter
 - **Client-side hydration** with Custom Elements (see [skills/rikka-site](../../skills/rikka-site/))
 
 ### Pagination
 
-Use the `paginate()` helper with `ctx.range` (parsed from the `Range` header) to return partial content (206):
+Use the `paginate()` helper with `ctx.range` (parsed from the `Range` header)
+to return partial content (206). For `CollectionResource`, the parsed range
+is also available as `query.range` when `list(ctx, query?)` is invoked via
+GET or QUERY:
 
 ```typescript
 import { CollectionKind, paginate, type Schema } from "@takanashi/rikka-site";
-import type { Repr, RequestContext } from "@takanashi/rikka-site";
+import type { Repr, RequestContext, Query } from "@takanashi/rikka-site";
 
 class Articles extends CollectionKind {
   schema: Schema = { type: "array", items: { type: "object" } };
 
-  async list(ctx: RequestContext): Promise<Repr> {
-    return paginate(articles, ctx.range); // Range: items=0-9 → 206
+  async list(ctx: RequestContext, query?: Query): Promise<Repr> {
+    // query.range is set by get()/query() when a Range header is present
+    return paginate(articles, query?.range ?? ctx.range); // Range: items=0-9 → 206
   }
 
   async create(ctx: RequestContext): Promise<Repr> {
@@ -812,9 +887,9 @@ class Articles extends CollectionKind {
 CORS is configured declaratively. `handleRequest` handles OPTIONS preflight and adds headers automatically:
 
 ```typescript
-import { site } from "@takanashi/rikka-site";
+import { Site } from "@takanashi/rikka-site";
 
-const app = site(
+const app = new Site(
   { users: new Users() },
   {
     cors: {
@@ -837,12 +912,12 @@ For each request, the HTML transformer produces:
 
 ```html
 <blog-layout data-path="/articles" data-kind="Collection">
-  <rikka-resource
+  <blog-article-list
     path="/articles"
     kind="Collection"
     data-resource='[{"id":1,"title":"..."}]'
   >
-  </rikka-resource>
+  </blog-article-list>
 </blog-layout>
 ```
 
@@ -850,7 +925,7 @@ For each request, the HTML transformer produces:
 
 | Location                                                 | Format                            | When                                               |
 | -------------------------------------------------------- | --------------------------------- | -------------------------------------------------- |
-| `data-resource` attribute on `<rikka-resource>`          | Raw JSON (array or object)        | `serialization: "data-attr"` or `"both"` (default) |
+| `data-resource` attribute on the resource's element     | Raw JSON (array or object)        | `serialization: "data-attr"` or `"both"` (default) |
 | `<script type="application/ld+json">` in `<head>`        | JSON-LD with `@context`, `@graph` | `serialization: "jsonld"` or `"both"`              |
 | DSDOM `<template shadowrootmode>`                        | JSON in template content          | `hydration: "dsdom"`                               |
 | `<script type="application/ld+json">` inside the element | JSON-LD with `@context`, `@graph` | `hydration: "jsonld"` (legacy)                     |

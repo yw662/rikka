@@ -511,3 +511,118 @@ describe("createInMemoryDriver", () => {
     expect(result.items).toHaveLength(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Input validation / SQL injection prevention
+// ---------------------------------------------------------------------------
+
+describe("input validation / SQL injection prevention", () => {
+  it("rejects malicious table name on collection (404, driver never called)", async () => {
+    let driverCalled = false;
+    const spy: DatabaseDriver = {
+      async list() { driverCalled = true; return { items: [], total: 0 }; },
+      async get() { driverCalled = true; return null; },
+      async create() { driverCalled = true; return { id: "1" }; },
+      async update() { driverCalled = true; return {}; },
+      async delete() { driverCalled = true; },
+    };
+    const kind = new DatabaseKind({ schema: SQL_SCHEMA, driver: spy });
+    const resource = resolveResource(kind, ["users; DROP TABLE users"], "/db/users; DROP TABLE users");
+    const err = await (resource as unknown as { list: (ctx: RequestContext) => Promise<unknown> }).list(
+      makeCtx({ path: "/db/users; DROP TABLE users" }),
+    ).catch((e: unknown) => e);
+    expect(driverCalled).toBe(false);
+    expect((err as { status?: number }).status).toBe(404);
+  });
+
+  it("rejects malicious table name on item (404)", async () => {
+    const kind = new DatabaseKind({ schema: SQL_SCHEMA });
+    const resource = resolveResource(kind, ["users; DROP TABLE users", "1"], "/db/users; DROP TABLE users/1");
+    const err = await (resource as unknown as { content: (ctx: RequestContext) => Promise<unknown> }).content(
+      makeCtx({ path: "/db/users; DROP TABLE users/1" }),
+    ).catch((e: unknown) => e);
+    expect((err as { status?: number }).status).toBe(404);
+  });
+
+  it("rejects malicious table name on association (404)", async () => {
+    const kind = new DatabaseKind({ schema: SQL_SCHEMA });
+    const resource = resolveResource(kind, ["users", "1", "posts; DROP TABLE posts"], "/db/users/1/posts; DROP TABLE posts");
+    const err = await (resource as unknown as { content: (ctx: RequestContext) => Promise<unknown> }).content(
+      makeCtx({ path: "/db/users/1/posts; DROP TABLE posts" }),
+    ).catch((e: unknown) => e);
+    expect((err as { status?: number }).status).toBe(404);
+  });
+
+  it("rejects malicious sort parameter (400)", async () => {
+    const kind = new DatabaseKind({ schema: SQL_SCHEMA });
+    await kind.driver.create("users", { name: "Alice" });
+    const resource = resolveResource(kind, ["users"], "/db/users");
+    const err = await (resource as unknown as { list: (ctx: RequestContext) => Promise<unknown> }).list(
+      makeCtx({ path: "/db/users", query: { sort: "name; DROP TABLE users" } }),
+    ).catch((e: unknown) => e);
+    expect((err as { status?: number }).status).toBe(400);
+  });
+
+  it("rejects sort by unknown column (400)", async () => {
+    const kind = new DatabaseKind({ schema: SQL_SCHEMA });
+    await kind.driver.create("users", { name: "Alice" });
+    const resource = resolveResource(kind, ["users"], "/db/users");
+    const err = await (resource as unknown as { list: (ctx: RequestContext) => Promise<unknown> }).list(
+      makeCtx({ path: "/db/users", query: { sort: "password" } }),
+    ).catch((e: unknown) => e);
+    expect((err as { status?: number }).status).toBe(400);
+  });
+
+  it("rejects negative limit (400)", async () => {
+    const kind = new DatabaseKind({ schema: SQL_SCHEMA });
+    const resource = resolveResource(kind, ["users"], "/db/users");
+    const err = await (resource as unknown as { list: (ctx: RequestContext) => Promise<unknown> }).list(
+      makeCtx({ path: "/db/users", query: { limit: "-1" } }),
+    ).catch((e: unknown) => e);
+    expect((err as { status?: number }).status).toBe(400);
+  });
+
+  it("rejects negative offset (400)", async () => {
+    const kind = new DatabaseKind({ schema: SQL_SCHEMA });
+    const resource = resolveResource(kind, ["users"], "/db/users");
+    const err = await (resource as unknown as { list: (ctx: RequestContext) => Promise<unknown> }).list(
+      makeCtx({ path: "/db/users", query: { offset: "-5" } }),
+    ).catch((e: unknown) => e);
+    expect((err as { status?: number }).status).toBe(400);
+  });
+
+  it("does not mutate id via PATCH", async () => {
+    const kind = new DatabaseKind({ schema: SQL_SCHEMA });
+    await kind.driver.create("users", { name: "Alice", email: "a@x.com" });
+    const resource = resolveResource(kind, ["users", "1"], "/db/users/1");
+    const repr = await (resource as unknown as { patch: (ctx: RequestContext) => Promise<unknown> }).patch(
+      makeCtx({
+        method: "PATCH",
+        path: "/db/users/1",
+        json: async () => ({ id: 999, name: "Alice 2" }),
+      }),
+    );
+    const content = (repr as { content: { id: string; name: string } }).content;
+    expect(content.id).toBe("1");
+    expect(content.name).toBe("Alice 2");
+
+    // Verify the persisted record also keeps the original id.
+    const stored = await kind.driver.get("users", "1");
+    expect((stored as { id: string }).id).toBe("1");
+    expect((stored as { name: string }).name).toBe("Alice 2");
+  });
+
+  it("supports -column sort prefix for descending order", async () => {
+    const kind = new DatabaseKind({ schema: SQL_SCHEMA });
+    await kind.driver.create("users", { name: "Alice" });
+    await kind.driver.create("users", { name: "Charlie" });
+    await kind.driver.create("users", { name: "Bob" });
+
+    const resource = resolveResource(kind, ["users"], "/db/users");
+    const repr = await (resource as unknown as { list: (ctx: RequestContext) => Promise<unknown> }).list(
+      makeCtx({ path: "/db/users", query: { sort: "-name" } }),
+    );
+    const items = (repr as { content: { name: string }[] }).content;
+    expect(items.map((u) => u.name)).toEqual(["Charlie", "Bob", "Alice"]);
+  });
+});

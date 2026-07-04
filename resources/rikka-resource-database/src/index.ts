@@ -35,6 +35,7 @@ import {
   ReadOnlyResource,
   Repr,
   type RequestContext,
+  type Query,
   HttpError,
 } from "@takanashi/rikka-site";
 
@@ -374,7 +375,9 @@ export function createInMemoryDriver(schema: DatabaseSchema): DatabaseDriver & {
       const store = getStore(table);
       const existing = store.get(id);
       if (!existing) throw new HttpError(404, "Not Found");
-      const updated = { ...existing, ...patch };
+      // Force `id` back to the original after the spread so a malicious PATCH
+      // body cannot mutate the primary key (mirrors `replace` below).
+      const updated = { ...existing, ...patch, id };
       store.set(id, updated);
       return updated;
     },
@@ -551,10 +554,93 @@ export class DatabaseCollectionResource extends CollectionResource {
     return table;
   }
 
-  async list(ctx: RequestContext): Promise<Repr> {
+  /**
+   * Override parseQuery to validate JSON query body against the table schema,
+   * preventing column-name injection on SQL drivers. Only the `json` variant
+   * is inspected — `urlencoded` (GET) is validated later by `parseListQuery`,
+   * and `graphql` / `dasl` are rejected at the `supportedQueryTypes` boundary.
+   */
+  override async parseQuery(ctx: RequestContext): Promise<Query> {
+    const query = await super.parseQuery(ctx);
+    if (query.type === "json") this.validateJsonBody(query.body);
+    return query;
+  }
+
+  /**
+   * Validate a JSON query body (`{ filter, sort, limit, offset }`) against
+   * the table schema. Throws 400 on unknown columns.
+   */
+  private validateJsonBody(body: unknown): void {
+    if (body == null || typeof body !== "object") return;
+    const obj = body as Record<string, unknown>;
+    const colNames = new Set(this.requireTable().columns.map((c) => c.name));
+
+    const filter = obj.filter;
+    if (filter && typeof filter === "object") {
+      for (const key of Object.keys(filter as Record<string, unknown>)) {
+        if (!colNames.has(key)) {
+          throw new HttpError(400, "Bad Request", `Unknown column: ${key}`);
+        }
+      }
+    }
+
+    const sort = obj.sort;
+    if (Array.isArray(sort)) {
+      for (const s of sort) {
+        if (s && typeof s === "object") {
+          const field = (s as { field?: unknown }).field;
+          if (typeof field === "string" && !colNames.has(field)) {
+            throw new HttpError(
+              400,
+              "Bad Request",
+              `Unknown sort column: ${field}`,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  async list(ctx: RequestContext, query?: Query): Promise<Repr> {
     this.requireTable();
-    const query = parseListQuery(ctx);
-    const result = await this.kind.driver.list(this.tableName, query);
+    const listQuery: ListQuery = {};
+
+    switch (query?.type) {
+      case "json": {
+        const body = query.body as Record<string, unknown> | null;
+        if (body && typeof body === "object") {
+          if (body.filter && typeof body.filter === "object") {
+            listQuery.where = body.filter as Record<string, unknown>;
+          }
+          if (typeof body.limit === "number") listQuery.limit = body.limit;
+          if (typeof body.offset === "number") listQuery.offset = body.offset;
+          if (Array.isArray(body.sort) && body.sort.length > 0) {
+            const first = body.sort[0] as
+              | { field?: string; order?: "asc" | "desc" }
+              | undefined;
+            if (first?.field) {
+              listQuery.sort = first.field;
+              listQuery.order = first.order ?? "asc";
+            }
+          }
+        }
+        break;
+      }
+      case "urlencoded":
+      case undefined:
+        // GET query string — parse via the schema-aware helper.
+        Object.assign(listQuery, parseListQuery(ctx, this.requireTable()));
+        break;
+      case "graphql":
+      case "dasl":
+        // Database adapter does not natively support GraphQL or DASL XML.
+        // Subclasses can override to add support.
+        throw new HttpError(415, "Unsupported Query Type", undefined, {
+          "Accept-Query": this.supportedQueryTypes().join(", "),
+        });
+    }
+
+    const result = await this.kind.driver.list(this.tableName, listQuery);
     return { content: result.items, meta: {} };
   }
 
@@ -659,7 +745,18 @@ export class DatabaseAssociationResource extends ReadOnlyResource {
     this.params = params;
   }
 
+  private requireTable(name: string): TableSchema {
+    const table = this.kind.table(name);
+    if (!table) throw new HttpError(404, `Table not found: ${name}`);
+    return table;
+  }
+
   async content(ctx: RequestContext): Promise<Repr> {
+    // Validate both table names against the schema before doing anything else.
+    // This rejects injection attempts like `users; DROP TABLE users` early with
+    // a 404, and never lets an untrusted name reach the driver.
+    this.requireTable(this.tableName);
+    const relatedSchema = this.requireTable(this.relatedTable);
     const relation = this.kind.findRelation(this.tableName, this.relatedTable);
     if (!relation) {
       throw new HttpError(
@@ -670,7 +767,7 @@ export class DatabaseAssociationResource extends ReadOnlyResource {
 
     if (relation.type === "has-many") {
       // Eagerly fetch the related collection filtered by the FK column.
-      const query = parseListQuery(ctx);
+      const query = parseListQuery(ctx, relatedSchema);
       const result = await this.kind.driver.list(this.relatedTable, {
         ...query,
         where: { [relation.fk.column]: this.id },
@@ -699,19 +796,59 @@ export class DatabaseAssociationResource extends ReadOnlyResource {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function parseListQuery(ctx: RequestContext): ListQuery {
+/**
+ * Parse list query parameters (`limit`, `offset`, `sort`, `order`) from the
+ * request context, validating them against the table schema.
+ *
+ * - `limit` / `offset` must be non-negative integers (400 otherwise).
+ * - `sort` accepts a `-column` prefix for descending order; the column must
+ *   exist in `table.columns` (400 otherwise). This guards against SQL
+ *   injection when the value is forwarded to a SQL driver — only columns
+ *   declared in the schema are ever passed through.
+ */
+function parseListQuery(ctx: RequestContext, table: TableSchema): ListQuery {
   const q: ListQuery = {};
   if (ctx.query.limit) {
     const n = parseInt(ctx.query.limit, 10);
-    if (!Number.isNaN(n)) q.limit = n;
+    if (Number.isNaN(n)) {
+      throw new HttpError(400, "Bad Request", `Invalid limit: ${ctx.query.limit}`);
+    }
+    if (n < 0) {
+      throw new HttpError(400, "Bad Request", `Negative limit: ${n}`);
+    }
+    q.limit = n;
   }
   if (ctx.query.offset) {
     const n = parseInt(ctx.query.offset, 10);
-    if (!Number.isNaN(n)) q.offset = n;
+    if (Number.isNaN(n)) {
+      throw new HttpError(400, "Bad Request", `Invalid offset: ${ctx.query.offset}`);
+    }
+    if (n < 0) {
+      throw new HttpError(400, "Bad Request", `Negative offset: ${n}`);
+    }
+    q.offset = n;
   }
-  if (ctx.query.sort) q.sort = ctx.query.sort;
-  if (ctx.query.order === "asc" || ctx.query.order === "desc") {
-    q.order = ctx.query.order;
+  if (ctx.query.sort) {
+    let sortField = ctx.query.sort;
+    let order: "asc" | "desc" | undefined;
+    if (sortField.startsWith("-")) {
+      order = "desc";
+      sortField = sortField.slice(1);
+    }
+    // Validate the column exists in the schema — rejects injection attempts
+    // like `name; DROP TABLE users` because that is not a declared column.
+    const columnExists = table.columns.some((c) => c.name === sortField);
+    if (!columnExists) {
+      throw new HttpError(400, "Bad Request", `Invalid sort column: ${sortField}`);
+    }
+    q.sort = sortField;
+    // A `-` prefix takes precedence over the `order` query param; otherwise
+    // honour `order` when it is a recognised value.
+    if (order) {
+      q.order = order;
+    } else if (ctx.query.order === "asc" || ctx.query.order === "desc") {
+      q.order = ctx.query.order;
+    }
   }
   return q;
 }

@@ -2,16 +2,14 @@ import {
   signal,
   computed,
   effect,
+  untracked,
   type Signal,
 } from "@takanashi/rikka-signal";
-import { h, registerDisposable } from "@takanashi/rikka-dom";
+import { h, registerDisposable, disposeElement } from "@takanashi/rikka-dom";
 import {
-  createVirtualScrollCore,
-  readBool,
+  VirtualScroller,
   type ReadableSignal,
-  type VirtualScrollCore,
-} from "./virtual-scroll-core.js";
-import { createReconciler, type Reconciler } from "./reconcile.js";
+} from "./virtual-scroll.js";
 
 const DATA_VTABLE = "data-r-vtable";
 const DATA_VTABLE_TABLE = "data-r-vtable-table";
@@ -22,9 +20,6 @@ const DATA_VTABLE_BODY = "data-r-vtable-body";
 const DATA_VTABLE_ROW = "data-r-vtable-row";
 const DATA_VTABLE_CELL = "data-r-vtable-cell";
 const DATA_VTABLE_LOADING = "data-r-vtable-loading";
-
-/** Max cached row elements. Prevents unbounded memory growth. */
-const MAX_CACHE = 200;
 
 export interface VirtualTableColumn<T> {
   /** Unique column key. Used for data-column attribute and sorting. */
@@ -99,8 +94,7 @@ export interface VirtualTableHandle extends HTMLElement {
   scrollToIndex(index: number, align?: "start" | "center" | "end"): void;
   /**
    * Dispose all internal effects, listeners, and observers. Call this when
-   * the table is removed from the DOM to prevent effect leaks (especially
-   * in test environments where GC may not run promptly).
+   * the table is removed from the DOM to prevent effect leaks.
    */
   dispose(): void;
 }
@@ -154,53 +148,21 @@ function appendContent(parent: HTMLElement, content: Element | string): void {
 }
 
 /**
- * Strategy for positioning rows and reconciling the DOM in a specific layout
- * mode. Decouples the shared render effect from mode-specific DOM concerns:
- *
- * - **Table mode**: rows live in normal flow inside `<tbody>`; spacer `<tr>`
- *   elements control total height; DOM is cleared and re-appended each render.
- * - **Grid mode**: rows are absolutely positioned with `top`; the body div
- *   height controls total height; DOM is reordered in place by the reconciler.
- *
- * The render effect is written once and delegates positioning + DOM
- * finalization to the strategy, eliminating the duplicated render paths.
- */
-interface TableLayoutStrategy {
-  /** Reconciler cleanup strategy: `"source"` keeps off-screen cached rows,
-   * `"visible"` evicts all non-visible rows. */
-  cleanupStrategy: "source" | "visible";
-  /** Whether the reconciler should reorder DOM children. `false` when the
-   * strategy handles DOM manipulation itself (table mode with spacers). */
-  reorder: boolean;
-  /** Position a row at the given pixel offset from the top. */
-  positionRow(row: HTMLElement, offset: number): void;
-  /**
-   * Perform mode-specific DOM finalization after the reconciler has cleaned
-   * up the cache. For table mode: build children with spacer rows, clear the
-   * tbody, and append. For grid mode: no-op (reconciler already reordered).
-   */
-  finalizeDOM(
-    visibleRows: HTMLElement[],
-    start: number,
-    end: number,
-    offsets: number[],
-    total: number,
-    itemCount: number,
-  ): void;
-}
-
-/**
  * Creates a virtual-scrolling data table.
  *
- * Features:
- * - Two layout modes: "grid" (CSS Grid divs, default) or "table" (native `<table>` elements)
- * - Virtual scrolling via shared core (fixed-height or variable-height mode)
+ * Built on top of `VirtualScroller`. The table provides:
+ * - Two layout modes: "grid" (CSS Grid divs, default) or "table" (native `<table>`)
+ * - Virtual scrolling (via VirtualScroller's core)
  * - Optional horizontal virtual scrolling for wide tables
  * - CSS Grid column alignment (grid mode) or `<colgroup>` (table mode)
  * - Optional sorting (via sortKey/sortDirection signals — table emits, user sorts)
  * - Optional row selection (via selection signal)
  * - Optional lazy loading
  * - Sticky header (inside scroll container, stays visible during vertical scroll)
+ *
+ * The DOM structure is assembled by caller-provided component functions passed
+ * to `VirtualScroller`: `structure`, `content`, `topSpacer`, `bottomSpacer`,
+ * `loading`. Grid mode uses `<div>` elements; table mode uses `<table>/<tbody>`.
  *
  * No Shadow DOM. Uses `data-r-vtable*` attributes for styling hooks.
  *
@@ -251,7 +213,6 @@ export function virtualTable<T>(
   } = options;
 
   const isTableMode = layout === "table";
-  const fixedMode = rowHeight != null && rowHeight > 0;
   const gridTemplate = buildGridTemplate(columns);
 
   // --- Horizontal virtual scroll setup ---
@@ -304,101 +265,19 @@ export function virtualTable<T>(
     };
   });
 
-  // --- Create virtual scroll core ---
-  const core: VirtualScrollCore<T, unknown> = createVirtualScrollCore({
-    source: data,
-    itemHeight: rowHeight,
-    estimatedItemHeight: estimatedRowHeight,
-    overscan,
-    keyFn: rowKey,
-    onLoadMore,
-    loadMoreThreshold,
-    isLoading,
-    hasMore,
-    hasLoadingIndicator: !!loadingIndicator,
-  });
+  // --- Header element references (assigned inside structure) ---
+  let headerEl: HTMLElement | null = null; // grid mode header div
+  let headerRowEl: HTMLElement | null = null; // table mode header row
+  let colgroupEl: HTMLElement | null = null; // table mode colgroup
 
-  // --- Build root + scroll container ---
-  const root = h("div", {
-    className,
-    style: {
-      height: typeof height === "number" ? `${height}px` : height,
-      overflow: "hidden",
-    },
-  }) as unknown as VirtualTableHandle;
-  root.setAttribute(DATA_VTABLE, "");
-
-  const scrollContainer = h("div", {
-    style: {
-      overflow: "auto",
-      height: "100%",
-      position: "relative",
-    },
-  });
-  scrollContainer.setAttribute(DATA_VTABLE_SCROLL, "");
-  root.appendChild(scrollContainer);
-
-  core.attach(scrollContainer);
-
-  // Collect all effect/listener/observer disposers for explicit cleanup.
-  const disposers: Array<() => void> = [];
-
-  // --- Horizontal scroll listener ---
-  let hRafId = 0;
-  function updateViewportWidth() {
-    const w = scrollContainer.clientWidth;
-    if (w > 0) viewportWidth.set(w);
-  }
-  if (canHScroll) {
-    const onHScroll = () => {
-      if (hRafId) return;
-      hRafId = requestAnimationFrame(() => {
-        hRafId = 0;
-        scrollLeft.set(scrollContainer.scrollLeft);
-        updateViewportWidth();
-      });
-    };
-    scrollContainer.addEventListener("scroll", onHScroll, { passive: true });
-    updateViewportWidth();
-    requestAnimationFrame(updateViewportWidth);
-
-    if (typeof ResizeObserver !== "undefined") {
-      const wObserver = new ResizeObserver(() => updateViewportWidth());
-      wObserver.observe(scrollContainer);
-      disposers.push(() => wObserver.disconnect());
-    }
-    disposers.push(() => {
-      if (hRafId) cancelAnimationFrame(hRafId);
-      scrollContainer.removeEventListener("scroll", onHScroll);
-    });
-  }
-
-  // --- Element cache + reconciler ---
-  // The reconciler is created per layout mode (different parent elements).
-  // `reconciler` is assigned inside the mode branch below.
-  let reconciler: Reconciler<unknown> | null = null;
-  const elementKeys = new WeakMap<HTMLElement, unknown>();
-
-  // O(1) source-key lookup for cache cleanup (replaces O(n·m) scan).
-  // Recomputes only when the data array changes.
-  const sourceKeySet = computed<Set<unknown>>(() => {
-    const items = data.get();
-    const set = new Set<unknown>();
-    for (let i = 0; i < items.length; i++) {
-      set.add(rowKey ? rowKey(items[i], i) : items[i]);
-    }
-    return set;
-  });
-
-  // --- Build header ---
-  // Returns a function to update header cells (for horizontal virtual scroll)
+  // --- Header cell builder ---
   function createHeaderCell(col: VirtualTableColumn<T>): HTMLElement {
     const cell = h(isTableMode ? "th" : "div", {
       className: col.headerClassName,
       style: isTableMode
         ? undefined
         : { justifySelf: alignToJustify(col.align) },
-    });
+    }) as HTMLElement;
     cell.setAttribute(DATA_VTABLE_HEADER_CELL, "");
     cell.dataset.column = col.key;
 
@@ -413,10 +292,12 @@ export function virtualTable<T>(
     const colSortable =
       sortable && col.sortable === true && !!sortKey && !!sortDirection;
     if (colSortable && sortKey && sortDirection) {
-      cell.style.cursor = "pointer";
       const sk = sortKey;
       const sd = sortDirection;
       const colKey = col.key;
+
+      cell.style.cursor = "pointer";
+      cell.style.userSelect = "none";
 
       const sortDispose = effect(() => {
         if (sk.get() === colKey) {
@@ -447,8 +328,101 @@ export function virtualTable<T>(
     return cell;
   }
 
-  // --- Build a row element ---
-  function createRow(item: T, index: number, key: unknown): HTMLElement {
+  // --- Header render (for horizontal virtual scroll updates) ---
+  function renderHeader(): void {
+    if (isTableMode) {
+      if (!headerRowEl) return;
+      // Dispose old header cells to clean up sort effects before clearing
+      for (let i = headerRowEl.children.length - 1; i >= 0; i--) {
+        disposeElement(headerRowEl.children[i]);
+      }
+      headerRowEl.innerHTML = "";
+      if (canHScroll) {
+        const { start, end, leftOffset, rightOffset } = visibleColRange.get();
+        if (leftOffset > 0) {
+          headerRowEl.appendChild(
+            h("th", { style: { padding: "0", border: "none" } }),
+          );
+        }
+        for (let c = start; c < end; c++) {
+          headerRowEl.appendChild(createHeaderCell(columns[c]));
+        }
+        if (rightOffset > 0) {
+          headerRowEl.appendChild(
+            h("th", { style: { padding: "0", border: "none" } }),
+          );
+        }
+      } else {
+        for (const col of columns) {
+          headerRowEl.appendChild(createHeaderCell(col));
+        }
+      }
+    } else {
+      if (!headerEl) return;
+      for (let i = headerEl.children.length - 1; i >= 0; i--) {
+        disposeElement(headerEl.children[i]);
+      }
+      headerEl.innerHTML = "";
+      if (canHScroll) {
+        const { start, end, leftOffset } = visibleColRange.get();
+        if (leftOffset > 0) {
+          headerEl.appendChild(
+            h("div", { style: { width: `${leftOffset}px` } }),
+          );
+        }
+        for (let c = start; c < end; c++) {
+          const cell = createHeaderCell(columns[c]);
+          cell.style.position = "absolute";
+          cell.style.left = `${colOffsets[c]}px`;
+          cell.style.width = `${colWidths[c]}px`;
+          headerEl.appendChild(cell);
+        }
+      } else {
+        for (const col of columns) {
+          headerEl.appendChild(createHeaderCell(col));
+        }
+      }
+    }
+  }
+
+  function renderColgroup(): void {
+    if (!colgroupEl) return;
+    colgroupEl.innerHTML = "";
+    if (canHScroll) {
+      const { start, end, leftOffset, rightOffset } = visibleColRange.get();
+      if (leftOffset > 0) {
+        colgroupEl.appendChild(h("col", { style: { width: `${leftOffset}px` } }));
+      }
+      for (let c = start; c < end; c++) {
+        colgroupEl.appendChild(h("col", { style: { width: `${colWidths[c]}px` } }));
+      }
+      if (rightOffset > 0) {
+        colgroupEl.appendChild(h("col", { style: { width: `${rightOffset}px` } }));
+      }
+    } else {
+      for (const col of columns) {
+        const w = col.width;
+        colgroupEl.appendChild(
+          h("col", {
+            style: {
+              width:
+                w == null
+                  ? "auto"
+                  : typeof w === "number"
+                    ? `${w}px`
+                    : w,
+            },
+          }),
+        );
+      }
+    }
+  }
+
+  // --- Row builder (VirtualScroller's renderItem) ---
+  const elementKeys = new WeakMap<HTMLElement, unknown>();
+
+  function createRow(item: T, index: number): HTMLElement {
+    const key = rowKey ? rowKey(item, index) : item;
     const row = h(isTableMode ? "tr" : "div", {
       style: isTableMode
         ? undefined
@@ -457,14 +431,15 @@ export function virtualTable<T>(
             gridTemplateColumns: canHScroll ? undefined : gridTemplate,
             width: canHScroll ? `${totalWidth}px` : "100%",
           },
-    });
+    }) as HTMLElement;
     row.setAttribute(DATA_VTABLE_ROW, "");
     elementKeys.set(row, key);
 
-    const { start, end } = canHScroll ? visibleColRange.get() : { start: 0, end: columns.length };
+    const { start, end } = canHScroll
+      ? visibleColRange.get()
+      : { start: 0, end: columns.length };
 
     if (canHScroll) {
-      // Absolute-positioned cells for horizontal virtual scroll
       for (let c = start; c < end; c++) {
         const col = columns[c];
         const cell = h(isTableMode ? "td" : "div", {
@@ -477,21 +452,20 @@ export function virtualTable<T>(
                 width: `${colWidths[c]}px`,
                 justifySelf: alignToJustify(col.align),
               },
-        });
+        }) as HTMLElement;
         cell.setAttribute(DATA_VTABLE_CELL, "");
         cell.dataset.column = col.key;
         appendContent(cell, getCellContent(col, item, index));
         row.appendChild(cell);
       }
     } else {
-      // Normal grid/table cells
       for (const col of columns) {
         const cell = h(isTableMode ? "td" : "div", {
           className: col.cellClassName,
           style: isTableMode
             ? undefined
             : { justifySelf: alignToJustify(col.align) },
-        });
+        }) as HTMLElement;
         cell.setAttribute(DATA_VTABLE_CELL, "");
         cell.dataset.column = col.key;
         appendContent(cell, getCellContent(col, item, index));
@@ -502,10 +476,9 @@ export function virtualTable<T>(
     return row;
   }
 
-  // --- Update row cells for horizontal virtual scroll ---
+  // --- Update row cells for horizontal virtual scroll (cached rows) ---
   function updateRowCells(row: HTMLElement, item: T, index: number): void {
     if (!canHScroll) return;
-    // Clear existing cells
     let child = row.firstChild;
     while (child) {
       const next = child.nextSibling;
@@ -525,7 +498,7 @@ export function virtualTable<T>(
               width: `${colWidths[c]}px`,
               justifySelf: alignToJustify(col.align),
             },
-      });
+      }) as HTMLElement;
       cell.setAttribute(DATA_VTABLE_CELL, "");
       cell.dataset.column = col.key;
       appendContent(cell, getCellContent(col, item, index));
@@ -533,389 +506,234 @@ export function virtualTable<T>(
     }
   }
 
-  // --- Build DOM based on layout mode ---
-  let loadingEl: HTMLElement | null = null;
+  // --- Build via VirtualScroller ---
+  const handle = VirtualScroller<T, unknown>(data, createRow, {
+    itemHeight: rowHeight,
+    estimatedItemHeight: estimatedRowHeight,
+    overscan,
+    height,
+    className,
+    keyFn: rowKey as ((item: T, index: number) => unknown) | undefined,
+    onLoadMore,
+    loadMoreThreshold,
+    isLoading,
+    hasMore,
+    // Custom structure: scroll container + header + spacers + content.
+    structure: ({ topSpacer, content, bottomSpacer }) => {
+      const scroller = h("div", {
+        className,
+        style: {
+          overflow: "auto",
+          position: "relative",
+          height: typeof height === "number" ? `${height}px` : height,
+        },
+      }) as HTMLElement;
+      scroller.setAttribute(DATA_VTABLE, "");
+      scroller.setAttribute(DATA_VTABLE_SCROLL, "");
 
-  // Header render function (for horizontal virtual scroll updates)
-  let updateHeader: (() => void) | null = null;
+      if (isTableMode) {
+        const table = h("table", {
+          style: {
+            tableLayout: "fixed",
+            width: canHScroll ? `${totalWidth}px` : "100%",
+            borderCollapse: "collapse",
+          },
+        });
+        table.setAttribute(DATA_VTABLE_TABLE, "");
+        scroller.appendChild(table);
 
-  // Layout strategy (assigned inside the mode branch below). Unifies the
-  // render effect so it is written once, delegating mode-specific DOM work.
-  let strategy: TableLayoutStrategy | null = null;
+        const colgroup = h("colgroup");
+        table.appendChild(colgroup);
 
-  if (isTableMode) {
-    // --- Table mode ---
-    const table = h("table", {
-      style: {
-        tableLayout: "fixed",
-        width: canHScroll ? `${totalWidth}px` : "100%",
-        borderCollapse: "collapse",
-      },
-    });
-    table.setAttribute(DATA_VTABLE_TABLE, "");
-    scrollContainer.appendChild(table);
+        const thead = h("thead", {
+          style: { position: "sticky", top: "0", zIndex: "1" },
+        });
+        thead.setAttribute(DATA_VTABLE_HEADER, "");
+        table.appendChild(thead);
 
-    // Colgroup
-    const colgroup = h("colgroup");
-    table.appendChild(colgroup);
+        const headerRow = h("tr");
+        thead.appendChild(headerRow);
 
-    function renderColgroup(): void {
-      colgroup.innerHTML = "";
-      if (canHScroll) {
-        const { start, end, leftOffset, rightOffset } = visibleColRange.get();
-        if (leftOffset > 0) {
-          const col = h("col", { style: { width: `${leftOffset}px` } });
-          colgroup.appendChild(col);
-        }
-        for (let c = start; c < end; c++) {
-          const col = h("col", { style: { width: `${colWidths[c]}px` } });
-          colgroup.appendChild(col);
-        }
-        if (rightOffset > 0) {
-          const col = h("col", { style: { width: `${rightOffset}px` } });
-          colgroup.appendChild(col);
-        }
-      } else {
-        for (const col of columns) {
-          const w = col.width;
-          const colEl = h("col", {
-            style: {
-              width:
-                w == null
-                  ? "1fr"
-                  : typeof w === "number"
-                    ? `${w}px`
-                    : w,
-            },
-          });
-          colgroup.appendChild(colEl);
-        }
-      }
-    }
+        table.appendChild(topSpacer);
+        table.appendChild(content);
+        table.appendChild(bottomSpacer);
 
-    // Header
-    const thead = h("thead", { style: { position: "sticky", top: "0", zIndex: "1" } });
-    thead.setAttribute(DATA_VTABLE_HEADER, "");
-    table.appendChild(thead);
-
-    const headerRow = h("tr");
-    thead.appendChild(headerRow);
-
-    function renderHeader(): void {
-      headerRow.innerHTML = "";
-      if (canHScroll) {
-        const { start, end, leftOffset, rightOffset } = visibleColRange.get();
-        if (leftOffset > 0) {
-          const spacer = h("th", { style: { padding: "0", border: "none" } });
-          headerRow.appendChild(spacer);
-        }
-        for (let c = start; c < end; c++) {
-          headerRow.appendChild(createHeaderCell(columns[c]));
-        }
-        if (rightOffset > 0) {
-          const spacer = h("th", { style: { padding: "0", border: "none" } });
-          headerRow.appendChild(spacer);
-        }
-      } else {
-        for (const col of columns) {
-          headerRow.appendChild(createHeaderCell(col));
-        }
-      }
-    }
-
-    renderColgroup();
-    renderHeader();
-
-    if (canHScroll) {
-      updateHeader = () => {
+        colgroupEl = colgroup;
+        headerRowEl = headerRow;
         renderColgroup();
         renderHeader();
-      };
-    }
-
-    // Body
-    const tbody = h("tbody");
-    tbody.setAttribute(DATA_VTABLE_BODY, "");
-    table.appendChild(tbody);
-
-    // Loading indicator
-    let loadingTr: HTMLElement | null = null;
-    if (loadingIndicator) {
-      loadingEl = loadingIndicator() as HTMLElement;
-      loadingEl.setAttribute(DATA_VTABLE_LOADING, "");
-      loadingEl.style.display = "none";
-      loadingTr = h("tr", {}, loadingEl);
-      loadingTr.style.display = "none";
-      tbody.appendChild(loadingTr);
-
-      const loadingDispose = effect(() => {
-        const loading = readBool(isLoading, false);
-        loadingTr!.style.display = loading ? "" : "none";
-        if (loading && loadingEl) {
-          (loadingEl as unknown as HTMLTableCellElement).colSpan =
-            columns.length;
-        }
-      });
-      disposers.push(loadingDispose);
-    }
-
-    // Reconciler (table mode: visible-strategy cleanup, no DOM reorder —
-    // the strategy's finalizeDOM handles DOM manipulation with spacer rows).
-    reconciler = createReconciler<unknown>({
-      parent: tbody,
-      keepLast: loadingTr,
-      maxCache: MAX_CACHE,
-      onEvict: (_key, el) => core.unmeasureElement(el),
-    });
-
-    // Table mode strategy: rows in normal flow, spacer trs for height,
-    // clear-and-append DOM reconciliation.
-    strategy = {
-      cleanupStrategy: "visible",
-      reorder: false,
-      positionRow: () => {
-        // Rows are in normal flow; spacers control vertical positioning.
-      },
-      finalizeDOM: (visibleRows, start, end, offsets, total, itemCount) => {
-        const children: HTMLElement[] = [];
-
-        // Top spacer
-        if (start > 0) {
-          const spacer = h("tr", { style: { height: `${offsets[start]}px` } });
-          const td = h("td", {
-            style: { padding: "0", border: "none", height: `${offsets[start]}px` },
-          });
-          (td as HTMLTableCellElement).colSpan = columns.length;
-          spacer.appendChild(td);
-          children.push(spacer);
-        }
-
-        children.push(...visibleRows);
-
-        // Bottom spacer
-        if (end < itemCount) {
-          const remaining = total - offsets[end];
-          const spacer = h("tr", { style: { height: `${remaining}px` } });
-          const td = h("td", {
-            style: { padding: "0", border: "none", height: `${remaining}px` },
-          });
-          (td as HTMLTableCellElement).colSpan = columns.length;
-          spacer.appendChild(td);
-          children.push(spacer);
-        }
-
-        // Remove all non-loading children, then append new ones
-        const toRemove: Node[] = [];
-        let child = tbody.firstChild;
-        while (child) {
-          const next = child.nextSibling;
-          if (child !== loadingTr) {
-            toRemove.push(child);
-          }
-          child = next;
-        }
-        for (const c of toRemove) tbody.removeChild(c);
-
-        for (const el of children) {
-          if (loadingTr) {
-            tbody.insertBefore(el, loadingTr);
-          } else {
-            tbody.appendChild(el);
-          }
-        }
-      },
-    };
-  } else {
-    // --- Grid mode ---
-    const header = h("div", {
-      style: {
-        position: "sticky",
-        top: "0",
-        zIndex: "1",
-        display: canHScroll ? "block" : "grid",
-        gridTemplateColumns: canHScroll ? undefined : gridTemplate,
-        width: canHScroll ? `${totalWidth}px` : "100%",
-      },
-    });
-    header.setAttribute(DATA_VTABLE_HEADER, "");
-    scrollContainer.appendChild(header);
-
-    function renderHeader(): void {
-      header.innerHTML = "";
-      if (canHScroll) {
-        const { start, end, leftOffset, rightOffset } = visibleColRange.get();
-        if (leftOffset > 0) {
-          const spacer = h("div", { style: { width: `${leftOffset}px` } });
-          header.appendChild(spacer);
-        }
-        for (let c = start; c < end; c++) {
-          const cell = createHeaderCell(columns[c]);
-          cell.style.position = "absolute";
-          cell.style.left = `${colOffsets[c]}px`;
-          cell.style.width = `${colWidths[c]}px`;
-          header.appendChild(cell);
-        }
       } else {
-        for (const col of columns) {
-          header.appendChild(createHeaderCell(col));
-        }
+        const header = h("div", {
+          style: {
+            position: "sticky",
+            top: "0",
+            zIndex: "1",
+            display: canHScroll ? "block" : "grid",
+            gridTemplateColumns: canHScroll ? undefined : gridTemplate,
+            width: canHScroll ? `${totalWidth}px` : "100%",
+          },
+        });
+        header.setAttribute(DATA_VTABLE_HEADER, "");
+        scroller.appendChild(header);
+
+        scroller.appendChild(topSpacer);
+        scroller.appendChild(content);
+        scroller.appendChild(bottomSpacer);
+
+        headerEl = header;
+        renderHeader();
       }
-    }
 
-    renderHeader();
-
-    if (canHScroll) {
-      updateHeader = renderHeader;
-    }
-
-    // Body
-    const body = h("div", {
-      style: {
-        position: "relative",
-        width: "100%",
-      },
-    });
-    body.setAttribute(DATA_VTABLE_BODY, "");
-    scrollContainer.appendChild(body);
-
-    // Loading indicator
-    if (loadingIndicator) {
-      loadingEl = loadingIndicator() as HTMLElement;
-      loadingEl.setAttribute(DATA_VTABLE_LOADING, "");
-      loadingEl.style.width = "100%";
-      body.appendChild(loadingEl);
-
-      const loadingDispose = effect(() => {
-        if (!loadingEl) return;
-        loadingEl.style.display = readBool(isLoading, false) ? "" : "none";
-      });
-      disposers.push(loadingDispose);
-    }
-
-    // Reconciler (grid mode: source-strategy cleanup, no DOM reorder —
-    // the strategy's finalizeDOM handles DOM with spacer divs).
-    reconciler = createReconciler<unknown>({
-      parent: body,
-      keepLast: loadingEl,
-      maxCache: MAX_CACHE,
-      onEvict: (_key, el) => core.unmeasureElement(el),
-    });
-
-    // Grid mode strategy: normal flow with spacer divs (same pattern as
-    // table mode, just with <div> instead of <tr>).
-    strategy = {
-      cleanupStrategy: "source",
-      reorder: false,
-      positionRow: () => {
-        // Rows are in normal flow; spacers control vertical positioning.
-      },
-      finalizeDOM: (visibleRows, start, end, offsets, total, itemCount) => {
-        const children: HTMLElement[] = [];
-
-        // Top spacer
-        if (start > 0) {
-          children.push(
-            h("div", { style: { height: `${offsets[start]}px` } }),
-          );
+      return scroller;
+    },
+    // Custom content: body div (grid) or tbody (table).
+    content: () => {
+      const el = isTableMode
+        ? h("tbody")
+        : h("div", { style: { position: "relative", width: "100%" } });
+      el.setAttribute(DATA_VTABLE_BODY, "");
+      return el as HTMLElement;
+    },
+    // Table mode: spacer is a <tbody> with a single <tr>/<td> (colSpan=N).
+    // Grid mode: use default (div with height).
+    ...(isTableMode
+      ? {
+          topSpacer: (heightSig: ReadableSignal<string>): HTMLElement => {
+            const td = h("td", {
+              style: { padding: "0", border: "none", height: heightSig },
+            }) as HTMLTableCellElement;
+            td.colSpan = columns.length;
+            return h("tbody", {}, h("tr", {}, td)) as HTMLElement;
+          },
+          bottomSpacer: (heightSig: ReadableSignal<string>): HTMLElement => {
+            const td = h("td", {
+              style: { padding: "0", border: "none", height: heightSig },
+            }) as HTMLTableCellElement;
+            td.colSpan = columns.length;
+            return h("tbody", {}, h("tr", {}, td)) as HTMLElement;
+          },
         }
-
-        children.push(...visibleRows);
-
-        // Bottom spacer
-        if (end < itemCount) {
-          const remaining = total - offsets[end];
-          children.push(
-            h("div", { style: { height: `${remaining}px` } }),
-          );
-        }
-
-        // Remove all non-loading children, then append new ones
-        const toRemove: Node[] = [];
-        let child = body.firstChild;
-        while (child) {
-          const next = child.nextSibling;
-          if (child !== loadingEl) {
-            toRemove.push(child);
+      : {}),
+    // Loading indicator (table mode: <tr>/<td> wrapper; grid mode: bare element).
+    loading: loadingIndicator
+      ? () => {
+          const indicator = loadingIndicator() as HTMLElement;
+          indicator.setAttribute(DATA_VTABLE_LOADING, "");
+          if (isTableMode) {
+            const td = h("td", {
+              style: { textAlign: "center", padding: "8px" },
+            }) as HTMLTableCellElement;
+            td.colSpan = columns.length;
+            td.appendChild(indicator);
+            return h("tr", {}, td) as HTMLElement;
           }
-          child = next;
+          indicator.style.width = "100%";
+          return indicator;
         }
-        for (const c of toRemove) body.removeChild(c);
-
-        for (const el of children) {
-          if (loadingEl) {
-            body.insertBefore(el, loadingEl);
+      : undefined,
+    // Per-item hook: hScroll cell updates + selection state.
+    // Uses untracked to avoid subscribing the render effect to
+    // visibleColRange/selection — those have their own effects below.
+    onItem: (item, index, key, element, isNew) => {
+      if (canHScroll && !isNew) {
+        untracked(() => updateRowCells(element, item, index));
+      }
+      if (selectable && selection) {
+        untracked(() => {
+          const currentSelection = selection.get();
+          if (currentSelection.has(key)) {
+            element.dataset.selected = "";
           } else {
-            body.appendChild(el);
+            delete element.dataset.selected;
           }
-        }
-      },
-    };
+        });
+      }
+    },
+    onReconcile: undefined,
+  });
+
+  // --- Separate effects for hscroll and selection ---
+  // These subscribe to visibleColRange/selection independently so that
+  // horizontal scroll or selection changes don't re-run the vertical render.
+  const disposers: Array<() => void> = [];
+  if (canHScroll) {
+    disposers.push(
+      effect(() => {
+        visibleColRange.get();
+        untracked(() => {
+          renderHeader();
+          if (isTableMode) renderColgroup();
+          const rows = handle.querySelectorAll(`[${DATA_VTABLE_ROW}]`);
+          rows.forEach((row) => {
+            const key = elementKeys.get(row as HTMLElement);
+            if (key === undefined) return;
+            const items = data.get();
+            const idx = items.findIndex((it, i) =>
+              rowKey ? rowKey(it, i) === key : (it as unknown) === key,
+            );
+            if (idx !== -1) updateRowCells(row as HTMLElement, items[idx], idx);
+          });
+        });
+      }),
+    );
   }
 
-  // --- Shared render effect (unified via layout strategy) ---
-  const renderDispose = effect(() => {
-    const items = data.get();
-    const { start, end } = core.visibleRange.get();
-    const { offsets, total } = core.layout.get();
-    const currentSelection = selectable && selection ? selection.get() : null;
-    const keys = sourceKeySet.get();
-
-    const visible: Array<{ key: unknown; element: HTMLElement }> = [];
-
-    for (let i = start; i < end; i++) {
-      const item = items[i];
-      const key = rowKey ? rowKey(item, i) : item;
-
-      let rowEl = reconciler!.get(key);
-      if (!rowEl) {
-        rowEl = createRow(item, i, key);
-        reconciler!.set(key, rowEl);
-        core.measureElement(rowEl, key);
-      } else if (canHScroll) {
-        updateRowCells(rowEl, item, i);
-      }
-
-      strategy!.positionRow(rowEl, offsets[i]);
-
-      if (selectable && currentSelection) {
-        if (currentSelection.has(key)) {
-          rowEl.dataset.selected = "";
-        } else {
-          delete rowEl.dataset.selected;
-        }
-      }
-
-      visible.push({ key, element: rowEl });
-    }
-
-    // Reconciler handles cache cleanup + eviction. DOM reorder is delegated
-    // to the strategy (table mode: reorder=false, grid mode: reorder=true).
-    reconciler!.reconcile(visible, (key) => keys.has(key), {
-      cleanupStrategy: strategy!.cleanupStrategy,
-      reorder: strategy!.reorder,
-    });
-
-    // Mode-specific DOM finalization (table mode: spacers + clear+append).
-    strategy!.finalizeDOM(
-      visible.map((v) => v.element),
-      start,
-      end,
-      offsets,
-      total,
-      items.length,
+  if (selectable && selection) {
+    disposers.push(
+      effect(() => {
+        const currentSelection = selection.get();
+        untracked(() => {
+          const rows = handle.querySelectorAll(`[${DATA_VTABLE_ROW}]`);
+          rows.forEach((row) => {
+            const key = elementKeys.get(row as HTMLElement);
+            if (key === undefined) return;
+            if (currentSelection.has(key)) {
+              (row as HTMLElement).dataset.selected = "";
+            } else {
+              delete (row as HTMLElement).dataset.selected;
+            }
+          });
+        });
+      }),
     );
+  }
 
-    // Update header for horizontal virtual scroll
-    if (canHScroll) updateHeader?.();
-  });
-  disposers.push(renderDispose);
+  // --- Horizontal scroll listener ---
+  let hRafId = 0;
+  function updateViewportWidth() {
+    const w = handle.clientWidth;
+    if (w > 0) viewportWidth.set(w);
+  }
+  if (canHScroll) {
+    const onHScroll = () => {
+      if (hRafId) return;
+      hRafId = requestAnimationFrame(() => {
+        hRafId = 0;
+        scrollLeft.set(handle.scrollLeft);
+        updateViewportWidth();
+      });
+    };
+    handle.addEventListener("scroll", onHScroll, { passive: true });
+    updateViewportWidth();
+    requestAnimationFrame(updateViewportWidth);
+
+    if (typeof ResizeObserver !== "undefined") {
+      const wObserver = new ResizeObserver(() => updateViewportWidth());
+      wObserver.observe(handle);
+      disposers.push(() => wObserver.disconnect());
+    }
+    disposers.push(() => {
+      if (hRafId) cancelAnimationFrame(hRafId);
+      handle.removeEventListener("scroll", onHScroll);
+    });
+  }
 
   // --- Row click (selection + onRowClick) ---
   if (selectable || onRowClick) {
     const onClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       const row = target.closest(`[${DATA_VTABLE_ROW}]`) as HTMLElement | null;
-      if (!row || !scrollContainer.contains(row)) return;
+      if (!row || !handle.contains(row)) return;
 
       const key = elementKeys.get(row);
       if (key === undefined) return;
@@ -946,17 +764,15 @@ export function virtualTable<T>(
 
       onRowClick?.(item, index, e);
     };
-    scrollContainer.addEventListener("click", onClick);
-    disposers.push(() =>
-      scrollContainer.removeEventListener("click", onClick),
-    );
+    handle.addEventListener("click", onClick);
+    disposers.push(() => handle.removeEventListener("click", onClick));
   }
 
-  // --- scrollToIndex ---
-  root.scrollToIndex = (index, align) => core.scrollToIndex(index, align);
+  // --- Public API ---
+  const root = handle as unknown as VirtualTableHandle;
 
-  // --- Cleanup ---
-  // Explicit dispose (primary path) + registerDisposable (GC safety net).
+  // --- Cleanup wrapper (table-specific disposers + scroller) ---
+  const origDispose = handle.dispose.bind(handle);
   let disposed = false;
   root.dispose = () => {
     if (disposed) return;
@@ -969,8 +785,7 @@ export function virtualTable<T>(
       }
     }
     disposers.length = 0;
-    reconciler?.dispose();
-    core.dispose();
+    origDispose();
   };
   registerDisposable(root, () => root.dispose());
 

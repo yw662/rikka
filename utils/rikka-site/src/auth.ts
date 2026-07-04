@@ -35,6 +35,24 @@ export interface AuthRule {
    * If omitted, defaults to the verifier.
    */
   auth?: string | null;
+  /**
+   * Optional HTTP methods this rule applies to (case-insensitive,
+   * e.g. `["GET"]`, `["POST", "PUT", "PATCH", "DELETE"]`).
+   *
+   * When omitted, the rule applies to ALL methods. When specified, the rule
+   * is only considered for requests whose method is in this list; requests
+   * with other methods skip this rule and fall through to subsequent rules.
+   *
+   * This allows the common pattern of "public reads, authenticated writes":
+   *
+   * ```ts
+   * rules: [
+   *   { match: "/articles/**", auth: null, methods: ["GET"] },
+   *   { match: "/articles/**", auth: "auth" }, // POST/PUT/PATCH/DELETE
+   * ]
+   * ```
+   */
+  methods?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -112,17 +130,32 @@ export type AuthMatchResult =
 /**
  * Find the auth directive for a given path by matching against `rules`.
  * The first matching rule wins; if no rule matches, `no-match` is returned.
+ *
+ * If `method` is provided, rules that declare a `methods` list but do not
+ * include the (uppercased) method are skipped, allowing later rules to apply
+ * to that method. If `method` is omitted, method filtering is disabled and
+ * every path-matching rule is considered (preserves backward compatibility).
  */
 export function matchAuthRule(
   path: string,
   rules: AuthRule[],
+  method?: string,
 ): AuthMatchResult {
+  const methodUpper = method?.toUpperCase();
   for (const rule of rules) {
-    if (globMatch(rule.match, path)) {
-      if (rule.auth === null) return { kind: "no-auth" }; // explicitly no auth
-      if (rule.auth === undefined) return { kind: "use-verifier" }; // use default verifier
-      return { kind: "named", name: rule.auth };
+    if (!globMatch(rule.match, path)) continue;
+    // Rule restricted to specific methods and the request method isn't in
+    // the list → skip and let subsequent rules decide.
+    if (
+      rule.methods &&
+      methodUpper !== undefined &&
+      !rule.methods.includes(methodUpper)
+    ) {
+      continue;
     }
+    if (rule.auth === null) return { kind: "no-auth" }; // explicitly no auth
+    if (rule.auth === undefined) return { kind: "use-verifier" }; // use default verifier
+    return { kind: "named", name: rule.auth };
   }
   return { kind: "no-match" }; // no matching rule → no auth
 }

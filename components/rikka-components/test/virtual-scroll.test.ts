@@ -69,7 +69,7 @@ describe("virtualScroll", () => {
     expect(rendered.length).toBeLessThan(20);
   });
 
-  it("positions items with spacer elements (normal flow)", async () => {
+  it("positions items in normal flow (spacer-based)", async () => {
     const items = signal([0, 1, 2, 3, 4]);
     container = virtualScroll(
       items,
@@ -88,7 +88,7 @@ describe("virtualScroll", () => {
     const itemEls = container.querySelectorAll("[data-r-vscroll-item]");
     expect(itemEls.length).toBeGreaterThan(0);
 
-    // Items should NOT be absolutely positioned (normal flow with spacers)
+    // Items should NOT be absolutely positioned (normal flow, positioned via spacers)
     const firstItem = itemEls[0] as HTMLElement;
     expect(firstItem.style.position).not.toBe("absolute");
   });
@@ -119,6 +119,48 @@ describe("virtualScroll", () => {
 
     const texts = Array.from(itemEls).map((el) => el.textContent);
     expect(texts.some((t) => t?.includes("Item 50"))).toBe(true);
+  });
+
+  it("keeps DOM stable on repeated scrolls (no item recreation)", async () => {
+    const items = signal(Array.from({ length: 200 }, (_, i) => i));
+    container = virtualScroll(
+      items,
+      (item) => {
+        const el = document.createElement("div");
+        el.textContent = `Item ${item}`;
+        return el;
+      },
+      { itemHeight: 40, height: 300 },
+    );
+
+    mockHeight(container, 300);
+    document.body.appendChild(container);
+    await waitFor(50);
+
+    const content = container.querySelector(
+      "[data-r-vscroll-content]",
+    ) as HTMLElement;
+
+    // With the spacer approach, spacers are siblings of content (inside the
+    // scroll container), so content children are just visible items + loading.
+    // Record the first visible item element and verify it persists across
+    // scrolls (cached, not recreated).
+    const firstItem = content.querySelector(
+      "[data-r-vscroll-item]",
+    ) as HTMLElement;
+    expect(firstItem).toBeTruthy();
+
+    // Scroll a small amount so the first item is still visible (cached)
+    triggerScroll(container, 40);
+    await waitFor(30);
+
+    // The same item element should still be in the DOM (cached, not recreated)
+    const stillPresent = content.contains(firstItem);
+    expect(stillPresent).toBe(true);
+
+    // Content should never have spacer children (spacers are siblings, not children)
+    const spacers = content.querySelectorAll(":scope > div:not([data-r-vscroll-item]):not([data-r-vscroll-loading])");
+    expect(spacers.length).toBe(0);
   });
 
   it("re-renders when source changes", async () => {

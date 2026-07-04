@@ -25,13 +25,16 @@ import {
 import { TestElement } from "./fixtures/elements-entry.js";
 
 function makeRequest(overrides: Partial<HttpRequest>): HttpRequest {
-  return {
+  const req: HttpRequest = {
     method: "GET",
     path: "/",
     headers: {},
-    query: {},
     ...overrides,
   };
+  if (!req.accept && req.headers?.accept) {
+    req.accept = req.headers.accept;
+  }
+  return req;
 }
 
 class BadElement {
@@ -40,9 +43,11 @@ class BadElement {
 
 /** A ReadOnly resource that returns an empty object — used as a placeholder root. */
 class EmptyKind extends ReadOnlyKind {
+  element = "test-element";
   resolve(params: Record<string, string>) {
     const r = new EmptyResource();
     r.params = params;
+    r.element = this.element;
     return r;
   }
 }

@@ -21,6 +21,7 @@ import {
   apiDelete,
   ApiError,
 } from "./api.js";
+import { registerServiceWorker } from "./service-worker.js";
 
 export { findResourceData, findResourceDataAsync } from "./hydration.js";
 export {
@@ -44,6 +45,10 @@ export {
   ApiError,
   type ApiRequestInit,
 } from "./api.js";
+export {
+  registerServiceWorker,
+  type RegisterServiceWorkerOptions,
+} from "./service-worker.js";
 
 /**
  * Shape of `window.__rikka`. Useful for type-safe access from custom element
@@ -63,6 +68,7 @@ export interface RikkaSdk {
   apiPatch: typeof apiPatch;
   apiDelete: typeof apiDelete;
   ApiError: typeof ApiError;
+  registerServiceWorker: typeof registerServiceWorker;
 }
 
 // Auto-expose on window
@@ -81,5 +87,10 @@ if (typeof window !== "undefined") {
     apiPatch,
     apiDelete,
     ApiError,
+    registerServiceWorker,
   };
+
+  // Auto-register the service worker. Fire-and-forget — fails silently when
+  // SW is unavailable or the server disabled it (serviceWorker: false → 404).
+  registerServiceWorker().catch(() => {});
 }

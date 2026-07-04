@@ -30,13 +30,19 @@ function toBody(data: unknown): ReadableStream<Uint8Array> {
 function makeRequest(
   overrides: Partial<HttpRequest> & { jsonBody?: unknown },
 ): HttpRequest {
-  const { jsonBody, ...rest } = overrides;
+  const { jsonBody, headers, ...rest } = overrides;
+  // Mirror the Node/Worker adapters: headers["accept"] flows into request.accept
+  // so the framework's content-negotiation sees it. Tests that pass `accept`
+  // at the top level take precedence.
+  const headersAccept = headers?.["accept"];
+  const accept = rest.accept ?? (headersAccept !== undefined ? String(headersAccept) : undefined);
   return {
     method: "GET",
     path: "/",
-    headers: {},
+    headers: { ...headers },
     query: {},
     ...rest,
+    accept,
     ...(jsonBody !== undefined ? { body: toBody(jsonBody) } : {}),
   };
 }
@@ -87,7 +93,10 @@ describe("resource tree behavior", () => {
       makeRequest({
         method: "POST",
         path: "/articles",
-        accept: "application/json",
+        headers: {
+          accept: "application/json",
+          authorization: "Bearer admin-token",
+        },
         jsonBody: { title: "T", body: "x", tags: ["new"] },
       }),
     );
@@ -100,6 +109,7 @@ describe("resource tree behavior", () => {
       makeRequest({
         method: "POST",
         path: "/articles",
+        headers: { authorization: "Bearer admin-token" },
         jsonBody: { title: "T" }, // missing body
       }),
     );
@@ -111,7 +121,33 @@ describe("resource tree behavior", () => {
       makeRequest({
         method: "POST",
         path: "/articles",
+        headers: { authorization: "Bearer admin-token" },
         jsonBody: { title: "x".repeat(201), body: "y" },
+      }),
+    );
+    expect(r.status).toBe(400);
+  });
+
+  it("Collection.create returns 401 without auth (write protected)", async () => {
+    // Issue 1 fix: writes on public-read paths require auth.
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/articles",
+        jsonBody: { title: "T", body: "x" },
+      }),
+    );
+    expect(r.status).toBe(401);
+  });
+
+  it("Collection.create returns 400 for non-string tag entries", async () => {
+    // Issue 8 fix: tags array elements are validated.
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/articles",
+        headers: { authorization: "Bearer admin-token" },
+        jsonBody: { title: "T", body: "x", tags: ["ok", 123] },
       }),
     );
     expect(r.status).toBe(400);
@@ -151,7 +187,10 @@ describe("resource tree behavior", () => {
       makeRequest({
         method: "POST",
         path: "/articles",
-        accept: "application/json",
+        headers: {
+          accept: "application/json",
+          authorization: "Bearer admin-token",
+        },
         jsonBody: { title: "to-delete", body: "x" },
       }),
     );
@@ -163,6 +202,7 @@ describe("resource tree behavior", () => {
       makeRequest({
         method: "DELETE",
         path: `/articles/${id}`,
+        headers: { authorization: "Bearer admin-token" },
       }),
     );
     expect(d.status).toBe(204);
@@ -173,6 +213,7 @@ describe("resource tree behavior", () => {
       makeRequest({
         method: "DELETE",
         path: `/articles/${id}`,
+        headers: { authorization: "Bearer admin-token" },
       }),
     );
     expect(d2.status).toBe(404);
@@ -185,6 +226,7 @@ describe("resource tree behavior", () => {
         method: "POST",
         path: "/articles",
         accept: "application/json",
+        headers: { authorization: "Bearer admin-token" },
         jsonBody: { title: "original", body: "orig" },
       }),
     );
@@ -196,6 +238,7 @@ describe("resource tree behavior", () => {
         method: "PATCH",
         path: `/articles/${id}`,
         accept: "application/json",
+        headers: { authorization: "Bearer admin-token" },
         jsonBody: { title: "patched" },
       }),
     );
@@ -227,10 +270,23 @@ describe("resource tree behavior", () => {
       makeRequest({
         method: "PUT",
         path: "/settings",
+        headers: { authorization: "Bearer admin-token" },
         jsonBody: { theme: "light" }, // missing siteName
       }),
     );
     expect(r.status).toBe(400);
+  });
+
+  it("Singleton.replace returns 401 without auth (write protected)", async () => {
+    // Issue 1 fix: PUT on /settings requires auth even though GET is public.
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "PUT",
+        path: "/settings",
+        jsonBody: { siteName: "X" },
+      }),
+    );
+    expect(r.status).toBe(401);
   });
 
   // --- ReadOnly ---
@@ -310,15 +366,36 @@ describe("resource tree behavior", () => {
     expect(r.status).toBe(200);
   });
 
-  it("admin/articles with reader token still 401 (insufficient scope)", async () => {
-    // The auth resource validates token; reader token is valid but
-    // doesn't have admin scope. The blog's auth uses identity.scopes
-    // check via HttpError(403) when scope is insufficient. The
-    // /admin/** rule says "auth: 'auth'" which means use the auth
-    // resource — admin/articles should be reachable with any valid
-    // token since the blog doesn't enforce scope. Skipping this assertion
-    // and using a more targeted check below.
-    expect(true).toBe(true);
+  it("admin/articles with reader token returns 200 (blog doesn't enforce scope)", async () => {
+    // The blog's auth verifier returns an identity with `scopes`, but the
+    // /admin/** rule only requires that auth SUCCEEDS — it does not check
+    // scopes. So any valid token (reader, author, admin) can reach
+    // /admin/articles. This test documents that behavior: scope-based
+    // access control is not enforced by the blog-site example.
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "GET",
+        path: "/admin/articles",
+        headers: {
+          accept: "application/json",
+          authorization: "Bearer reader-token",
+        },
+      }),
+    );
+    expect(r.status).toBe(200);
+  });
+
+  it("POST /articles returns 401 with invalid token", async () => {
+    // Auth verifier rejects unknown tokens with 401.
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/articles",
+        headers: { authorization: "Bearer not-a-real-token" },
+        jsonBody: { title: "T", body: "x" },
+      }),
+    );
+    expect(r.status).toBe(401);
   });
 
   it("public GET paths don't require auth", async () => {
@@ -349,6 +426,7 @@ describe("resource tree behavior", () => {
       makeRequest({
         method: "GET",
         path: "/articles",
+        accept: "text/html",
       }),
     );
     expect(r.status).toBe(200);
@@ -363,14 +441,126 @@ describe("resource tree behavior", () => {
   // --- Error handling ---
 
   it("Internal server error returns 500 with plain text", async () => {
-    // Force an internal error: invalid method body that the framework can't parse
-    // by sending a non-JSON body to a Collection.create that requires JSON.
-    // Actually, our handlers are permissive. Just verify the framework
-    // returns 500 for truly unhandled errors.
-    // We simulate by sending a path that would trigger an unexpected error.
-    // For now, just verify 500 is reachable via a deep error path.
-    // (This is mostly a smoke test — the framework's try/catch wraps everything.)
-    expect(true).toBe(true);
+    // Send malformed JSON to a POST handler that calls ctx.json().
+    // JSON.parse throws SyntaxError, which is not an HttpError, so the
+    // framework's catch block returns 500 with a text/plain body.
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/articles",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer admin-token",
+        },
+        body: toBody("{not valid json"),
+      }),
+    );
+    expect(r.status).toBe(500);
+    expect(r.headers["Content-Type"]).toBe("text/plain");
+  });
+});
+
+describe("comments", () => {
+  it("lists comments for an article", async () => {
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "GET",
+        path: "/articles/1/comments",
+        accept: "application/json",
+      }),
+    );
+    expect(r.status).toBe(200);
+    const list = JSON.parse(r.body as string);
+    expect(Array.isArray(list)).toBe(true);
+    expect(list.length).toBeGreaterThan(0);
+  });
+
+  it("creates a comment on an existing article", async () => {
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/articles/1/comments",
+        accept: "application/json",
+        headers: { authorization: "Bearer admin-token" },
+        jsonBody: { author: "Test", text: "Nice" },
+      }),
+    );
+    expect(r.status).toBe(201);
+    const data = JSON.parse(r.body as string);
+    expect(data.author).toBe("Test");
+    expect(data.articleId).toBe(1);
+  });
+
+  it("returns 404 when creating a comment on a non-existent article", async () => {
+    // Issue 7 fix: parent article existence is verified.
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/articles/99999/comments",
+        accept: "application/json",
+        headers: { authorization: "Bearer admin-token" },
+        jsonBody: { author: "Test", text: "Nice" },
+      }),
+    );
+    expect(r.status).toBe(404);
+  });
+
+  it("returns 404 when deleting a comment via the wrong article", async () => {
+    // Issue 2 fix: delete is scoped to the parent article.
+    // Comment id=1 belongs to article id=1. Asking to delete it via
+    // article id=2 should 404, NOT delete the comment.
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "DELETE",
+        path: "/articles/2/comments/1",
+        headers: { authorization: "Bearer admin-token" },
+      }),
+    );
+    expect(r.status).toBe(404);
+
+    // Verify the comment still exists under the correct article.
+    const stillThere = await app.handleRequest(
+      makeRequest({
+        method: "GET",
+        path: "/articles/1/comments/1",
+        accept: "application/json",
+      }),
+    );
+    expect(stillThere.status).toBe(200);
+  });
+
+  it("deletes a comment via the correct article", async () => {
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "DELETE",
+        path: "/articles/1/comments/1",
+        headers: { authorization: "Bearer admin-token" },
+      }),
+    );
+    expect(r.status).toBe(204);
+
+    // Verify it's gone.
+    const gone = await app.handleRequest(
+      makeRequest({
+        method: "GET",
+        path: "/articles/1/comments/1",
+        accept: "application/json",
+      }),
+    );
+    expect(gone.status).toBe(404);
+  });
+
+  it("requires auth to create a comment (write protected)", async () => {
+    // Issue 1 fix: POST on /articles/**/comments requires auth.
+    const r = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/articles/1/comments",
+        accept: "application/json",
+        jsonBody: { author: "Test", text: "Nice" },
+      }),
+    );
+    expect(r.status).toBe(401);
   });
 });
 
@@ -381,6 +571,7 @@ describe("write operations", () => {
         method: "PATCH",
         path: "/articles/1",
         accept: "application/json",
+        headers: { authorization: "Bearer admin-token" },
         jsonBody: { title: "Updated Title", body: "Updated body." },
       }),
     );
@@ -396,10 +587,24 @@ describe("write operations", () => {
         method: "PATCH",
         path: "/articles/1",
         accept: "application/json",
+        headers: { authorization: "Bearer admin-token" },
         jsonBody: {},
       }),
     );
     expect(response.status).toBe(400);
+  });
+
+  it("rejects patching an article without auth", async () => {
+    // Issue 1 fix: PATCH on /articles/:id requires auth.
+    const response = await app.handleRequest(
+      makeRequest({
+        method: "PATCH",
+        path: "/articles/1",
+        accept: "application/json",
+        jsonBody: { title: "X" },
+      }),
+    );
+    expect(response.status).toBe(401);
   });
 
   it("creates a user", async () => {
@@ -408,12 +613,14 @@ describe("write operations", () => {
         method: "POST",
         path: "/users",
         accept: "application/json",
+        headers: { authorization: "Bearer admin-token" },
         jsonBody: { name: "Frank", email: "frank@example.com", role: "reader" },
       }),
     );
     expect(response.status).toBe(201);
     const data = JSON.parse(response.body as string);
     expect(data.name).toBe("Frank");
+    expect(data.role).toBe("reader");
   });
 
   it("rejects creating a user with missing email", async () => {
@@ -422,10 +629,41 @@ describe("write operations", () => {
         method: "POST",
         path: "/users",
         accept: "application/json",
+        headers: { authorization: "Bearer admin-token" },
         jsonBody: { name: "Frank" },
       }),
     );
     expect(response.status).toBe(400);
+  });
+
+  it("rejects creating a user with invalid role", async () => {
+    // Issue 3 fix: role is validated against the allowed enum.
+    const response = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/users",
+        accept: "application/json",
+        headers: { authorization: "Bearer admin-token" },
+        jsonBody: { name: "Frank", email: "f@e.com", role: "superuser" },
+      }),
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it("creates a user with default role when role omitted", async () => {
+    // Issue 3 fix: omitted role defaults to "reader".
+    const response = await app.handleRequest(
+      makeRequest({
+        method: "POST",
+        path: "/users",
+        accept: "application/json",
+        headers: { authorization: "Bearer admin-token" },
+        jsonBody: { name: "Grace", email: "g@e.com" },
+      }),
+    );
+    expect(response.status).toBe(201);
+    const data = JSON.parse(response.body as string);
+    expect(data.role).toBe("reader");
   });
 
   it("patches settings", async () => {
@@ -434,6 +672,7 @@ describe("write operations", () => {
         method: "PATCH",
         path: "/settings",
         accept: "application/json",
+        headers: { authorization: "Bearer admin-token" },
         jsonBody: { siteName: "New Name", theme: "light", postsPerPage: 5 },
       }),
     );
@@ -444,15 +683,77 @@ describe("write operations", () => {
     expect(data.postsPerPage).toBe(5);
   });
 
-  it("rejects patching settings without siteName", async () => {
+  it("patches settings partially (siteName optional)", async () => {
+    // Issue 4 fix: PATCH allows partial updates — siteName is no longer
+    // required. Sending just {theme} should succeed.
     const response = await app.handleRequest(
       makeRequest({
         method: "PATCH",
         path: "/settings",
         accept: "application/json",
+        headers: { authorization: "Bearer admin-token" },
         jsonBody: { theme: "light" },
       }),
     );
+    expect(response.status).toBe(200);
+    const data = JSON.parse(response.body as string);
+    expect(data.theme).toBe("light");
+    // siteName is preserved from the seeded state.
+    expect(data.siteName).toBe("Rikka Blog");
+  });
+
+  it("rejects patching settings with empty body", async () => {
+    // Issue 4 fix: PATCH requires at least one field (no silent no-op).
+    const response = await app.handleRequest(
+      makeRequest({
+        method: "PATCH",
+        path: "/settings",
+        accept: "application/json",
+        headers: { authorization: "Bearer admin-token" },
+        jsonBody: {},
+      }),
+    );
     expect(response.status).toBe(400);
+  });
+
+  it("rejects patching settings with non-finite postsPerPage", async () => {
+    // Issue 9 fix: postsPerPage must be finite and >= 1.
+    const response = await app.handleRequest(
+      makeRequest({
+        method: "PATCH",
+        path: "/settings",
+        accept: "application/json",
+        headers: { authorization: "Bearer admin-token" },
+        jsonBody: { postsPerPage: -3 },
+      }),
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it("rejects patching settings with NaN postsPerPage", async () => {
+    // Issue 9 fix: postsPerPage must be finite.
+    const response = await app.handleRequest(
+      makeRequest({
+        method: "PATCH",
+        path: "/settings",
+        accept: "application/json",
+        headers: { authorization: "Bearer admin-token" },
+        jsonBody: { postsPerPage: "not-a-number" },
+      }),
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it("rejects patching settings without auth", async () => {
+    // Issue 1 fix: PATCH on /settings requires auth.
+    const response = await app.handleRequest(
+      makeRequest({
+        method: "PATCH",
+        path: "/settings",
+        accept: "application/json",
+        jsonBody: { siteName: "X" },
+      }),
+    );
+    expect(response.status).toBe(401);
   });
 });

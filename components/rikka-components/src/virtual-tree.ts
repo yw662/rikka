@@ -6,22 +6,17 @@ import {
 } from "@takanashi/rikka-signal";
 import { h, registerDisposable } from "@takanashi/rikka-dom";
 import {
-  createVirtualScrollCore,
+  VirtualScroller,
+  type VirtualScrollerHandle,
   type ReadableSignal,
-  type VirtualScrollCore,
-} from "./virtual-scroll-core.js";
-import { createReconciler } from "./reconcile.js";
+} from "./virtual-scroll.js";
 
 const DATA_VTREE = "data-r-vtree";
-const DATA_VTREE_SCROLL = "data-r-vtree-scroll";
 const DATA_VTREE_CONTENT = "data-r-vtree-content";
 const DATA_VTREE_NODE = "data-r-vtree-node";
 const DATA_VTREE_TOGGLE = "data-r-vtree-toggle";
 const DATA_VTREE_LABEL = "data-r-vtree-label";
 const DATA_VTREE_PLACEHOLDER = "data-r-vtree-placeholder";
-
-/** Max cached node elements. Prevents unbounded memory growth. */
-const MAX_CACHE = 200;
 
 /** Prefix for synthetic placeholder keys (unloaded children slots). */
 const PLACEHOLDER_PREFIX = "__ph__";
@@ -126,6 +121,11 @@ interface FlatEntry<Key> {
 /**
  * Creates a virtual-scrolling tree component with a key-based interface.
  *
+ * Built on top of `VirtualScroller`. The tree flattens its structure into a
+ * visible list (`flatList`), then delegates scrolling/positioning/caching to
+ * `VirtualScroller`. Tree-specific concerns (expand state, placeholders,
+ * toggle indicators, indentation) live in the tree's `renderItem`.
+ *
  * The tree only works with primitive keys (`string | number`) — it never
  * inspects node data. The caller provides:
  * - `roots`: reactive root keys
@@ -136,8 +136,6 @@ interface FlatEntry<Key> {
  * Data loading is external: the caller reads `requestedKeys` (a pure
  * computed) to know which keys need data, then updates their store. No
  * internal cache, no loading effects.
- *
- * No Shadow DOM. Uses `data-r-vtree*` attributes for styling hooks.
  *
  * @example
  * ```ts
@@ -176,15 +174,13 @@ export function virtualTree<Key extends string | number>(
     onNodeClick,
   } = options;
 
-  const disposers: Array<() => void> = [];
-
   // --- Expand state ---
   const internalExpanded = signal(new Set<Key>(defaultExpandedKeys ?? []));
   const expandedKeys = controlledExpanded ?? internalExpanded;
 
   // --- Flatten the tree into a visible list ---
   // Depends on: roots, expandedKeys, and whatever signals the caller's
-  // getChildren/getChildCount/isLeaf read from. No childrenVersion needed.
+  // getChildren/getChildCount/isLeaf read from.
   const flatList = computed<FlatEntry<Key>[]>(() => {
     const rootKeys = roots.get();
     const expanded = expandedKeys.get();
@@ -227,14 +223,6 @@ export function virtualTree<Key extends string | number>(
     return result;
   });
 
-  // --- Set of all flat keys (for O(1) source-key lookup in reconciler) ---
-  const flatKeySet = computed<Set<string | number>>(() => {
-    const flat = flatList.get();
-    const set = new Set<string | number>();
-    for (const entry of flat) set.add(entry.key);
-    return set;
-  });
-
   // --- Map from real key -> flat index (for scrollToNode) ---
   const keyToIndex = computed<Map<Key, number>>(() => {
     const flat = flatList.get();
@@ -247,102 +235,29 @@ export function virtualTree<Key extends string | number>(
     return map;
   });
 
-  // --- Core virtual scroll ---
-  const core: VirtualScrollCore<FlatEntry<Key>, string | number> =
-    createVirtualScrollCore({
-      source: flatList,
-      itemHeight,
-      estimatedItemHeight,
-      overscan,
-      keyFn: (entry) => entry.key,
-    });
-
-  // --- requestedKeys: pure computed, no effects ---
-  // The set of keys the caller needs to provide data for:
-  // - Visible real node keys (for Item rendering)
-  // - Visible expanded parent keys whose children are not loaded
-  //   (so the caller knows to fetch their children)
-  const requestedKeys = computed<Set<Key>>(() => {
-    const flat = flatList.get();
-    const { start, end } = core.visibleRange.get();
-    const keys = new Set<Key>();
-    const unloadedParents = new Set<Key>();
-    for (let i = start; i < end; i++) {
-      const entry = flat[i];
-      if (!entry) continue;
-      if (entry.isPlaceholder) {
-        if (entry.parentKey !== null) unloadedParents.add(entry.parentKey);
-      } else if (entry.realKey !== null) {
-        keys.add(entry.realKey);
-      }
-    }
-    for (const k of unloadedParents) keys.add(k);
-    return keys;
-  });
-
-  // --- Build DOM ---
-  const root = h("div", {
-    className,
-    style: {
-      height: typeof height === "number" ? `${height}px` : height,
-      overflow: "hidden",
-    },
-  }) as unknown as VirtualTreeHandle<Key>;
-  root.setAttribute(DATA_VTREE, "");
-
-  const scrollContainer = h("div", {
-    style: {
-      overflow: "auto",
-      height: "100%",
-      position: "relative",
-    },
-  });
-  scrollContainer.setAttribute(DATA_VTREE_SCROLL, "");
-  root.appendChild(scrollContainer);
-
-  const content = h("div", {
-    style: {
-      position: "relative",
-      width: "100%",
-    },
-  });
-  content.setAttribute(DATA_VTREE_CONTENT, "");
-  scrollContainer.appendChild(content);
-
-  core.attach(scrollContainer);
+  // --- Per-node toggle effect disposers, keyed by flat entry key ---
+  const nodeDisposers = new Map<string | number, () => void>();
 
   // --- Toggle logic ---
   function toggleNode(key: Key): void {
     if (isLeaf(key)) return;
     const current = expandedKeys.get();
     const next = new Set(current);
-    if (next.has(key)) {
-      next.delete(key);
-      onCollapse?.(key);
-    } else {
+    const willExpand = !next.has(key);
+    if (willExpand) {
       next.add(key);
-      onExpand?.(key);
+    } else {
+      next.delete(key);
     }
     expandedKeys.set(next);
+    if (willExpand) {
+      onExpand?.(key);
+    } else {
+      onCollapse?.(key);
+    }
   }
 
-  // --- Element cache + reconciler ---
-  // Per-node toggle effect disposers, keyed by flat entry key.
-  const nodeDisposers = new Map<string | number, () => void>();
-  const reconciler = createReconciler<string | number>({
-    parent: content,
-    maxCache: MAX_CACHE,
-    onEvict: (key, el) => {
-      core.unmeasureElement(el);
-      const d = nodeDisposers.get(key);
-      if (d) {
-        d();
-        nodeDisposers.delete(key);
-      }
-    },
-  });
-
-  // --- Create a node row element ---
+  // --- Create a node row element (VirtualScroller's renderItem) ---
   function createNodeRow(entry: FlatEntry<Key>): HTMLElement {
     // --- Placeholder row (unloaded child slot) ---
     if (entry.isPlaceholder) {
@@ -372,7 +287,11 @@ export function virtualTree<Key extends string | number>(
 
     // --- Real node row ---
     const nodeKey = entry.realKey as Key;
-    const hasChildren = !isLeaf(nodeKey);
+    // Reactive: re-evaluates when caller's isLeaf reads change. Acts as an
+    // equality barrier so the toggle effect only re-runs when this node
+    // flips between leaf/non-leaf (or expanded state changes).
+    const hasChildren = computed(() => !isLeaf(nodeKey));
+    const isExpanded = computed(() => expandedKeys.get().has(nodeKey));
 
     const row = h("div", {
       style: {
@@ -398,8 +317,8 @@ export function virtualTree<Key extends string | number>(
     function buildToggleEl(): HTMLElement {
       const ctx = {
         key: nodeKey,
-        isExpanded: expandedKeys.get().has(nodeKey),
-        isLeaf: !hasChildren,
+        isExpanded: isExpanded.get(),
+        isLeaf: !hasChildren.get(),
       };
       const el = (
         renderToggle ? renderToggle(ctx) : defaultRenderToggle(ctx)
@@ -416,19 +335,20 @@ export function virtualTree<Key extends string | number>(
     let toggleEl = buildToggleEl();
     row.appendChild(toggleEl);
 
-    // Reactive toggle state update (only depends on expandedKeys).
+    // Reactive toggle state update (fine-grained: re-runs only when this node flips).
     const toggleDispose = effect(() => {
-      const isExp = expandedKeys.get().has(nodeKey);
+      const isExp = isExpanded.get();
+      const hasKids = hasChildren.get();
       if (renderToggle) {
         const next = buildToggleEl();
         next.dataset.expanded = isExp ? "true" : "false";
-        next.style.visibility = hasChildren ? "visible" : "hidden";
+        next.style.visibility = hasKids ? "visible" : "hidden";
         row.replaceChild(next, toggleEl);
         toggleEl = next;
       } else {
         toggleEl.dataset.expanded = isExp ? "true" : "false";
-        toggleEl.style.visibility = hasChildren ? "visible" : "hidden";
-        updateDefaultToggle(toggleEl, isExp, hasChildren);
+        toggleEl.style.visibility = hasKids ? "visible" : "hidden";
+        updateDefaultToggle(toggleEl, isExp, hasKids);
       }
     });
     nodeDisposers.set(entry.key, toggleDispose);
@@ -454,57 +374,79 @@ export function virtualTree<Key extends string | number>(
     return row;
   }
 
-  // --- Render effect ---
-  const renderDispose = effect(() => {
+  // --- Build via VirtualScroller ---
+  const handle = VirtualScroller<FlatEntry<Key>, string | number>(
+    flatList,
+    createNodeRow,
+    {
+      itemHeight,
+      estimatedItemHeight,
+      overscan,
+      height,
+      className,
+      keyFn: (entry) => entry.key,
+      onEvict: (key) => {
+        const d = nodeDisposers.get(key);
+        if (d) {
+          d();
+          nodeDisposers.delete(key);
+        }
+      },
+      // Custom structure: scroll container with tree attribute.
+      structure: ({ topSpacer, content, bottomSpacer }) => {
+        const el = h("div", {
+          className,
+          style: {
+            overflow: "auto",
+            position: "relative",
+            height: typeof height === "number" ? `${height}px` : height,
+          },
+        }) as HTMLElement;
+        el.setAttribute(DATA_VTREE, "");
+        el.appendChild(topSpacer);
+        el.appendChild(content);
+        el.appendChild(bottomSpacer);
+        return el;
+      },
+      // Custom content: div with tree content attribute.
+      content: () => {
+        const el = h("div", {
+          style: { position: "relative", width: "100%" },
+        }) as HTMLElement;
+        el.setAttribute(DATA_VTREE_CONTENT, "");
+        return el;
+      },
+    },
+  );
+
+  // --- requestedKeys: pure computed (visible real keys + unloaded parents) ---
+  // Reads flatList + the scroller's visibleRange (reactive). No side effects.
+  const requestedKeys = computed<Set<Key>>(() => {
     const flat = flatList.get();
-    const { start, end } = core.visibleRange.get();
-    const { offsets, total } = core.layout.get();
-    const flatKeys = flatKeySet.get();
-
-    const visible: Array<{ key: string | number; element: HTMLElement }> = [];
-
+    const { start, end } = handle.visibleRange.get();
+    const keys = new Set<Key>();
+    const unloadedParents = new Set<Key>();
     for (let i = start; i < end; i++) {
       const entry = flat[i];
       if (!entry) continue;
-      const key = entry.key;
-
-      let el = reconciler.get(key);
-      if (!el) {
-        el = createNodeRow(entry);
-        reconciler.set(key, el);
-        core.measureElement(el, key);
+      if (entry.isPlaceholder) {
+        if (entry.parentKey !== null) unloadedParents.add(entry.parentKey);
+      } else if (entry.realKey !== null) {
+        keys.add(entry.realKey);
       }
-      visible.push({ key, element: el });
     }
-
-    // Reconciler handles: source cleanup (O(1) via flatKeys), maxCache
-    // eviction (disposes evicted nodes' toggle effects via onEvict), and
-    // DOM reorder.
-    reconciler.reconcile(visible, (key) => flatKeys.has(key));
-
-    // Insert top/bottom spacers for scroll height (normal flow, no absolute).
-    const visibleEls = visible.map((v) => v.element);
-    if (start > 0 && visibleEls.length > 0) {
-      content.insertBefore(
-        h("div", { style: { height: `${offsets[start]}px` } }),
-        visibleEls[0],
-      );
-    }
-    if (end < flat.length) {
-      content.appendChild(
-        h("div", { style: { height: `${total - offsets[end]}px` } }),
-      );
-    }
+    for (const k of unloadedParents) keys.add(k);
+    return keys;
   });
-  disposers.push(renderDispose);
 
   // --- Public API ---
+  const root = handle as unknown as VirtualTreeHandle<Key>;
   root.expandedKeys = expandedKeys;
   root.requestedKeys = requestedKeys;
   root.scrollToNode = (key, align) => {
     const idx = keyToIndex.get().get(key);
     if (idx == null) return;
-    core.scrollToIndex(idx, align);
+    handle.scrollToIndex(idx, align);
   };
   root.expand = (key) => {
     if (isLeaf(key)) return;
@@ -526,22 +468,21 @@ export function virtualTree<Key extends string | number>(
   root.toggle = (key) => toggleNode(key);
   root.isExpanded = (key) => expandedKeys.get().has(key);
 
-  // --- Cleanup ---
+  // --- Cleanup wrapper (dispose node effects + scroller) ---
+  const origDispose = handle.dispose.bind(handle);
   let disposed = false;
   root.dispose = () => {
     if (disposed) return;
     disposed = true;
-    for (const d of disposers) {
+    for (const d of nodeDisposers.values()) {
       try {
         d();
       } catch {
-        // ignore disposal errors
+        // ignore
       }
     }
-    disposers.length = 0;
-    reconciler.dispose();
     nodeDisposers.clear();
-    core.dispose();
+    origDispose();
   };
   registerDisposable(root, () => root.dispose());
 

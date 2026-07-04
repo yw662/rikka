@@ -17,11 +17,6 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
-    "./node": {
-      "types": "./dist/node.d.ts",
-      "import": "./dist/node.js",
-      "default": "./dist/node.js"
-    },
     "./sdk": {
       "types": "./dist/sdk/index.d.ts",
       "import": "./dist/sdk/sdk.js",
@@ -35,13 +30,12 @@
     "access": "public"
   },
   "scripts": {
-    "build": "rslib build && tsc -p tsconfig.node.json",
+    "build": "rslib build && node -e \"require('fs').cpSync('src/service-worker-default','dist/service-worker-default',{recursive:true})\"",
     "build:web": "rslib build",
-    "build:node": "tsc -p tsconfig.node.json",
     "dev": "rslib build --watch",
     "test": "rstest",
     "test:watch": "rstest -w",
-    "typecheck": "tsc -p tsconfig.test.json --noEmit"
+    "typecheck": "tsc -p tsconfig.test.json --noEmit && tsc -p src/service-worker-default/tsconfig.json --noEmit"
   },
   "dependencies": {
     "@takanashi/rikka-dom": "workspace:*",

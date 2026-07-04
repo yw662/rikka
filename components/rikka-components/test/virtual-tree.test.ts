@@ -110,10 +110,7 @@ describe("virtualTree", () => {
       height: 300,
     });
 
-    const scrollContainer = tree.querySelector(
-      "[data-r-vtree-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(tree, 300);
     document.body.appendChild(tree);
     await waitFor(50);
 
@@ -141,10 +138,7 @@ describe("virtualTree", () => {
       defaultExpandedKeys: ["src"],
     });
 
-    const scrollContainer = tree.querySelector(
-      "[data-r-vtree-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(tree, 300);
     document.body.appendChild(tree);
     await waitFor(50);
 
@@ -171,10 +165,7 @@ describe("virtualTree", () => {
       height: 300,
     });
 
-    const scrollContainer = tree.querySelector(
-      "[data-r-vtree-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(tree, 300);
     document.body.appendChild(tree);
     await waitFor(50);
 
@@ -218,10 +209,7 @@ describe("virtualTree", () => {
       defaultExpandedKeys: ["src", "src/utils"],
     });
 
-    const scrollContainer = tree.querySelector(
-      "[data-r-vtree-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(tree, 300);
     document.body.appendChild(tree);
     await waitFor(50);
 
@@ -255,10 +243,7 @@ describe("virtualTree", () => {
       onCollapse: (key) => collapsedKeys.push(key),
     });
 
-    const scrollContainer = tree.querySelector(
-      "[data-r-vtree-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(tree, 300);
     document.body.appendChild(tree);
     await waitFor(50);
 
@@ -291,10 +276,7 @@ describe("virtualTree", () => {
       expandedKeys: expanded,
     });
 
-    const scrollContainer = tree.querySelector(
-      "[data-r-vtree-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(tree, 300);
     document.body.appendChild(tree);
     await waitFor(50);
 
@@ -326,10 +308,7 @@ describe("virtualTree", () => {
       defaultExpandedKeys: ["root"],
     });
 
-    const scrollContainer = tree.querySelector(
-      "[data-r-vtree-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(tree, 300);
     document.body.appendChild(tree);
     await waitFor(50);
 
@@ -359,10 +338,7 @@ describe("virtualTree", () => {
       defaultExpandedKeys: ["root"],
     });
 
-    const scrollContainer = tree.querySelector(
-      "[data-r-vtree-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(tree, 300);
     document.body.appendChild(tree);
     await waitFor(50);
 
@@ -414,10 +390,7 @@ describe("virtualTree", () => {
       },
     });
 
-    const scrollContainer = tree.querySelector(
-      "[data-r-vtree-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(tree, 300);
     document.body.appendChild(tree);
     await waitFor(50);
 
@@ -452,10 +425,7 @@ describe("virtualTree", () => {
       height: 300,
     });
 
-    const scrollContainer = tree.querySelector(
-      "[data-r-vtree-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(tree, 300);
     document.body.appendChild(tree);
     await waitFor(50);
 
@@ -484,16 +454,13 @@ describe("virtualTree", () => {
       height: 300,
     });
 
-    const scrollContainer = tree.querySelector(
-      "[data-r-vtree-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(tree, 300);
     document.body.appendChild(tree);
     await waitFor(50);
 
     tree.scrollToNode("n-50");
     // 50 * 28 = 1400
-    expect(scrollContainer.scrollTop).toBe(1400);
+    expect(tree.scrollTop).toBe(1400);
   });
 
   it("updates visible nodes on scroll", async () => {
@@ -515,10 +482,7 @@ describe("virtualTree", () => {
       height: 300,
     });
 
-    const scrollContainer = tree.querySelector(
-      "[data-r-vtree-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(tree, 300);
     document.body.appendChild(tree);
     await waitFor(50);
 
@@ -528,7 +492,7 @@ describe("virtualTree", () => {
     expect(nodeEls[0].textContent).toContain("n-0");
 
     // Scroll to node 50 (50 * 28 = 1400)
-    triggerScroll(scrollContainer, 1400);
+    triggerScroll(tree, 1400);
     await waitFor(50);
 
     nodeEls = tree.querySelectorAll("[data-r-vtree-node]");
@@ -552,10 +516,7 @@ describe("virtualTree", () => {
       height: 300,
     });
 
-    const scrollContainer = tree.querySelector(
-      "[data-r-vtree-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(tree, 300);
     document.body.appendChild(tree);
     await waitFor(50);
 
@@ -594,10 +555,7 @@ describe("virtualTree", () => {
       defaultExpandedKeys: ["root"],
     });
 
-    const scrollContainer = tree.querySelector(
-      "[data-r-vtree-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(tree, 300);
     document.body.appendChild(tree);
     await waitFor(50);
 
@@ -620,10 +578,7 @@ describe("virtualTree", () => {
       defaultExpandedKeys: ["root"],
     });
 
-    const scrollContainer = tree.querySelector(
-      "[data-r-vtree-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(tree, 300);
     document.body.appendChild(tree);
     await waitFor(50);
 
@@ -662,10 +617,7 @@ describe("virtualTree", () => {
       },
     });
 
-    const scrollContainer = tree.querySelector(
-      "[data-r-vtree-scroll]",
-    ) as HTMLElement;
-    mockHeight(scrollContainer, 300);
+    mockHeight(tree, 300);
     document.body.appendChild(tree);
     await waitFor(50);
 

@@ -1342,31 +1342,38 @@ function defineElementImpl<C extends BaseConfig = BaseConfig>(
         }
       }
 
-      if (shadowOptions) {
-        const shadow = this.shadowRoot ?? this.attachShadow(shadowOptions);
+      // Determine the root for rendering: the shadow root when shadowOptions
+      // is set, or the element's light DOM (`this`) when `shadow: false`. This
+      // ensures `render`/`template` is not silently ignored when `shadow:false`
+      // is configured — content is rendered into the light DOM instead.
+      const root: HTMLElement | ShadowRoot = shadowOptions
+        ? (this.shadowRoot ?? this.attachShadow(shadowOptions))
+        : this;
 
-        if (styles.length > 0) {
-          shadow.adoptedStyleSheets = [...shadow.adoptedStyleSheets, ...styles];
-        }
+      if (shadowOptions && styles.length > 0) {
+        (root as ShadowRoot).adoptedStyleSheets = [
+          ...(root as ShadowRoot).adoptedStyleSheets,
+          ...styles,
+        ];
+      }
 
-        if (templateEl) {
-          shadow.appendChild(templateEl.content.cloneNode(true));
-          bindSlots(this, shadow);
-        } else if (renderFn) {
-          // Wrap render in computed: `this.xxx` (a getter calling `.get()`)
-          // is automatically tracked. When any accessed attribute changes,
-          // the computed re-computes and the effect replaces the DOM.
-          // Use `this.$xxx` for fine-grained bindings (not tracked by this
-          // computed — the DOM child's own effect handles updates).
-          const tree = computed(() => renderFn.call(this));
-          const dispose = effect(() => {
-            const result = tree.get();
-            if (result instanceof Element) {
-              shadow.replaceChildren(result);
-            }
-          });
-          trackDisposable(this, dispose);
-        }
+      if (templateEl) {
+        root.appendChild(templateEl.content.cloneNode(true));
+        bindSlots(this, root);
+      } else if (renderFn) {
+        // Wrap render in computed: `this.xxx` (a getter calling `.get()`)
+        // is automatically tracked. When any accessed attribute changes,
+        // the computed re-computes and the effect replaces the DOM.
+        // Use `this.$xxx` for fine-grained bindings (not tracked by this
+        // computed — the DOM child's own effect handles updates).
+        const tree = computed(() => renderFn.call(this));
+        const dispose = effect(() => {
+          const result = tree.get();
+          if (result instanceof Element) {
+            root.replaceChildren(result);
+          }
+        });
+        trackDisposable(this, dispose);
       }
     }
 
@@ -1386,14 +1393,17 @@ function defineElementImpl<C extends BaseConfig = BaseConfig>(
       // effect); attribute/child bindings live in the elementDisposables
       // WeakMap and need disposeElement to release them.
       disposeElement(this);
-      // Clear the shadow DOM so that reconnection does not duplicate template
+      // Clear the rendered DOM so that reconnection does not duplicate template
       // content (appended via appendChild) and adoptedStyleSheets (appended via
       // spread). The render path already uses replaceChildren, but the template
       // path and styles accumulate without this. #initialized is reset below so
-      // connectedCallback re-runs the full setup on reconnect.
+      // connectedCallback re-runs the full setup on reconnect. When
+      // `shadow: false` we clear the light DOM instead of the shadow root.
       if (shadowOptions && this.shadowRoot) {
         this.shadowRoot.replaceChildren();
         this.shadowRoot.adoptedStyleSheets = [];
+      } else if (!shadowOptions) {
+        this.replaceChildren();
       }
       this.#initialized = false;
     }

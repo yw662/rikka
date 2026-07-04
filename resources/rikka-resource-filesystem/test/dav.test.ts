@@ -403,7 +403,7 @@ describe("FileSystemKind (writable)", () => {
     }
   });
 
-  it("LOCK returns structured lock data with token", async () => {
+  it("LOCK returns structured lock data with token in body and header", async () => {
     const storage = new MemoryStorage().addFile("lock.txt", "data");
     const kind = new FileSystemKind({ storage, writable: true });
 
@@ -421,18 +421,78 @@ describe("FileSystemKind (writable)", () => {
     expect((result as { meta: { type?: string } }).meta.type).toBe(
       "application/xml; charset=utf-8",
     );
+    // The Lock-Token header (RFC 4918 Coded-URL form) must be set.
+    expect(
+      (result as { meta: { headers?: Record<string, string> } }).meta.headers
+        ?.["Lock-Token"],
+    ).toBe(`<${data.token}>`);
   });
 
-  it("UNLOCK always succeeds", async () => {
-    const kind = new FileSystemKind({
-      storage: new MemoryStorage(),
-      writable: true,
-    });
+  it("UNLOCK releases a lock when given the correct token", async () => {
+    const storage = new MemoryStorage().addFile("file.txt", "data");
+    const kind = new FileSystemKind({ storage, writable: true });
+
     const resource = resolveResource(kind, ["file.txt"], "/file.txt")!;
+    // Acquire a lock first.
+    const lockResult = await resource.lock(
+      makeCtx({ method: "LOCK", path: "/dav/file.txt" }),
+    );
+    const token = (lockResult as { content: { token: string } }).content.token;
+
+    // Unlock with the matching token (Coded-URL form).
     const result = await resource.unlock(
-      makeCtx({ method: "UNLOCK", path: "/dav/file.txt" }),
+      makeCtx({
+        method: "UNLOCK",
+        path: "/dav/file.txt",
+        headers: { "lock-token": `<${token}>` },
+      }),
     );
     expect((result as { content: null }).content).toBeNull();
+  });
+
+  it("UNLOCK returns 404 when no lock exists for the resource", async () => {
+    const storage = new MemoryStorage().addFile("file.txt", "data");
+    const kind = new FileSystemKind({ storage, writable: true });
+
+    const resource = resolveResource(kind, ["file.txt"], "/file.txt")!;
+    try {
+      await resource.unlock(
+        makeCtx({
+          method: "UNLOCK",
+          path: "/dav/file.txt",
+          headers: { "lock-token": "<opaquelocktoken:never-locked>" },
+        }),
+      );
+      expect.fail("Should throw 404");
+    } catch (err) {
+      expect(isHttpError(err)).toBe(true);
+      if (isHttpError(err)) expect(err.status).toBe(404);
+    }
+  });
+
+  it("UNLOCK returns 409 when the lock token does not match", async () => {
+    const storage = new MemoryStorage().addFile("file.txt", "data");
+    const kind = new FileSystemKind({ storage, writable: true });
+
+    const resource = resolveResource(kind, ["file.txt"], "/file.txt")!;
+    // Acquire a lock so a token exists for the path.
+    await resource.lock(
+      makeCtx({ method: "LOCK", path: "/dav/file.txt" }),
+    );
+    // Try to unlock with a mismatched token.
+    try {
+      await resource.unlock(
+        makeCtx({
+          method: "UNLOCK",
+          path: "/dav/file.txt",
+          headers: { "lock-token": "<opaquelocktoken:wrong-token>" },
+        }),
+      );
+      expect.fail("Should throw 409");
+    } catch (err) {
+      expect(isHttpError(err)).toBe(true);
+      if (isHttpError(err)) expect(err.status).toBe(409);
+    }
   });
 
   it("GET still works (inherited from FileSystemResource)", async () => {
@@ -466,15 +526,485 @@ describe("FileSystemKind (writable)", () => {
       writable: true,
     });
     const resource = resolveResource(kind, ["file.txt"], "/file.txt")!;
-    // SEARCH is an IANA method but DavFileSystemResource doesn't override it
+    // CHECKOUT is an IANA method (RFC 3253) but DavFileSystemResource
+    // doesn't override it — the base Resource stub returns 405.
     try {
-      await resource.search(
-        makeCtx({ method: "SEARCH", path: "/dav/file.txt" }),
+      await resource.checkout(
+        makeCtx({ method: "CHECKOUT", path: "/dav/file.txt" }),
       );
       expect.fail("Should throw 405");
     } catch (err) {
       expect(isHttpError(err)).toBe(true);
       if (isHttpError(err)) expect(err.status).toBe(405);
+    }
+  });
+
+  it("allowedMethods includes QUERY and SEARCH", () => {
+    const kind = new FileSystemKind({
+      storage: new MemoryStorage(),
+      writable: true,
+    });
+    const resource = kind.resolve({ path: "" });
+    const methods = resource.allowedMethods();
+    expect(methods).toContain("QUERY");
+    expect(methods).toContain("SEARCH");
+  });
+
+  it("supportedQueryTypes advertises only application/dasl+xml", () => {
+    const kind = new FileSystemKind({
+      storage: new MemoryStorage(),
+      writable: true,
+    });
+    const resource = kind.resolve({ path: "" }) as unknown as {
+      supportedQueryTypes(): string[];
+    };
+    expect(resource.supportedQueryTypes()).toEqual(["application/dasl+xml"]);
+  });
+});
+
+describe("DavFileSystemResource.QUERY (DASL XML, RFC 10008 + RFC 5323)", () => {
+  // Helper: build a DAV QUERY/SEARCH context with a DASL XML body.
+  function daslCtx(
+    method: "QUERY" | "SEARCH",
+    path: string,
+    daslXml: string,
+    contentType = "application/dasl+xml",
+  ): RequestContext {
+    return makeCtx({
+      method,
+      path,
+      headers: { "content-type": contentType },
+      text: async () => daslXml,
+    });
+  }
+
+  function multistatusEntries(result: unknown): {
+    href: string;
+    isDirectory: boolean;
+    size: number;
+  }[] {
+    const content = (result as {
+      content: { entries: { href: string; isDirectory: boolean; size: number }[] };
+    }).content;
+    return content.entries;
+  }
+
+  it("QUERY rejects unsupported Content-Type with 415 + Accept-Query", async () => {
+    const storage = new MemoryStorage()
+      .addFile("a.txt", "hello", "text/plain")
+      .addFile("b.txt", "world!", "text/plain");
+    const kind = new FileSystemKind({ storage, writable: true });
+    const resource = resolveResource(kind, [""], "/")!;
+
+    try {
+      await resource.query(
+        daslCtx("QUERY", "/", "<x/>", "application/json"),
+      );
+      expect.fail("Should throw 415");
+    } catch (err) {
+      expect(isHttpError(err)).toBe(true);
+      if (isHttpError(err)) {
+        expect(err.status).toBe(415);
+        expect(err.headers?.["Accept-Query"]).toBe("application/dasl+xml");
+      }
+    }
+  });
+
+  it("QUERY returns self for a file target (depth 0)", async () => {
+    const storage = new MemoryStorage().addFile("read.txt", "hello", "text/plain");
+    const kind = new FileSystemKind({ storage, writable: true });
+    const resource = resolveResource(kind, ["read.txt"], "/read.txt")!;
+
+    const xml = `<?xml version="1.0"?>
+<D:searchrequest xmlns:D="DAV:">
+  <D:basicsearch>
+    <D:from><D:scope><D:href>.</D:href><D:depth>0</D:depth></D:scope></D:from>
+  </D:basicsearch>
+</D:searchrequest>`;
+
+    const result = await resource.query(daslCtx("QUERY", "/read.txt", xml));
+    const entries = multistatusEntries(result);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].href).toBe("/read.txt");
+    expect(entries[0].isDirectory).toBe(false);
+    expect(entries[0].size).toBe(5);
+  });
+
+  it("QUERY lists immediate children (depth 1) of a directory", async () => {
+    const storage = new MemoryStorage()
+      .addFile("a.txt", "aaa", "text/plain")
+      .addFile("b.txt", "bbbbb", "text/plain")
+      .addFile("sub/c.txt", "ccccccccc", "text/plain");
+    const kind = new FileSystemKind({ storage, writable: true });
+    const resource = resolveResource(kind, [""], "/")!;
+
+    const xml = `<?xml version="1.0"?>
+<D:searchrequest xmlns:D="DAV:">
+  <D:basicsearch>
+    <D:from><D:scope><D:href>.</D:href><D:depth>1</D:depth></D:scope></D:from>
+  </D:basicsearch>
+</D:searchrequest>`;
+
+    const result = await resource.query(daslCtx("QUERY", "/", xml));
+    const hrefs = multistatusEntries(result).map((e) => e.href).sort();
+    // Self (/) + a.txt + b.txt + sub/ — but NOT sub/c.txt (depth 1).
+    expect(hrefs).toEqual(["/", "/a.txt", "/b.txt", "/sub"].sort());
+  });
+
+  it("QUERY recurses with depth:infinity", async () => {
+    const storage = new MemoryStorage()
+      .addFile("a.txt", "aaa", "text/plain")
+      .addFile("sub/c.txt", "ccccccccc", "text/plain")
+      .addFile("sub/deep/e.txt", "eeeee", "text/plain");
+    const kind = new FileSystemKind({ storage, writable: true });
+    const resource = resolveResource(kind, [""], "/")!;
+
+    const xml = `<?xml version="1.0"?>
+<D:searchrequest xmlns:D="DAV:">
+  <D:basicsearch>
+    <D:from><D:scope><D:href>.</D:href><D:depth>infinity</D:depth></D:scope></D:from>
+  </D:basicsearch>
+</D:searchrequest>`;
+
+    const result = await resource.query(daslCtx("QUERY", "/", xml));
+    const hrefs = multistatusEntries(result).map((e) => e.href).sort();
+    expect(hrefs).toEqual(
+      ["/", "/a.txt", "/sub", "/sub/c.txt", "/sub/deep", "/sub/deep/e.txt"].sort(),
+    );
+  });
+
+  it("QUERY applies <D:where> eq filter on getcontentlength", async () => {
+    const storage = new MemoryStorage()
+      .addFile("small.txt", "ab", "text/plain") // 2 bytes
+      .addFile("big.txt", "abcdefgh", "text/plain"); // 8 bytes
+    const kind = new FileSystemKind({ storage, writable: true });
+    const resource = resolveResource(kind, [""], "/")!;
+
+    const xml = `<?xml version="1.0"?>
+<D:searchrequest xmlns:D="DAV:">
+  <D:basicsearch>
+    <D:from><D:scope><D:href>.</D:href><D:depth>1</D:depth></D:scope></D:from>
+    <D:where>
+      <D:gt>
+        <D:prop><D:getcontentlength/></D:prop>
+        <D:literal>5</D:literal>
+      </D:gt>
+    </D:where>
+  </D:basicsearch>
+</D:searchrequest>`;
+
+    const result = await resource.query(daslCtx("QUERY", "/", xml));
+    const hrefs = multistatusEntries(result).map((e) => e.href);
+    expect(hrefs).toContain("/big.txt");
+    expect(hrefs).not.toContain("/small.txt");
+  });
+
+  it("QUERY applies <D:where> iscollection to filter directories", async () => {
+    const storage = new MemoryStorage()
+      .addFile("a.txt", "aaa", "text/plain")
+      .addFile("sub/c.txt", "ccc", "text/plain");
+    const kind = new FileSystemKind({ storage, writable: true });
+    const resource = resolveResource(kind, [""], "/")!;
+
+    const xml = `<?xml version="1.0"?>
+<D:searchrequest xmlns:D="DAV:">
+  <D:basicsearch>
+    <D:from><D:scope><D:href>.</D:href><D:depth>1</D:depth></D:scope></D:from>
+    <D:where>
+      <D:eq>
+        <D:prop><D:iscollection/></D:prop>
+        <D:literal>1</D:literal>
+      </D:eq>
+    </D:where>
+  </D:basicsearch>
+</D:searchrequest>`;
+
+    const result = await resource.query(daslCtx("QUERY", "/", xml));
+    const entries = multistatusEntries(result);
+    expect(entries.every((e) => e.isDirectory)).toBe(true);
+    expect(entries.map((e) => e.href)).toContain("/sub");
+  });
+
+  it("QUERY applies <D:where> like on displayname", async () => {
+    const storage = new MemoryStorage()
+      .addFile("report.md", "x", "text/markdown")
+      .addFile("image.png", "x", "image/png")
+      .addFile("notes.md", "x", "text/markdown");
+    const kind = new FileSystemKind({ storage, writable: true });
+    const resource = resolveResource(kind, [""], "/")!;
+
+    const xml = `<?xml version="1.0"?>
+<D:searchrequest xmlns:D="DAV:">
+  <D:basicsearch>
+    <D:from><D:scope><D:href>.</D:href><D:depth>1</D:depth></D:scope></D:from>
+    <D:where>
+      <D:like>
+        <D:prop><D:displayname/></D:prop>
+        <D:literal>%.md</D:literal>
+      </D:like>
+    </D:where>
+  </D:basicsearch>
+</D:searchrequest>`;
+
+    const result = await resource.query(daslCtx("QUERY", "/", xml));
+    const hrefs = multistatusEntries(result).map((e) => e.href).sort();
+    expect(hrefs).toEqual(["/notes.md", "/report.md"].sort());
+  });
+
+  it("QUERY applies <D:where> and/or/not combinators", async () => {
+    const storage = new MemoryStorage()
+      .addFile("a.txt", "12345", "text/plain")
+      .addFile("b.txt", "ab", "text/plain")
+      .addFile("c.log", "abcdef", "text/plain");
+    const kind = new FileSystemKind({ storage, writable: true });
+    const resource = resolveResource(kind, [""], "/")!;
+
+    // (name like "%.txt" AND NOT (size gt 3)) OR name like "%.log"
+    const xml = `<?xml version="1.0"?>
+<D:searchrequest xmlns:D="DAV:">
+  <D:basicsearch>
+    <D:from><D:scope><D:href>.</D:href><D:depth>1</D:depth></D:scope></D:from>
+    <D:where>
+      <D:or>
+        <D:and>
+          <D:like>
+            <D:prop><D:displayname/></D:prop>
+            <D:literal>%.txt</D:literal>
+          </D:like>
+          <D:not>
+            <D:gt>
+              <D:prop><D:getcontentlength/></D:prop>
+              <D:literal>3</D:literal>
+            </D:gt>
+          </D:not>
+        </D:and>
+        <D:like>
+          <D:prop><D:displayname/></D:prop>
+          <D:literal>%.log</D:literal>
+        </D:like>
+      </D:or>
+    </D:where>
+  </D:basicsearch>
+</D:searchrequest>`;
+
+    const result = await resource.query(daslCtx("QUERY", "/", xml));
+    const hrefs = multistatusEntries(result).map((e) => e.href).sort();
+    // a.txt is .txt but size 5 > 3 → excluded by NOT
+    // b.txt is .txt and size 2 ≤ 3 → included
+    // c.log matches %.log → included
+    expect(hrefs).toEqual(["/b.txt", "/c.log"].sort());
+  });
+
+  it("QUERY applies <D:orderby> ascending on displayname", async () => {
+    const storage = new MemoryStorage()
+      .addFile("zebra.txt", "z", "text/plain")
+      .addFile("apple.txt", "a", "text/plain")
+      .addFile("mango.txt", "m", "text/plain");
+    const kind = new FileSystemKind({ storage, writable: true });
+    const resource = resolveResource(kind, [""], "/")!;
+
+    const xml = `<?xml version="1.0"?>
+<D:searchrequest xmlns:D="DAV:">
+  <D:basicsearch>
+    <D:from><D:scope><D:href>.</D:href><D:depth>1</D:depth></D:scope></D:from>
+    <D:where>
+      <D:like>
+        <D:prop><D:displayname/></D:prop>
+        <D:literal>%.txt</D:literal>
+      </D:like>
+    </D:where>
+    <D:orderby>
+      <D:order>
+        <D:prop><D:displayname/></D:prop>
+        <D:ascending/>
+      </D:order>
+    </D:orderby>
+  </D:basicsearch>
+</D:searchrequest>`;
+
+    const result = await resource.query(daslCtx("QUERY", "/", xml));
+    const hrefs = multistatusEntries(result).map((e) => e.href);
+    expect(hrefs).toEqual(["/apple.txt", "/mango.txt", "/zebra.txt"]);
+  });
+
+  it("QUERY applies <D:orderby> descending on getcontentlength", async () => {
+    const storage = new MemoryStorage()
+      .addFile("a.txt", "aaa", "text/plain") // 3
+      .addFile("b.txt", "bb", "text/plain") // 2
+      .addFile("c.txt", "ccccc", "text/plain"); // 5
+    const kind = new FileSystemKind({ storage, writable: true });
+    const resource = resolveResource(kind, [""], "/")!;
+
+    const xml = `<?xml version="1.0"?>
+<D:searchrequest xmlns:D="DAV:">
+  <D:basicsearch>
+    <D:from><D:scope><D:href>.</D:href><D:depth>1</D:depth></D:scope></D:from>
+    <D:where>
+      <D:like>
+        <D:prop><D:displayname/></D:prop>
+        <D:literal>%.txt</D:literal>
+      </D:like>
+    </D:where>
+    <D:orderby>
+      <D:order>
+        <D:prop><D:getcontentlength/></D:prop>
+        <D:descending/>
+      </D:order>
+    </D:orderby>
+  </D:basicsearch>
+</D:searchrequest>`;
+
+    const result = await resource.query(daslCtx("QUERY", "/", xml));
+    const hrefs = multistatusEntries(result).map((e) => e.href);
+    expect(hrefs).toEqual(["/c.txt", "/a.txt", "/b.txt"]); // 5, 3, 2
+  });
+
+  it("QUERY applies <D:limit><D:nresults>", async () => {
+    const storage = new MemoryStorage()
+      .addFile("a.txt", "x", "text/plain")
+      .addFile("b.txt", "x", "text/plain")
+      .addFile("c.txt", "x", "text/plain")
+      .addFile("d.txt", "x", "text/plain");
+    const kind = new FileSystemKind({ storage, writable: true });
+    const resource = resolveResource(kind, [""], "/")!;
+
+    const xml = `<?xml version="1.0"?>
+<D:searchrequest xmlns:D="DAV:">
+  <D:basicsearch>
+    <D:from><D:scope><D:href>.</D:href><D:depth>1</D:depth></D:scope></D:from>
+    <D:where>
+      <D:like>
+        <D:prop><D:displayname/></D:prop>
+        <D:literal>%.txt</D:literal>
+      </D:like>
+    </D:where>
+    <D:orderby>
+      <D:order>
+        <D:prop><D:displayname/></D:prop>
+        <D:ascending/>
+      </D:order>
+    </D:orderby>
+    <D:limit><D:nresults>2</D:nresults></D:limit>
+  </D:basicsearch>
+</D:searchrequest>`;
+
+    const result = await resource.query(daslCtx("QUERY", "/", xml));
+    const hrefs = multistatusEntries(result).map((e) => e.href);
+    expect(hrefs).toEqual(["/a.txt", "/b.txt"]);
+  });
+
+  it("QUERY returns 400 on malformed XML", async () => {
+    const storage = new MemoryStorage().addFile("a.txt", "x", "text/plain");
+    const kind = new FileSystemKind({ storage, writable: true });
+    const resource = resolveResource(kind, [""], "/")!;
+
+    try {
+      await resource.query(daslCtx("QUERY", "/", "not xml <"));
+      expect.fail("Should throw 400");
+    } catch (err) {
+      expect(isHttpError(err)).toBe(true);
+      if (isHttpError(err)) expect(err.status).toBe(400);
+    }
+  });
+
+  it("QUERY returns 400 when <D:basicsearch> is missing", async () => {
+    const storage = new MemoryStorage().addFile("a.txt", "x", "text/plain");
+    const kind = new FileSystemKind({ storage, writable: true });
+    const resource = resolveResource(kind, [""], "/")!;
+
+    const xml = `<?xml version="1.0"?>
+<D:searchrequest xmlns:D="DAV:">
+  <D:notbasicsearch/>
+</D:searchrequest>`;
+
+    try {
+      await resource.query(daslCtx("QUERY", "/", xml));
+      expect.fail("Should throw 400");
+    } catch (err) {
+      expect(isHttpError(err)).toBe(true);
+      if (isHttpError(err)) expect(err.status).toBe(400);
+    }
+  });
+
+  it("QUERY with explicit absolute scope href within the mount", async () => {
+    const storage = new MemoryStorage()
+      .addFile("a.txt", "x", "text/plain")
+      .addFile("sub/c.txt", "y", "text/plain");
+    const kind = new FileSystemKind({ storage, writable: true });
+    // Resolved resource is at /dav/ (mount prefix /dav/, rel path "").
+    const resource = resolveResource(kind, [""], "/dav/")!;
+
+    const xml = `<?xml version="1.0"?>
+<D:searchrequest xmlns:D="DAV:">
+  <D:basicsearch>
+    <D:from><D:scope><D:href>/dav/sub/</D:href><D:depth>1</D:depth></D:scope></D:from>
+  </D:basicsearch>
+</D:searchrequest>`;
+
+    const result = await resource.query(daslCtx("QUERY", "/dav/", xml));
+    const hrefs = multistatusEntries(result).map((e) => e.href);
+    // The scope href `/dav/sub/` is preserved as-is for the directory entry.
+    expect(hrefs).toContain("/dav/sub/");
+    expect(hrefs).toContain("/dav/sub/c.txt");
+    expect(hrefs).not.toContain("/dav/a.txt");
+  });
+
+  it("QUERY returns 403 for scope href outside the mount", async () => {
+    const storage = new MemoryStorage().addFile("a.txt", "x", "text/plain");
+    const kind = new FileSystemKind({ storage, writable: true });
+    const resource = resolveResource(kind, [""], "/dav/")!;
+
+    const xml = `<?xml version="1.0"?>
+<D:searchrequest xmlns:D="DAV:">
+  <D:basicsearch>
+    <D:from><D:scope><D:href>/other/</D:href><D:depth>1</D:depth></D:scope></D:from>
+  </D:basicsearch>
+</D:searchrequest>`;
+
+    try {
+      await resource.query(daslCtx("QUERY", "/dav/", xml));
+      expect.fail("Should throw 403");
+    } catch (err) {
+      expect(isHttpError(err)).toBe(true);
+      if (isHttpError(err)) expect(err.status).toBe(403);
+    }
+  });
+
+  it("SEARCH accepts application/xml (RFC 5323)", async () => {
+    const storage = new MemoryStorage().addFile("a.txt", "x", "text/plain");
+    const kind = new FileSystemKind({ storage, writable: true });
+    const resource = resolveResource(kind, [""], "/")!;
+
+    const xml = `<?xml version="1.0"?>
+<D:searchrequest xmlns:D="DAV:">
+  <D:basicsearch>
+    <D:from><D:scope><D:href>.</D:href><D:depth>1</D:depth></D:scope></D:from>
+  </D:basicsearch>
+</D:searchrequest>`;
+
+    const result = await resource.query(
+      daslCtx("SEARCH", "/", xml, "application/xml"),
+    );
+    const hrefs = multistatusEntries(result).map((e) => e.href);
+    expect(hrefs).toContain("/a.txt");
+  });
+
+  it("SEARCH rejects non-XML Content-Type with 415 + Accept", async () => {
+    const storage = new MemoryStorage().addFile("a.txt", "x", "text/plain");
+    const kind = new FileSystemKind({ storage, writable: true });
+    const resource = resolveResource(kind, [""], "/")!;
+
+    try {
+      await resource.search(
+        daslCtx("SEARCH", "/", "<x/>", "application/json"),
+      );
+      expect.fail("Should throw 415");
+    } catch (err) {
+      expect(isHttpError(err)).toBe(true);
+      if (isHttpError(err)) {
+        expect(err.status).toBe(415);
+        expect(err.headers?.Accept).toContain("application/xml");
+      }
     }
   });
 });

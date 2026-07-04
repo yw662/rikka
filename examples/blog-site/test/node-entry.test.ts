@@ -6,8 +6,8 @@
  * `pnpm dev` / `pnpm start` (or `node --import tsx src/index.ts`) — no
  * wrangler, no edge runtime.
  *
- * The entry imports `./resources.js` for its side effect of starting
- * `serve()`. We capture the port via the `PORT` env var to keep tests
+ * The entry imports `./resources.js` and calls `app.listen()` to start
+ * the server. We capture the port via the `PORT` env var to keep tests
  * deterministic.
  */
 
@@ -144,13 +144,14 @@ describe("src/index.ts (Node entry)", () => {
     expect(pre.headers["access-control-allow-origin"]).toBe("*");
     expect(pre.headers["access-control-allow-methods"]).toContain("POST");
 
-    // 10. Mutating endpoints
+    // 10. Mutating endpoints (writes require auth — Issue 1 fix)
     const created = await probe(port, {
       method: "POST",
       path: "/articles",
       headers: {
         "content-type": "application/json",
         accept: "application/json",
+        authorization: "Bearer admin-token",
       },
       body: JSON.stringify({ title: "node-entry test", body: "x", tags: ["test"] }),
     });
@@ -168,6 +169,7 @@ describe("src/index.ts (Node entry)", () => {
     const deleted = await probe(port, {
       method: "DELETE",
       path: `/articles/${createdLoc}`,
+      headers: { authorization: "Bearer admin-token" },
     });
     expect(deleted.status).toBe(204);
 
@@ -175,11 +177,16 @@ describe("src/index.ts (Node entry)", () => {
     const deletedAgain = await probe(port, {
       method: "DELETE",
       path: `/articles/${createdLoc}`,
+      headers: { authorization: "Bearer admin-token" },
     });
     expect(deletedAgain.status).toBe(404);
 
-    // 12. 405 for wrong method
-    const wrong = await probe(port, { method: "DELETE", path: "/users" });
+    // 12. 405 for wrong method (auth required first, then method check)
+    const wrong = await probe(port, {
+      method: "DELETE",
+      path: "/users",
+      headers: { authorization: "Bearer admin-token" },
+    });
     expect(wrong.status).toBe(405);
   }, 15000);
 });

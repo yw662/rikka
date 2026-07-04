@@ -79,13 +79,28 @@ export interface NavigateOptions {
 }
 
 /**
+ * Tracks the in-flight navigation request so a new `navigate()` call can
+ * abort the previous one. Rapid navigation would otherwise race: the older
+ * fetch could resolve after the newer one and overwrite the DOM with stale
+ * content.
+ */
+let navigateAbortController: AbortController | null = null;
+
+/**
  * Navigate to a URL using View Transition API.
  */
 export function navigate(path: string, sitemap: Sitemap, opts?: NavigateOptions): void {
   const useTransition = opts?.transition !== false && "startViewTransition" in document;
 
+  // Abort any in-flight navigation to avoid race conditions on rapid nav.
+  if (navigateAbortController) {
+    navigateAbortController.abort();
+  }
+  navigateAbortController = new AbortController();
+  const controller = navigateAbortController;
+
   const doNavigation = () => {
-    fetch(path, { headers: { Accept: "text/html" } })
+    fetch(path, { headers: { Accept: "text/html" }, signal: controller.signal })
       .then((resp) => {
         if (!resp.ok) { window.location.href = path; return; }
         return resp.text();
@@ -109,7 +124,12 @@ export function navigate(path: string, sitemap: Sitemap, opts?: NavigateOptions)
         if (title) document.title = title.textContent ?? "";
         window.history.pushState({}, "", path);
       })
-      .catch(() => { window.location.href = path; });
+      .catch((err: unknown) => {
+        // Aborted navigations are expected (a newer navigate() superseded
+        // this one). Don't update the DOM or redirect — just bail.
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        window.location.href = path;
+      });
   };
 
   if (useTransition) {
@@ -132,6 +152,7 @@ export interface Router {
  */
 export function createRouter(sitemap: Sitemap): Router {
   let clickHandler: ((e: MouseEvent) => void) | null = null;
+  let popstateHandler: (() => void) | null = null;
 
   return {
     sitemap,
@@ -153,15 +174,20 @@ export function createRouter(sitemap: Sitemap): Router {
         navigate(href, sitemap);
       };
       document.addEventListener("click", clickHandler);
-      window.addEventListener("popstate", () => {
+      popstateHandler = () => {
         navigate(window.location.pathname, sitemap, { transition: false });
-      });
+      };
+      window.addEventListener("popstate", popstateHandler);
     },
 
     stop() {
       if (clickHandler) {
         document.removeEventListener("click", clickHandler);
         clickHandler = null;
+      }
+      if (popstateHandler) {
+        window.removeEventListener("popstate", popstateHandler);
+        popstateHandler = null;
       }
     },
   };

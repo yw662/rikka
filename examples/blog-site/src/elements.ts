@@ -2401,45 +2401,6 @@ const BlogSettings = defineElement("blog-settings", {
   },
 });
 
-// ===========================================================================
-// rikka-resource — Router element that delegates to the correct component
-// The server renders <rikka-resource path="..." kind="..." data-resource="...">
-// This client-side element inspects attributes and renders the appropriate
-// blog-* child component.
-//
-// Uses the SDK's matchRoute + sitemap when available, with a path-based
-// fallback for pre-SDK scenarios.
-// ===========================================================================
-
-const RikkaResource = defineElement("rikka-resource", {
-  styles: css`:host { display: contents; }`,
-  render(this) {
-    const path = this.getAttribute("path") ?? "";
-
-    // Normalize: strip trailing slash for consistent matching
-    const normPath = path.replace(/\/+$/, "");
-
-    const sdk = (window as any).__rikka;
-    if (sdk?.matchRoute && sdk?.readSitemapFromDom) {
-      const sitemap = sdk.readSitemapFromDom();
-      if (sitemap) {
-        const match = sdk.matchRoute(sitemap, normPath || "/");
-        if (match?.route?.element) {
-          try {
-            return document.createElement(match.route.element);
-          } catch {
-            // Element not registered
-          }
-        }
-      }
-    }
-
-    return div({ style: { padding: "40px", textAlign: "center", color: COLORS.textMuted } },
-      p(`Unknown resource: ${path}`),
-    );
-  },
-});
-
 // ---------------------------------------------------------------------------
 // Export all elements for registration
 // ---------------------------------------------------------------------------
@@ -2467,7 +2428,6 @@ export function registerBlogElements(): void {
     ["blog-user-list", BlogUserList],
     ["blog-dashboard", BlogDashboard],
     ["blog-settings", BlogSettings],
-    ["rikka-resource", RikkaResource],
   ];
   for (const [name, ctor] of defs) {
     if (!customElements.get(name)) {

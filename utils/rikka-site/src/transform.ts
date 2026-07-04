@@ -892,7 +892,7 @@ export type SerializationStrategy = "data-attr" | "jsonld" | "both";
 export interface HtmlTransformerConfig {
   /**
    * Default custom element tag name when no resource-specific element is found.
-   * Defaults to "rikka-resource".
+   * When unset and a resource has no `element`, HTML rendering throws.
    */
   defaultElement?: string;
 
@@ -1020,13 +1020,15 @@ export interface HtmlTransformerConfig {
  *
  * Element resolution order:
  * 1. `resource.element` — resource-specific custom element (via ctx.element)
- * 2. `config.defaultElement` — fallback element
- * 3. `"rikka-resource"` — built-in default
+ * 2. `config.defaultElement` — site-wide fallback element
+ *
+ * If neither is set, the transformer throws — every resource that wants HTML
+ * rendering must declare its own `element`.
  */
 export function createHtmlTransformer(
   config?: HtmlTransformerConfig,
 ): Transformer {
-  const defaultElement = config?.defaultElement ?? "rikka-resource";
+  const defaultElement = config?.defaultElement;
   const strategy: HydrationStrategy = config?.hydration ?? "data-attr";
   const serialization: SerializationStrategy =
     config?.serialization ?? "data-attr";
@@ -1057,6 +1059,13 @@ export function createHtmlTransformer(
       const tag =
         (ctx.element as string | undefined) ??
         defaultElement;
+
+      if (!tag) {
+        throw new Error(
+          `No custom element configured for HTML rendering at ${path}. ` +
+            `Set \`element\` on the Kind, or configure \`defaultElement\` on the HTML transformer.`,
+        );
+      }
 
       // Resolve page title
       let pageTitle: string;

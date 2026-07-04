@@ -136,6 +136,8 @@ export class EventsResource extends ReadOnlyResource {
     const source = this.kind.source;
     const subscribeFn = source.subscribe.bind(source);
     let closed = false;
+    let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+    let sourceIterator: AsyncIterator<SseEvent> | undefined;
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
@@ -143,8 +145,6 @@ export class EventsResource extends ReadOnlyResource {
         if (retryMs !== undefined) {
           controller.enqueue(encoder.encode(`retry: ${retryMs}\n\n`));
         }
-
-        let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
 
         // Heartbeat — SSE comment lines keep the connection alive
         if (heartbeatMs > 0) {
@@ -159,16 +159,19 @@ export class EventsResource extends ReadOnlyResource {
         }
 
         try {
-          for await (const event of subscribeFn({ channel, lastEventId })) {
+          const iterable = subscribeFn({ channel, lastEventId });
+          sourceIterator = iterable[Symbol.asyncIterator]();
+          let result: IteratorResult<SseEvent>;
+          while (!(result = await sourceIterator.next()).done) {
             if (closed) break;
-            const formatted = formatSseEvent(event);
-            controller.enqueue(encoder.encode(formatted));
+            controller.enqueue(encoder.encode(formatSseEvent(result.value)));
           }
         } catch {
           // Source error — close the stream
         } finally {
           closed = true;
           if (heartbeatTimer) clearInterval(heartbeatTimer);
+          await sourceIterator?.return?.(undefined);
           try {
             controller.close();
           } catch {
@@ -178,9 +181,9 @@ export class EventsResource extends ReadOnlyResource {
       },
 
       cancel() {
-        // Client disconnected — the for-await loop will eventually break
-        // when the source's iterator is returned/closed.
         closed = true;
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        sourceIterator?.return?.(undefined);
       },
     });
 

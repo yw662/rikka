@@ -363,7 +363,12 @@ function bindTwoWay(
     const target = weakRef.deref();
     if (!target) return;
     // Two-way attrs are written as DOM properties, not attributes.
-    assignDomProperty(target, attrKey, signal.get());
+    // Guard with an equality check: setting `.value` (even to the same
+    // string) resets the cursor position in text inputs.
+    const newValue = signal.get();
+    if ((target as any)[attrKey] !== newValue) {
+      assignDomProperty(target, attrKey, newValue);
+    }
   });
 
   let disposeListener: (() => void) | null = null;

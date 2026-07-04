@@ -110,6 +110,18 @@ export interface ReprMeta {
    * (method, resource) pair (backward compatible).
    */
   kind?: "redirect" | "created" | "no-content" | "value";
+
+  /**
+   * Extra response headers to merge into the HTTP response.
+   *
+   * Unlike `type` and `location` (which map to specific transport headers),
+   * `headers` is a passthrough for arbitrary headers the resource method
+   * needs to set — e.g. WebDAV's `Lock-Token`, `ETag`, `Allow`, etc.
+   * `buildResponse` merges these into the final response headers; explicit
+   * per-case headers (Content-Type, Location) take precedence since they
+   * are set first and may be overwritten by entries here if needed.
+   */
+  headers?: Record<string, string>;
 }
 
 /**

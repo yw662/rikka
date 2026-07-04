@@ -249,7 +249,10 @@ export abstract class Resource {
     this.notAllowed();
   }
   head(ctx: RequestContext): Repr | Promise<Repr> {
-    this.notAllowed();
+    // HEAD is auto-available when GET is overridden (RFC 9110 §9.3.2).
+    // The body is stripped by the dispatcher after the response is built.
+    if (this.get === Resource.prototype.get) this.notAllowed();
+    return this.get(ctx);
   }
   post(ctx: RequestContext): Repr | Promise<Repr> {
     this.notAllowed();
@@ -394,11 +397,16 @@ export abstract class Resource {
    * No need to override this in subclasses.
    */
   allowedMethods(): string[] {
-    return HTTP_METHODS.filter(
+    const methods = HTTP_METHODS.filter(
       (m) =>
         (this as unknown as Record<string, unknown>)[m] !==
         (Resource.prototype as unknown as Record<string, unknown>)[m],
     ).map((m) => m.toUpperCase());
+    // HEAD is automatically available when GET is (RFC 9110 §9.3.2)
+    if (methods.includes("GET") && !methods.includes("HEAD")) {
+      methods.push("HEAD");
+    }
+    return methods;
   }
 
   /**
@@ -439,6 +447,101 @@ export abstract class Resource {
    * Used for duck-typing in verifyAuth.
    */
   invoke?(ctx: RequestContext): Repr | Promise<Repr>;
+
+  /**
+   * Optional Early Hints (HTTP 103) generator.
+   *
+   * Called by the framework BEFORE the slow resource method (`get`/`head`)
+   * for navigation requests, so the adapter can emit a `103 Early Hints`
+   * interim response (with `Link` preload headers or other hints) while the
+   * resource is still computing its body.
+   *
+   * MUST be fast — synchronous or quick cache lookup. If computing the hints
+   * requires awaiting slow work, early hints provide no benefit (they must
+   * arrive before the final response to be useful).
+   *
+   * Only called for `GET` and `HEAD` methods. Return `void`/`undefined` or
+   * an empty record to skip emitting hints. Returning a non-empty record
+   * triggers the adapter's `onEarlyHints` callback (see
+   * {@link HandleRequestOptions}).
+   *
+   * The returned map uses the same shape as `HttpResponse.headers`
+   * (`Record<string, string | string[]>`). Most often a single `Link`
+   * header:
+   *
+   * @example
+   * ```ts
+   * class PageResource extends ItemResource {
+   *   async content(ctx) {
+   *     const data = await db.query(ctx.params.id);  // slow
+   *     return { content: renderHTML(data), meta: { type: "text/html" } };
+   *   }
+   *   earlyHints(ctx) {
+   *     // Fast — derived from route params, no I/O.
+   *     return {
+   *       Link: [
+   *         "</style.css>; rel=preload; as=style",
+   *         `</fonts/${ctx.params.id}.woff>; rel=preload; as=font`,
+   *       ],
+   *     };
+   *   }
+   * }
+   * ```
+   */
+  earlyHints?(
+    ctx: RequestContext,
+  ):
+    | Record<string, string | string[]>
+    | void
+    | Promise<Record<string, string | string[]> | void>;
+}
+
+// ---------------------------------------------------------------------------
+// Query — tagged union of parsed query formats (no IR)
+// ---------------------------------------------------------------------------
+
+/**
+ * Query — a tagged union of the parsed request in its native format.
+ *
+ * Produced by `CollectionResource.parseQuery()` and passed to `list()`. Each
+ * variant holds the raw parsed request body (or query string params) tagged
+ * with its format. There is **no normalized IR** — each resource class
+ * interprets the variant(s) it supports.
+ *
+ * - `json` — `JSON.parse` of the QUERY body (whatever the client sent)
+ * - `graphql` — GraphQL query string + optional variables
+ * - `dasl` — parsed DASL XML document (RFC 5323)
+ * - `urlencoded` — query string params (used for GET, not QUERY)
+ */
+export type Query = JsonQuery | GraphqlQuery | DaslQuery | UrlEncodedQuery;
+
+/** JSON body parsed by `JSON.parse` — the raw object the client sent. */
+export interface JsonQuery {
+  type: "json";
+  body: unknown;
+}
+
+/** GraphQL query string + optional variables object. */
+export interface GraphqlQuery {
+  type: "graphql";
+  query: string;
+  variables?: Record<string, unknown>;
+}
+
+/**
+ * Parsed DASL XML document (RFC 5323). The `doc` shape is whatever the
+ * underlying XML parser produces — resource classes that opt into DASL
+ * inspect it directly.
+ */
+export interface DaslQuery {
+  type: "dasl";
+  doc: unknown;
+}
+
+/** Query string parameters (e.g. `?limit=10&offset=5&sort=-name`). */
+export interface UrlEncodedQuery {
+  type: "urlencoded";
+  params: Record<string, string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -454,12 +557,17 @@ export abstract class CollectionKind extends ResourceKind {
 }
 
 /**
- * CollectionResource — supports list (GET) and create (POST).
+ * CollectionResource — supports list (GET), create (POST), and query (QUERY).
+ *
+ * `get()` and `query()` both parse the request via `parseQuery()` into a
+ * {@link Query} tagged union (no IR), then delegate to `list()`. Override
+ * `parseQuery()` to support custom query formats (GraphQL, DASL XML, OData,
+ * etc.) or `supportedQueryTypes()` to advertise additional content types.
  *
  * @example
  * ```ts
  * class UsersResource extends CollectionResource {
- *   async list(ctx) {
+ *   async list(ctx, query?) {
  *     return { content: [{ id: 1 }], meta: {} };
  *   }
  *   async create(ctx) {
@@ -470,12 +578,71 @@ export abstract class CollectionKind extends ResourceKind {
  * ```
  */
 export abstract class CollectionResource extends Resource {
-  abstract list(ctx: RequestContext): Repr | Promise<Repr>;
+  abstract list(ctx: RequestContext, query?: Query): Repr | Promise<Repr>;
   abstract create(ctx: RequestContext): Repr | Promise<Repr>;
 
-  get(ctx: RequestContext) {
-    return this.list(ctx);
+  /**
+   * Parse the query from the request. Called by `get()` and `query()`.
+   *
+   * Default dispatch by Content-Type / method:
+   * - QUERY + `application/json` → `{ type: "json", body }` (raw parsed JSON)
+   * - QUERY + `application/graphql` (or `*+graphql`) → `{ type: "graphql", query }`
+   * - QUERY + `application/dasl+xml` (or `*+dasl+xml`) → `{ type: "dasl", doc }`
+   *   (raw parsed XML — subclasses parse the doc themselves)
+   * - GET (no body) → `{ type: "urlencoded", params: ctx.query }`
+   *
+   * Override to add custom formats or to pre-parse the doc into a typed shape.
+   */
+  parseQuery(ctx: RequestContext): Query | Promise<Query> {
+    if (ctx.method === "QUERY") {
+      const ct = (ctx.headers["content-type"] ?? "").toLowerCase();
+      if (ct === "application/graphql" || ct.endsWith("+graphql")) {
+        return ctx
+          .text()
+          .then((q): GraphqlQuery => ({ type: "graphql", query: q }));
+      }
+      if (ct === "application/dasl+xml" || ct.endsWith("+dasl+xml")) {
+        // Return the raw text — subclasses with DASL support override to parse XML.
+        // The default CollectionResource does not parse DASL; subclasses must opt in.
+        return ctx
+          .text()
+          .then((xml): DaslQuery => ({ type: "dasl", doc: xml }));
+      }
+      // Default: JSON body
+      return ctx
+        .json<unknown>()
+        .then((body): JsonQuery => ({ type: "json", body }));
+    }
+    // GET — query string
+    return { type: "urlencoded", params: { ...ctx.query } };
   }
+
+  /**
+   * Content types supported for QUERY method body. Advertised via the
+   * `Accept-Query` response header when a client sends an unsupported type.
+   *
+   * Default: `["application/json"]`. Override to add GraphQL, DASL XML, etc.
+   */
+  supportedQueryTypes(): string[] {
+    return ["application/json"];
+  }
+
+  async get(ctx: RequestContext): Promise<Repr> {
+    const query = await this.parseQuery(ctx);
+    return this.list(ctx, query);
+  }
+
+  async query(ctx: RequestContext): Promise<Repr> {
+    const ct = (ctx.headers["content-type"] ?? "").toLowerCase();
+    if (ct && !this.supportedQueryTypes().includes(ct)) {
+      throw new HttpError(415, "Unsupported Query Type", undefined, {
+        "Accept-Query": this.supportedQueryTypes().join(", "),
+      });
+    }
+    const query = await this.parseQuery(ctx);
+    return this.list(ctx, query);
+  }
+
   post(ctx: RequestContext) {
     return this.create(ctx);
   }
@@ -483,9 +650,8 @@ export abstract class CollectionResource extends Resource {
   override inferStatus(repr: Repr, method: string, hasRange: boolean): number {
     // When kind is explicit, the base class handles it directly.
     if (repr.meta.kind) return super.inferStatus(repr, method, hasRange);
-    // Backward compat: infer 201 from POST + location + non-null content.
-    if (method === "POST" && repr.meta.location && repr.content !== null)
-      return 201;
+    // Backward compat: infer 201 from POST + location (with or without body).
+    if (method === "POST" && repr.meta.location) return 201;
     return super.inferStatus(repr, method, hasRange);
   }
 }
@@ -523,7 +689,7 @@ export abstract class ItemResource extends Resource {
   // patch() and delete() — user overrides Resource.patch/delete directly.
 
   override allowedMethods(): string[] {
-    const methods = ["GET"];
+    const methods = ["GET", "HEAD"];
     if (this.replace) methods.push("PUT");
     if (this.patch !== Resource.prototype.patch) methods.push("PATCH");
     if (this.delete !== Resource.prototype.delete) methods.push("DELETE");
@@ -564,7 +730,7 @@ export abstract class SingletonResource extends Resource {
   // patch() — user overrides Resource.patch directly.
 
   override allowedMethods(): string[] {
-    const methods = ["GET"];
+    const methods = ["GET", "HEAD"];
     if (this.replace) methods.push("PUT");
     if (this.patch !== Resource.prototype.patch) methods.push("PATCH");
     return methods;

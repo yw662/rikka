@@ -155,25 +155,25 @@ describe("Resource kinds", () => {
   it("Collection allows GET and POST", () => {
     const resource = collection.resolve({});
     expect(resource).toBeInstanceOf(CollectionResource);
-    expect(resource.allowedMethods()).toEqual(["GET", "POST"]);
+    expect(resource.allowedMethods()).toEqual(["GET", "POST", "QUERY", "HEAD"]);
   });
 
   it("Item allows GET, PUT, PATCH, DELETE", () => {
     const resource = item.resolve({});
     expect(resource).toBeInstanceOf(ItemResource);
-    expect(resource.allowedMethods()).toEqual(["GET", "PUT", "PATCH", "DELETE"]);
+    expect(resource.allowedMethods()).toEqual(["GET", "HEAD", "PUT", "PATCH", "DELETE"]);
   });
 
   it("Singleton allows GET, PUT, PATCH", () => {
     const resource = singleton.resolve({});
     expect(resource).toBeInstanceOf(SingletonResource);
-    expect(resource.allowedMethods()).toEqual(["GET", "PUT", "PATCH"]);
+    expect(resource.allowedMethods()).toEqual(["GET", "HEAD", "PUT", "PATCH"]);
   });
 
   it("ReadOnly allows only GET", () => {
     const resource = readOnly.resolve({});
     expect(resource).toBeInstanceOf(ReadOnlyResource);
-    expect(resource.allowedMethods()).toEqual(["GET"]);
+    expect(resource.allowedMethods()).toEqual(["GET", "HEAD"]);
   });
 
   it("Action allows only POST", () => {
@@ -510,7 +510,7 @@ describe("ResourceFactory factories", () => {
     expect(instance.replace).toBeUndefined();
     // patch/delete are always defined on Resource (return 405), but not in allowedMethods
     // unless overridden by the subclass.
-    expect(instance.allowedMethods()).toEqual(["GET"]);
+    expect(instance.allowedMethods()).toEqual(["GET", "HEAD"]);
   });
 
   it("Singleton with replace", () => {
@@ -964,39 +964,39 @@ describe("Content negotiation", () => {
     htmlTransformer,
   ]);
 
-  it("defaults to HTML", () => {
+  it("returns null when no Accept header and no query", () => {
     const result = negotiate(registry);
-    expect(result.contentType).toBe("text/html");
+    expect(result).toBeNull();
   });
 
   it("respects Accept header", () => {
-    expect(negotiate(registry, "application/json").contentType).toBe(
+    expect(negotiate(registry, "application/json")).toBe(
       "application/json",
     );
-    expect(negotiate(registry, "application/ld+json").contentType).toBe(
+    expect(negotiate(registry, "application/ld+json")).toBe(
       "application/ld+json",
     );
-    expect(negotiate(registry, "text/html").contentType).toBe("text/html");
+    expect(negotiate(registry, "text/html")).toBe("text/html");
   });
 
   it("respects ?accept query parameter", () => {
-    expect(negotiate(registry, undefined, "application/json").contentType).toBe(
+    expect(negotiate(registry, undefined, "application/json")).toBe(
       "application/json",
     );
-    expect(negotiate(registry, undefined, "json").contentType).toBe(
+    expect(negotiate(registry, undefined, "json")).toBe(
       "application/json",
     );
-    expect(negotiate(registry, undefined, "jsonld").contentType).toBe(
+    expect(negotiate(registry, undefined, "jsonld")).toBe(
       "application/ld+json",
     );
-    expect(negotiate(registry, undefined, "json-ld").contentType).toBe(
+    expect(negotiate(registry, undefined, "json-ld")).toBe(
       "application/ld+json",
     );
   });
 
   it("query parameter overrides Accept header", () => {
     expect(
-      negotiate(registry, "text/html", "application/json").contentType,
+      negotiate(registry, "text/html", "application/json"),
     ).toBe("application/json");
   });
 
@@ -1005,12 +1005,12 @@ describe("Content negotiation", () => {
       registry,
       "text/html;q=0.9, application/json;q=1.0",
     );
-    expect(result.contentType).toBe("application/json");
+    expect(result).toBe("application/json");
   });
 
-  it("falls back to HTML for unknown types", () => {
+  it("returns null for unknown types with no wildcard match", () => {
     const result = negotiate(registry, "image/png");
-    expect(result.contentType).toBe("text/html");
+    expect(result).toBeNull();
   });
 
   it("handles complex Accept headers", () => {
@@ -1018,7 +1018,7 @@ describe("Content negotiation", () => {
       registry,
       "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     );
-    expect(result.contentType).toBe("text/html");
+    expect(result).toBe("text/html");
   });
 
   it("prefers json-ld over json when both present", () => {
@@ -1026,27 +1026,27 @@ describe("Content negotiation", () => {
       registry,
       "application/ld+json;q=1.0, application/json;q=0.9",
     );
-    expect(result.contentType).toBe("application/ld+json");
+    expect(result).toBe("application/ld+json");
   });
 
   it("handles application/* wildcard", () => {
     const result = negotiate(registry, "application/*");
-    expect(result.contentType).toBe("application/json");
+    expect(result).toBe("application/json");
   });
 
   it("handles text/* wildcard", () => {
     const result = negotiate(registry, "text/*");
-    expect(result.contentType).toBe("text/html");
+    expect(result).toBe("text/html");
   });
 
   it("handles */* wildcard", () => {
     const result = negotiate(registry, "*/*");
-    expect(result.contentType).toBe("text/html");
+    expect(result).toBe("text/html");
   });
 
-  it("returns html for unrecognized ?accept value", () => {
+  it("returns null for unrecognized ?accept value", () => {
     const result = negotiate(registry, undefined, "something-unknown");
-    expect(result.contentType).toBe("text/html");
+    expect(result).toBeNull();
   });
 });
 
@@ -1209,7 +1209,7 @@ describe("Operation invocation", () => {
 
     // Collection does not have a "content" operation
     expect(resource).toBeInstanceOf(CollectionResource);
-    expect(resource.allowedMethods()).toEqual(["GET", "POST"]);
+    expect(resource.allowedMethods()).toEqual(["GET", "POST", "QUERY", "HEAD"]);
     expect("content" in resource).toBe(false);
   });
 
@@ -1232,7 +1232,7 @@ describe("Operation invocation", () => {
     const resource = app.resolve("/user")!;
 
     expect(resource).toBeInstanceOf(ItemResource);
-    expect(resource.allowedMethods()).toEqual(["GET"]);
+    expect(resource.allowedMethods()).toEqual(["GET", "HEAD"]);
   });
 
   it("supports async handlers", async () => {
@@ -1407,6 +1407,7 @@ describe("RequestContext", () => {
 
 describe("HTTP request handling", () => {
   class UsersKind extends CollectionKind {
+    element = "test-user-list";
     children = {
       ":userId": new (class extends ItemKind {
         resolve(params: Record<string, string>) {
@@ -1447,6 +1448,7 @@ describe("HTTP request handling", () => {
     resolve(params: Record<string, string>) {
       const r = new UsersResource();
       r.params = params;
+      r.element = this.element;
       return r;
     }
   }
@@ -1533,14 +1535,15 @@ describe("HTTP request handling", () => {
     expect(body).toEqual([{ id: 1, name: "Alice" }]);
   });
 
-  it("GET /users returns HTML by default", async () => {
+  it("GET /users returns JSON by default", async () => {
     const response = await app.handleRequest({
       method: "GET",
       path: "/users",
     });
     expect(response.status).toBe(200);
-    expect(response.headers["Content-Type"]).toBe("text/html");
-    expect(await bodyText(response.body)).toContain("<!DOCTYPE html>");
+    expect(response.headers["Content-Type"]).toBe("application/json");
+    const body = JSON.parse(await bodyText(response.body));
+    expect(body).toEqual([{ id: 1, name: "Alice" }]);
   });
 
   it("GET /users/42 returns Item data", async () => {
@@ -1729,16 +1732,18 @@ describe("HTTP request handling", () => {
     const response = await app.handleRequest({
       method: "GET",
       path: "/users",
+      accept: "text/html",
     });
     expect(await bodyText(response.body)).toContain('data-resource="');
   });
 
-  it("HTML response includes rikka-resource element", async () => {
+  it("HTML response includes the resource's custom element", async () => {
     const response = await app.handleRequest({
       method: "GET",
       path: "/users",
+      accept: "text/html",
     });
-    expect(await bodyText(response.body)).toContain("<rikka-resource");
+    expect(await bodyText(response.body)).toContain("<test-user-list");
     expect(await bodyText(response.body)).toContain('path="/users"');
   });
 
@@ -2050,9 +2055,11 @@ describe("Full site integration", () => {
   }
 
   class StatsKind extends ReadOnlyKind {
+    element = "test-stats";
     resolve(params: Record<string, string>) {
       const r = new StatsResource();
       r.params = params;
+      r.element = this.element;
       return r;
     }
   }
@@ -2177,6 +2184,7 @@ describe("Full site integration", () => {
     const htmlRes = await app.handleRequest({
       method: "GET",
       path: "/stats",
+      accept: "text/html",
     });
     expect(htmlRes.headers["Content-Type"]).toBe("text/html");
   });
@@ -2358,9 +2366,11 @@ describe("Transformer registry", () => {
 
 describe("Transformer pipeline", () => {
   class UsersKind extends CollectionKind {
+    element = "test-user-list";
     resolve(params: Record<string, string>) {
       const r = new UsersResource();
       r.params = params;
+      r.element = this.element;
       return r;
     }
   }
@@ -2769,6 +2779,48 @@ describe("Auth", () => {
       // /admin/page matches second rule → use-verifier (use verifier)
       expect(matchAuthRule("/admin/page", rules)).toEqual({ kind: "use-verifier" });
     });
+
+    it("applies rule when methods omitted from request (backward compat)", () => {
+      // Calling matchAuthRule without a method should ignore rule.methods
+      // and consider every path-matching rule.
+      const rules: AuthRule[] = [
+        { match: "/articles/**", auth: null, methods: ["GET"] },
+        { match: "/articles/**", auth: "auth" },
+      ];
+      // No method passed → first rule wins regardless of methods.
+      expect(matchAuthRule("/articles/1", rules)).toEqual({ kind: "no-auth" });
+    });
+
+    it("skips rules whose methods list excludes the request method", () => {
+      const rules: AuthRule[] = [
+        { match: "/articles/**", auth: null, methods: ["GET"] },
+        { match: "/articles/**", auth: "auth" },
+      ];
+      // GET matches first rule → public.
+      expect(matchAuthRule("/articles/1", rules, "GET")).toEqual({
+        kind: "no-auth",
+      });
+      // POST skipped first rule (method mismatch) → second rule applies.
+      expect(matchAuthRule("/articles/1", rules, "POST")).toEqual({
+        kind: "named",
+        name: "auth",
+      });
+      // Method is case-insensitive.
+      expect(matchAuthRule("/articles/1", rules, "post")).toEqual({
+        kind: "named",
+        name: "auth",
+      });
+    });
+
+    it("falls through to no-match when no method-compatible rule matches", () => {
+      const rules: AuthRule[] = [
+        { match: "/articles/**", auth: null, methods: ["GET"] },
+      ];
+      // POST doesn't match the only rule's methods → no-match.
+      expect(matchAuthRule("/articles/1", rules, "POST")).toEqual({
+        kind: "no-match",
+      });
+    });
   });
 
   describe("Auth integration with handleRequest", () => {
@@ -2976,6 +3028,7 @@ describe("Auth", () => {
 
 describe("Edge runtime adapter", () => {
   class UsersKind extends CollectionKind {
+    element = "test-user-list";
     children = {
       ":userId": new (class extends ItemKind {
         resolve(params: Record<string, string>) {
@@ -2998,6 +3051,7 @@ describe("Edge runtime adapter", () => {
     resolve(params: Record<string, string>) {
       const r = new UsersResource();
       r.params = params;
+      r.element = this.element;
       return r;
     }
   }
@@ -3053,14 +3107,14 @@ describe("Edge runtime adapter", () => {
     expect(response.headers.get("Content-Type")).toContain("application/json");
   });
 
-  it("handleWebRequest returns HTML by default", async () => {
+  it("handleWebRequest returns JSON by default", async () => {
     const request = new Request("http://localhost/users");
     const response = await handleWebRequest(app, request);
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("Content-Type")).toContain("text/html");
-    const body = await response.text();
-    expect(body).toContain("<!DOCTYPE html>");
+    expect(response.headers.get("Content-Type")).toContain("application/json");
+    const body = await response.json();
+    expect(body).toEqual([{ id: 1, name: "Alice" }]);
   });
 
   it("handleWebRequest resolves child resources", async () => {
@@ -3210,5 +3264,360 @@ describe("new Site() return type", () => {
     expect(app.options.auth).toBeDefined();
     expect(app.options.auth!.verifier).toBe("jwt-auth");
     expect(app.options.auth!.rules).toHaveLength(1);
+  });
+});
+
+describe("Early Hints (HTTP 103)", () => {
+  // Helper: capture callback invocations.
+  function capture() {
+    const calls: Array<Record<string, string | string[]>> = [];
+    const onEarlyHints = (hints: Record<string, string | string[]>) => {
+      calls.push(hints);
+    };
+    return { calls, onEarlyHints };
+  }
+
+  // PageKind: mounted at `pages/:id` via a route group. Resource reads params
+  // and emits param-aware Link headers.
+  class PageKind extends ReadOnlyKind {
+    element = "test-page";
+    resolve(params: Record<string, string>) {
+      const r = new PageResource();
+      r.params = params;
+      r.element = this.element;
+      return r;
+    }
+  }
+  class PageResource extends ReadOnlyResource {
+    async content(ctx: RequestContext): Promise<Repr> {
+      return {
+        content: { id: ctx.params.id ?? null, rendered: true },
+        meta: {},
+      };
+    }
+    earlyHints(ctx: RequestContext) {
+      return {
+        Link: [
+          "</style.css>; rel=preload; as=style",
+          `</fonts/${ctx.params.id ?? "default"}.woff>; rel=preload; as=font`,
+        ],
+      };
+    }
+  }
+
+  // FlatKind: mounted at a single segment. Resource returns param-independent
+  // hints. Also overrides head() so HEAD requests are allowed (Resource does
+  // not auto-implement HEAD).
+  class FlatKind extends ReadOnlyKind {
+    element = "test-thing";
+    resolve() {
+      const r = new FlatResource();
+      r.element = this.element;
+      return r;
+    }
+  }
+  class FlatResource extends ReadOnlyResource {
+    async content(): Promise<Repr> {
+      return { content: { ok: true }, meta: {} };
+    }
+    head(): Repr | Promise<Repr> {
+      return this.content();
+    }
+    earlyHints() {
+      return { Link: "</flat.css>; rel=preload; as=style" };
+    }
+  }
+
+  class VoidHintsKind extends ReadOnlyKind {
+    element = "test-thing";
+    resolve() {
+      const r = new VoidHintsResource();
+      r.element = this.element;
+      return r;
+    }
+  }
+  class VoidHintsResource extends ReadOnlyResource {
+    async content(): Promise<Repr> {
+      return { content: { ok: true }, meta: {} };
+    }
+    // Returns void — should not trigger the callback.
+    earlyHints() {}
+  }
+
+  class AsyncHintsKind extends ReadOnlyKind {
+    element = "test-thing";
+    resolve() {
+      const r = new AsyncHintsResource();
+      r.element = this.element;
+      return r;
+    }
+  }
+  class AsyncHintsResource extends ReadOnlyResource {
+    async content(): Promise<Repr> {
+      return { content: { ok: true }, meta: {} };
+    }
+    async earlyHints() {
+      return { Link: "</preloaded.js>; rel=modulepreload" };
+    }
+  }
+
+  class NoHintsKind extends ReadOnlyKind {
+    element = "test-thing";
+    resolve() {
+      const r = new NoHintsResource();
+      r.element = this.element;
+      return r;
+    }
+  }
+  class NoHintsResource extends ReadOnlyResource {
+    async content(): Promise<Repr> {
+      return { content: { ok: true }, meta: {} };
+    }
+    // No earlyHints() defined at all.
+  }
+
+  class CollectionKind_ extends CollectionKind {
+    element = "test-collection";
+    resolve() {
+      const r = new CollectionResource_();
+      r.element = this.element;
+      return r;
+    }
+  }
+  class CollectionResource_ extends CollectionResource {
+    async list(): Promise<Repr> {
+      return { content: [], meta: {} };
+    }
+    async create(): Promise<Repr> {
+      return { content: { created: true }, meta: {} };
+    }
+    earlyHints() {
+      return { Link: "</list.css>; rel=preload; as=style" };
+    }
+  }
+
+  it("fires onEarlyHints for GET when resource defines earlyHints()", async () => {
+    const app = new Site({ pages: { ":id": new PageKind() } });
+    const { calls, onEarlyHints } = capture();
+
+    const response = await app.handleRequest(
+      {
+        method: "GET",
+        path: "/pages/42",
+        accept: "application/json",
+        headers: {},
+      },
+      { onEarlyHints },
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toEqual({
+      Link: [
+        "</style.css>; rel=preload; as=style",
+        "</fonts/42.woff>; rel=preload; as=font",
+      ],
+    });
+    expect(response.status).toBe(200);
+    expect(JSON.parse(response.body as string)).toEqual({
+      id: "42",
+      rendered: true,
+    });
+  });
+
+  it("fires onEarlyHints for HEAD", async () => {
+    const app = new Site({ thing: new FlatKind() });
+    const { calls, onEarlyHints } = capture();
+
+    await app.handleRequest(
+      { method: "HEAD", path: "/thing", headers: {} },
+      { onEarlyHints },
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toEqual({ Link: "</flat.css>; rel=preload; as=style" });
+  });
+
+  it("does NOT fire for POST (non-navigation)", async () => {
+    const app = new Site({ things: new CollectionKind_() });
+    const { calls, onEarlyHints } = capture();
+
+    await app.handleRequest(
+      {
+        method: "POST",
+        path: "/things",
+        headers: { "content-type": "application/json" },
+        body: jsonBody({ name: "x" }),
+      },
+      { onEarlyHints },
+    );
+
+    expect(calls).toHaveLength(0);
+  });
+
+  it("does NOT fire when resource has no earlyHints() method", async () => {
+    const app = new Site({ thing: new NoHintsKind() });
+    const { calls, onEarlyHints } = capture();
+
+    await app.handleRequest(
+      { method: "GET", path: "/thing", headers: {} },
+      { onEarlyHints },
+    );
+
+    expect(calls).toHaveLength(0);
+  });
+
+  it("does NOT fire when earlyHints() returns void/undefined", async () => {
+    const app = new Site({ thing: new VoidHintsKind() });
+    const { calls, onEarlyHints } = capture();
+
+    const response = await app.handleRequest(
+      { method: "GET", path: "/thing", headers: {} },
+      { onEarlyHints },
+    );
+
+    expect(calls).toHaveLength(0);
+    expect(response.status).toBe(200);
+  });
+
+  it("supports async earlyHints()", async () => {
+    const app = new Site({ thing: new AsyncHintsKind() });
+    const { calls, onEarlyHints } = capture();
+
+    await app.handleRequest(
+      { method: "GET", path: "/thing", headers: {} },
+      { onEarlyHints },
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toEqual({ Link: "</preloaded.js>; rel=modulepreload" });
+  });
+
+  it("fires onEarlyHints BEFORE the resource method runs", async () => {
+    // Order check: earlyHints pushes "hints" first, then the resource method
+    // pushes "method". If earlyHints ran after, the array would be reversed.
+    const order: string[] = [];
+
+    class OrderKind extends ReadOnlyKind {
+      resolve() {
+        return new OrderResource();
+      }
+    }
+    class OrderResource extends ReadOnlyResource {
+      async content(): Promise<Repr> {
+        order.push("method");
+        return { content: { ok: true }, meta: {} };
+      }
+      earlyHints() {
+        order.push("hints");
+        return { Link: "</x.css>; rel=preload" };
+      }
+    }
+
+    const app = new Site({ thing: new OrderKind() });
+    await app.handleRequest(
+      { method: "GET", path: "/thing", headers: {} },
+      {
+        onEarlyHints: () => {
+          order.push("callback");
+        },
+      },
+    );
+
+    expect(order).toEqual(["hints", "callback", "method"]);
+  });
+
+  it("awaits an async onEarlyHints callback before dispatching the method", async () => {
+    let callbackDone = false;
+    const app = new Site({ thing: new FlatKind() });
+    await app.handleRequest(
+      { method: "GET", path: "/thing", headers: {} },
+      {
+        onEarlyHints: async () => {
+          await Promise.resolve();
+          callbackDone = true;
+        },
+      },
+    );
+    expect(callbackDone).toBe(true);
+  });
+
+  it("does NOT fire onEarlyHints when adapter supplies no callback", async () => {
+    // No options passed — backward compatible. Must not throw.
+    const app = new Site({ thing: new FlatKind() });
+    const response = await app.handleRequest({
+      method: "GET",
+      path: "/thing",
+      headers: {},
+    });
+    expect(response.status).toBe(200);
+  });
+
+  it("does NOT fire for OPTIONS preflight", async () => {
+    const app = new Site({
+      thing: new FlatKind(),
+    });
+    const { calls, onEarlyHints } = capture();
+
+    await app.handleRequest(
+      {
+        method: "OPTIONS",
+        path: "/thing",
+        headers: { origin: "https://example.com" },
+      },
+      { onEarlyHints },
+    );
+
+    expect(calls).toHaveLength(0);
+  });
+
+  it("does NOT fire for 404 (unresolved path)", async () => {
+    const app = new Site({ thing: new FlatKind() });
+    const { calls, onEarlyHints } = capture();
+
+    await app.handleRequest(
+      { method: "GET", path: "/nope", headers: {} },
+      { onEarlyHints },
+    );
+
+    expect(calls).toHaveLength(0);
+  });
+
+  it("does NOT fire for 405 (method not allowed)", async () => {
+    const app = new Site({ thing: new NoHintsKind() });
+    const { calls, onEarlyHints } = capture();
+
+    await app.handleRequest(
+      { method: "DELETE", path: "/thing", headers: {} },
+      { onEarlyHints },
+    );
+
+    expect(calls).toHaveLength(0);
+  });
+
+  it("turns earlyHints() errors into 500 responses", async () => {
+    class BoomKind extends ReadOnlyKind {
+      resolve() {
+        return new BoomResource();
+      }
+    }
+    class BoomResource extends ReadOnlyResource {
+      async content(): Promise<Repr> {
+        return { content: "should not reach", meta: {} };
+      }
+      earlyHints(): Record<string, string> {
+        throw new Error("hints boom");
+      }
+    }
+
+    const app = new Site({ thing: new BoomKind() });
+    const { onEarlyHints } = capture();
+
+    const response = await app.handleRequest(
+      { method: "GET", path: "/thing", headers: {} },
+      { onEarlyHints },
+    );
+
+    expect(response.status).toBe(500);
+    expect(response.body).toContain("hints boom");
   });
 });

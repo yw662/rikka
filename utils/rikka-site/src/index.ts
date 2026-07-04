@@ -117,6 +117,11 @@ export type {
   ChildrenMap,
   CustomElementConstructor,
   StaticResolver,
+  Query,
+  JsonQuery,
+  GraphqlQuery,
+  DaslQuery,
+  UrlEncodedQuery,
 } from "./resource.js";
 
 // Events (SSE streaming)
@@ -135,15 +140,38 @@ export type {
   SiteDefinition,
   SiteOptions,
   SiteAsset,
+  HandleRequestOptions,
+  ListenOptions,
+  ListeningServer,
+  NodeRequest,
+  NodeResponse,
 } from "./site.js";
+
+// Service Worker generation and bundling
+export {
+  bundleServiceWorker,
+  generateDefaultServiceWorker,
+  invalidateServiceWorkerBundleCache,
+} from "./service-worker.js";
+export type {
+  ServiceWorkerOptions,
+  ServiceWorkerConfig,
+  RouteCacheRule,
+} from "./service-worker.js";
 
 // Sitemap generation
 export { generateSitemap } from "./sitemap.js";
 export type { SitemapEntry } from "./sitemap.js";
 
 // Content negotiation
-export { negotiate } from "./negotiate.js";
-export type { NegotiationResult } from "./negotiate.js";
+export {
+  negotiate,
+  negotiateLanguage,
+  parseQualityList,
+  selectBest,
+  isTypeAccepted,
+} from "./negotiate.js";
+export type { AcceptItem } from "./negotiate.js";
 
 // Transformers
 export {
@@ -194,7 +222,7 @@ export type { CloudflareEnv, CloudflareContext } from "./edge.js";
 export { paginate } from "./pagination.js";
 export type { PaginatedContent } from "./pagination.js";
 
-// Note: the Node.js adapter is intentionally NOT re-exported from here.
-// It lives in a separate `./node.js` entry point so non-Node bundlers
-// (Cloudflare Workers, Deno Deploy) can skip pulling in `node:http`.
-// Import it via `@takanashi/rikka-site/node` in Node-only code paths.
+// Node.js adapter: Site.listen() uses dynamic `import("node:http")` so
+// bundlers for edge runtimes (Cloudflare Workers, Deno Deploy) never pull
+// in `node:http`. The adapter types (ListenOptions, ListeningServer,
+// NodeRequest, NodeResponse) are exported above for type-safe usage.

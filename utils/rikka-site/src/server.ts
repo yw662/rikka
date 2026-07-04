@@ -28,6 +28,8 @@ export interface HttpRequest {
   path: string;
   /** Accept header value */
   accept?: string;
+  /** Accept-Language header value */
+  acceptLanguage?: string;
   /** ?accept query parameter */
   acceptQuery?: string;
   /** Request body as a byte stream — read via ctx.json()/text()/bytes() */

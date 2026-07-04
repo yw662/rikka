@@ -5,6 +5,9 @@
  * Methods on a resource receive a RequestContext. They return a Repr.
  */
 
+import type { AcceptItem } from "./negotiate.js";
+import { parseQualityList } from "./negotiate.js";
+
 // ---------------------------------------------------------------------------
 // Identity — result of successful authentication
 // ---------------------------------------------------------------------------
@@ -106,6 +109,20 @@ export interface RequestContext {
    * their data accordingly.
    */
   range?: RangeSpec;
+  /**
+   * Parsed `Accept` header items, sorted by q descending.
+   * `undefined` when no Accept header is present. Resources use this to
+   * decide what data shape to produce — it is a **hint**, not a constraint:
+   * the resource may return any type regardless of this list.
+   */
+  accept?: AcceptItem[];
+  /**
+   * Parsed `Accept-Language` header items, sorted by q descending.
+   * `undefined` when no Accept-Language header is present. Resources use
+   * this to pick a language — it is a **hint**. The framework has no
+   * language transformer, so it can only accept what the resource produces.
+   */
+  acceptLanguage?: AcceptItem[];
 }
 
 // ---------------------------------------------------------------------------
@@ -278,18 +295,24 @@ export function createRequestContext(init: RequestContextInit): RequestContext {
 
   const bytes = async (): Promise<Uint8Array> => readBytes();
 
+  const headers = init.headers ?? {};
+  const acceptRaw = getHeader(headers, "accept");
+  const acceptLangRaw = getHeader(headers, "accept-language");
+
   return {
     method: init.method ?? "GET",
     path: init.path ?? "/",
     resourcePath: init.resourcePath,
     params: init.params ?? {},
     query: init.query ?? {},
-    headers: init.headers ?? {},
+    headers,
     body: bodyStream,
     json,
     text,
     bytes,
     identity: init.identity,
     range: init.range,
+    accept: acceptRaw ? parseQualityList(acceptRaw) : undefined,
+    acceptLanguage: acceptLangRaw ? parseQualityList(acceptLangRaw) : undefined,
   };
 }

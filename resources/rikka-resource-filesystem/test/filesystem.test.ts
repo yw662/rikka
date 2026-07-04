@@ -259,7 +259,7 @@ describe("FileSystemKind", () => {
   });
 
   it("supports range requests (206)", async () => {
-    const content = "0123456789ABCDEFGHIJ"; // 20 bytes
+    const content = "0123456789ABCDEFGHIJ"; // 20 bytes (ASCII)
     const storage = new MemoryStorage().addFile("data.bin", content, "application/octet-stream");
     const kind = new FileSystemKind({ storage });
 
@@ -276,28 +276,55 @@ describe("FileSystemKind", () => {
     const partial = (repr as { content: { unit: string; data: Array<[number, unknown]>; total?: number } }).content;
     expect(partial.unit).toBe("bytes");
     expect(partial.data[0][0]).toBe(5);
-    expect(partial.data[0][1]).toBe("56789");
+    // Range slices are byte arrays — correct for HTTP byte ranges.
+    const slice = partial.data[0][1] as Uint8Array;
+    expect(slice).toBeInstanceOf(Uint8Array);
+    expect(new TextDecoder().decode(slice)).toBe("56789");
     expect(partial.total).toBe(20);
   });
 
-  it("rejects path traversal", async () => {
+  it("uses byte offsets (not char offsets) for range requests on multi-byte content", async () => {
+    // "é" is 2 bytes in UTF-8 (0xC3 0xA9) but 1 UTF-16 code unit.
+    // "aéb" = 3 chars, 4 bytes: [0x61, 0xC3, 0xA9, 0x62]
+    const content = "aéb";
+    const storage = new MemoryStorage().addFile("multi.txt", content, "text/plain");
+    const kind = new FileSystemKind({ storage });
+
+    const resource = resolveResource(kind, ["multi.txt"], "/multi.txt");
+    const repr = await (resource as unknown as { content: (ctx: RequestContext) => Promise<unknown> }).content(
+      makeCtx({
+        path: "/multi.txt",
+        range: {
+          unit: "bytes",
+          ranges: [{ start: 0, end: 3 }],
+        },
+      } as Partial<RequestContext>),
+    );
+    const partial = (repr as { content: { unit: string; data: Array<[number, unknown]>; total?: number } }).content;
+    // total must be the byte length (4), not the string length (3).
+    expect(partial.total).toBe(4);
+    const slice = partial.data[0][1] as Uint8Array;
+    expect(slice).toBeInstanceOf(Uint8Array);
+    expect(Array.from(slice)).toEqual([0x61, 0xc3, 0xa9, 0x62]);
+  });
+
+  it("rejects path traversal with 403", async () => {
     const storage = new MemoryStorage().addFile("safe.txt", "safe");
     const kind = new FileSystemKind({ storage });
 
     // "../etc/passwd" — resolveResource splits on "/", so we pass ["..","etc","passwd"]
     const resource = resolveResource(kind, ["..", "etc", "passwd"], "/../etc/passwd");
     expect(resource).not.toBeNull();
-    // sanitizePath will pop the safe dir, resulting in "etc/passwd" which doesn't exist → 404
-    // Or if it tries to go above root, it throws 403
+    // sanitizePath sees ".." with an empty stack and throws 403 Forbidden.
     try {
       await (resource as unknown as { content: (ctx: RequestContext) => Promise<unknown> }).content(
         makeCtx({ path: "/../etc/passwd" }),
       );
-      // If no throw, it should be 404 (file not found after sanitization)
+      expect.fail("content() should have thrown for path traversal");
     } catch (err) {
       expect(isHttpError(err)).toBe(true);
       if (isHttpError(err)) {
-        expect([403, 404]).toContain(err.status);
+        expect(err.status).toBe(403);
       }
     }
   });

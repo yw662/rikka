@@ -97,15 +97,16 @@ The same URL serves multiple formats automatically. Resolution order:
 
 1. `?accept` query parameter (explicit override; supports short names: `json`, `jsonld`, `csv`, `text`, `cbor`, `protobuf`/`proto`, `xml`, `html`)
 2. `Accept` header (standard negotiation with q-values, wildcards)
-3. Default: `text/html`
+3. Default: `application/json` for Value content (structured data); the resource's `meta.type` or a path-guessed MIME for Raw content
 
 ```
-GET /articles                 → HTML page (default)
-GET /articles?accept=json     → JSON array
+GET /articles                 → JSON array (default)
+GET /articles?accept=html     → HTML page
 GET /articles?accept=csv      → CSV file
 GET /articles?accept=cbor     → CBOR binary (Uint8Array body)
 GET /articles?accept=protobuf → protobuf bytes (if protobuf(schema) registered)
 Accept: application/ld+json   → JSON-LD document
+Accept: text/html             → HTML page (browser negotiation)
 ```
 
 Only MIME types with a registered transformer are considered valid.
@@ -193,14 +194,19 @@ export const app = new Site({
 
 ### Step 2: Start the Server (`index.ts`)
 
-The `Site` constructor automatically registers built-in transformers (JSON, JSON-LD, HTML). For Node.js:
+The `Site` constructor automatically registers built-in transformers (JSON, JSON-LD, HTML). For Node.js, call `app.listen()`:
 
 ```typescript
-import { serve } from "@takanashi/rikka-site/node";
-import { app } from "./resources.js";
+import { Site } from "@takanashi/rikka-site";
+import { createApp } from "./resources.js";
 
-const server = serve(app, { port: 3000 });
+const app = createApp();
+const server = await app.listen({ port: 3000 });
+await server.ready;
 console.log(`Listening on http://${server.host}:${server.port}`);
+
+// Graceful shutdown
+await server.close();
 ```
 
 For edge runtimes (Cloudflare Workers, Deno Deploy, Vercel Edge):
@@ -655,10 +661,10 @@ const match = router.match("/articles/42");
 | Cloudflare Pages (Advanced) | `createCloudflarePagesHandler(app, { apiPrefix? })` | `_worker.js` |
 | Deno Deploy | `createDenoDeployHandler(app)` | `Deno.serve(handler)` |
 | Vercel Edge | `handleWebRequest(app, req)` | `export function GET(req)` + `export const runtime = "edge"` |
-| Node.js | `serve(app, { port, host })` from `@takanashi/rikka-site/node` | `serve(app)` |
+| Node.js | `app.listen({ port, host })` | `await app.listen()` |
 | Any Web Standard | `handleWebRequest(app, req)` | `Request → Response` |
 
-rikka-site has **zero Node.js dependencies** in its core. The Node adapter lives in a separate entry (`@takanashi/rikka-site/node`) so edge bundlers don't pull in `node:http`.
+rikka-site has **zero Node.js dependencies** in its core. `Site.listen()` dynamically imports `node:http` only when called, so edge bundlers never pull it into the bundle.
 
 ## Patterns & Best Practices
 
@@ -689,28 +695,23 @@ defineElement("my-layout", {
 });
 ```
 
-### Pattern 2: Client-Side Routing with `<rikka-resource>`
+### Pattern 2: Each Resource Renders Its Own Element
+
+Every Kind declares an `element` tag name. The server renders that tag directly — no wrapper element, no client-side routing layer:
 
 ```typescript
-const RikkaResource = defineElement("rikka-resource", {
-  styles: css`:host { display: contents; }`,
-  render(this) {
-    // Normalize trailing slashes before routing
-    const path = (this.getAttribute("path") ?? "").replace(/\/+$/, "");
-    const kind = this.getAttribute("kind") ?? "";
-
-    // ✅ Match specific paths BEFORE prefix paths
-    if (path.match(/^\/articles\/\d+$/))
-      return document.createElement("blog-article-detail");
-    if (path === "/articles" || path.startsWith("/articles"))
-      return document.createElement("blog-article-list");
-    if (path === "/" || path === "")
-      return document.createElement("blog-home");
-
-    return div({ style: { padding: "40px", color: "#999" } }, p(`Unknown: ${path}`));
-  },
-});
+class ArticleItemKind extends ItemKind {
+  element = "blog-article-detail";
+  resolve(params) {
+    const r = new ArticleItemResource();
+    r.params = params;
+    r.element = this.element;  // propagate to the resource instance
+    return r;
+  }
+}
 ```
+
+The server emits `<blog-article-detail path="/articles/42" data-resource="...">` directly. Client-side navigation is handled by the SDK's `createRouter()` + `navigate()`, which fetches the new HTML and replaces the current resource element with the new one — the correct element tag is already in the server response.
 
 ### Pattern 3: Reactive Data from SSR
 

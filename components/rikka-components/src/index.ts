@@ -1,5 +1,9 @@
 export {
+  VirtualScroller,
   virtualScroll,
+  type VirtualScrollerOptions,
+  type VirtualScrollerHandle,
+  type VirtualScrollerParts,
   type VirtualScrollOptions,
   type VirtualScrollHandle,
   type ReadableSignal,

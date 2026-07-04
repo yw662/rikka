@@ -32,7 +32,8 @@
     "typecheck": "tsc -p tsconfig.test.json --noEmit"
   },
   "dependencies": {
-    "@takanashi/rikka-site": "workspace:*"
+    "@takanashi/rikka-site": "workspace:*",
+    "fast-xml-parser": "catalog:"
   },
   "devDependencies": {
     "@rslib/core": "catalog:",
